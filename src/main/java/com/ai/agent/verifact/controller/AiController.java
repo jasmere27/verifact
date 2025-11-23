@@ -25,9 +25,17 @@ public class AiController {
     }
 
     // Endpoint for text-based fake news check
-    @GetMapping("/isFakeNews")
-    public String isFakeNews(@RequestParam String news) {
-        return aiService.isFakeNews(news);
+    @PostMapping("/isFakeNews")
+    public String isFakeNews(@RequestBody NewsRequest request) {
+        return aiService.isFakeNews(request.getNews());
+    }
+
+    // Request DTO
+    public static class NewsRequest {
+        private String news;
+
+        public String getNews() { return news; }
+        public void setNews(String news) { this.news = news; }
     }
 
     // Endpoint for image-based fake news check
