@@ -25,10 +25,14 @@ public class AiController {
     }
 
     // Endpoint for text-based fake news check
-    @PostMapping("/isFakeNews")
-    public String isFakeNews(@RequestBody NewsRequest request) {
+    @RequestMapping(value = "/isFakeNews", method = {RequestMethod.POST, RequestMethod.GET})
+    public String isFakeNews(@RequestBody(required = false) NewsRequest request) {
+        if (request == null || request.getNews() == null) {
+            return "Please POST JSON: {\"news\":\"your text\"}";
+        }
         return aiService.isFakeNews(request.getNews());
     }
+
 
     // Request DTO
     public static class NewsRequest {
