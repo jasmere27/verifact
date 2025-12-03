@@ -57,7 +57,7 @@
         <dependency>
     <groupId>com.google.cloud</groupId>
     <artifactId>google-cloud-speech</artifactId>
-    <version>4.26.0</version>
+    <version>4.30.0</version>
 		</dependency>
 
         <!-- Apache HttpClient 5 -->
