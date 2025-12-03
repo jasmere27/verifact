@@ -70,7 +70,7 @@ public class AiService {
         	    ========================
         	    WEB SEARCH REQUIREMENT
         	    ========================
-        	    * Always attempt web search when external verification is needed.
+        	    * Always attempt web search using googleSearchTool
         	    * Use web search to:
         	        - Verify claims
         	        - Check facts

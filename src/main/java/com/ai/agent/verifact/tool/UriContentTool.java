@@ -4,6 +4,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Optional;
 
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.ai.tool.annotation.Tool;
@@ -27,7 +28,11 @@ public class UriContentTool {
     @Tool(name = "fetchContentFromUrl", description = "Fetches and extracts content from the given URL.")
     public Optional<String> fetchContentFromUrl(String url) {
         try {
-            Document document = Jsoup.connect(url).userAgent("Mozilla/5.0").timeout(10000).get();
+            Document document = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0")
+                    .timeout(10000)
+                    .get();
+
             String title = document.title();
             String bodyText = document.body().text();
 
@@ -40,7 +45,22 @@ public class UriContentTool {
 
             System.out.println("Fetching content from URL: " + url);
             return Optional.of(title + " " + bodyText);
+
+        } catch (HttpStatusException e) {
+            // Specific handling for HTTP errors
+            switch (e.getStatusCode()) {
+                case 404:
+                    System.out.println("URL not found (404): " + url);
+                    return Optional.of("⚠️ Content unavailable: page not found (404).");
+                case 403:
+                    System.out.println("Access forbidden (403) for URL: " + url);
+                    return Optional.of("⚠️ Access forbidden (403). Cannot fetch content from this page.");
+                default:
+                    System.out.println("HTTP error " + e.getStatusCode() + " for URL: " + url);
+                    return Optional.of("⚠️ HTTP error " + e.getStatusCode() + " while fetching content.");
+            }
         } catch (Exception e) {
+            System.out.println("Unexpected error fetching URL: " + url);
             e.printStackTrace();
             return Optional.of("⚠️ Failed to fetch content from URL due to an error: " + e.getMessage());
         }

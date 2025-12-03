@@ -30,7 +30,21 @@ public class AiController {
         if (request == null || request.getNews() == null) {
             return "Please POST JSON: {\"news\":\"your text\"}";
         }
-        return aiService.isFakeNews(request.getNews());
+
+        try {
+            String result = aiService.isFakeNews(request.getNews());
+            
+            // If GoogleSearchTool is used inside aiService, it may return the 403 message.
+            if (result.contains("Web Search is not available")) {
+                return "Analysis complete, but Web Search is currently unavailable. " +
+                       "Check your Google API key and enable the Custom Search API.";
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            return "Failed to analyze the news: " + e.getMessage();
+        }
     }
 
 
