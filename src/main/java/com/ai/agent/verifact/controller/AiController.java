@@ -1,4 +1,3 @@
-
 package com.ai.agent.verifact.controller;
 
 import com.ai.agent.verifact.service.AiService;
@@ -24,39 +23,44 @@ public class AiController {
         this.imageOcrService = imageOcrService;
     }
 
-    // Endpoint for text-based fake news check
+    // ==============================
+    // TEXT-BASED FAKE NEWS CHECK
+    // ==============================
     @RequestMapping(value = "/isFakeNews", method = {RequestMethod.POST, RequestMethod.GET})
-    public String isFakeNews(@RequestBody(required = false) NewsRequest request) {
-        if (request == null || request.getNews() == null) {
-            return "Please POST JSON: {\"news\":\"your text\"}";
+    public String isFakeNews(
+            @RequestBody(required = false) NewsRequest request,
+            @RequestParam(value = "news", required = false) String newsParam) {
+
+        String newsText = (request != null ? request.getNews() : newsParam);
+
+        if (newsText == null || newsText.isEmpty()) {
+            return "Please provide news text via POST JSON or GET parameter ?news=...";
         }
 
         try {
-            String result = aiService.isFakeNews(request.getNews());
-            
-            // If GoogleSearchTool is used inside aiService, it may return the 403 message.
+            String result = aiService.isFakeNews(newsText);
+
             if (result.contains("Web Search is not available")) {
                 return "Analysis complete, but Web Search is currently unavailable. " +
                        "Check your Google API key and enable the Custom Search API.";
             }
 
             return result;
-
         } catch (Exception e) {
             return "Failed to analyze the news: " + e.getMessage();
         }
     }
 
-
-    // Request DTO
+    // DTO for POST requests
     public static class NewsRequest {
         private String news;
-
         public String getNews() { return news; }
         public void setNews(String news) { this.news = news; }
     }
 
-    // Endpoint for image-based fake news check
+    // ==============================
+    // IMAGE-BASED FAKE NEWS CHECK
+    // ==============================
     @PostMapping("/analyzeImage")
     public String analyzeImage(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
@@ -75,7 +79,9 @@ public class AiController {
         }
     }
 
-    // Endpoint for audio-based fake news check
+    // ==============================
+    // AUDIO-BASED FAKE NEWS CHECK
+    // ==============================
     @PostMapping("/analyzeAudio")
     public ResponseEntity<String> analyzeAudio(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
@@ -90,6 +96,4 @@ public class AiController {
             return ResponseEntity.status(500).body("Failed to process the audio: " + e.getMessage());
         }
     }
-
-   
 }
