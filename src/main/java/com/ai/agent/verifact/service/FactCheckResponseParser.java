@@ -20,13 +20,14 @@ public class FactCheckResponseParser {
     private static final Pattern CONFIDENCE =
             Pattern.compile("\\*\\*Confidence Score:\\*\\*\\s*(\\d{1,3})\\s*%");
 
-    private static final Pattern SOURCES_SECTION =
-            Pattern.compile("Sources[^\\n]*\\n(.*?)(?=\\n\\s*(Cybersecurity Tip|Original Input)|\\z)",
-                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    // A section header line: e.g. "### Sources", "**Sources:**", "Sources (Clickably formatted)".
+    // Anchored to the whole line so it never matches the word appearing mid-sentence
+    // (e.g. "...verified through multiple credible sources.").
+    private static final String HEADER_LINE = "(?im)^[ \\t]*#{0,3}[ \\t]*\\*{0,2}%s\\*{0,2}:?[^\\n]*$";
 
-    private static final Pattern TIPS_SECTION =
-            Pattern.compile("Cybersecurity Tip[^\\n]*:?\\s*(.*?)(?=\\n\\s*Original Input|\\z)",
-                    Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    private static final Pattern SOURCES_HEADER = Pattern.compile(String.format(HEADER_LINE, "Sources"));
+    private static final Pattern TIPS_HEADER = Pattern.compile(String.format(HEADER_LINE, "Cybersecurity Tips?"));
+    private static final Pattern ORIGINAL_INPUT_HEADER = Pattern.compile(String.format(HEADER_LINE, "Original Input"));
 
     public String extractClassification(String response) {
         return firstGroup(CLASSIFICATION, response);
@@ -45,13 +46,37 @@ public class FactCheckResponseParser {
     }
 
     public String extractSources(String response) {
-        String value = firstGroup(SOURCES_SECTION, response);
-        return value == null ? null : value.trim();
+        return extractSection(response, SOURCES_HEADER, TIPS_HEADER, ORIGINAL_INPUT_HEADER);
     }
 
     public String extractCybersecurityTips(String response) {
-        String value = firstGroup(TIPS_SECTION, response);
-        return value == null ? null : value.trim();
+        return extractSection(response, TIPS_HEADER, ORIGINAL_INPUT_HEADER);
+    }
+
+    /**
+     * Returns the text between a header line matching {@code header} and whichever of
+     * {@code stopHeaders} appears next (or the end of the response), trimmed. Null if
+     * {@code header} isn't found.
+     */
+    private String extractSection(String response, Pattern header, Pattern... stopHeaders) {
+        if (response == null) {
+            return null;
+        }
+        Matcher headerMatcher = header.matcher(response);
+        if (!headerMatcher.find()) {
+            return null;
+        }
+        int start = headerMatcher.end();
+
+        int end = response.length();
+        for (Pattern stopHeader : stopHeaders) {
+            Matcher stopMatcher = stopHeader.matcher(response);
+            if (stopMatcher.find(start) && stopMatcher.start() < end) {
+                end = stopMatcher.start();
+            }
+        }
+
+        return response.substring(start, end).trim();
     }
 
     private String firstGroup(Pattern pattern, String input) {
