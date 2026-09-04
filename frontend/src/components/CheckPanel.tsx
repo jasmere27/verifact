@@ -1,12 +1,20 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { checkAudio, checkImage, checkText } from "../api";
+import { parseVerdict } from "../parseResponse";
 import ResultCard from "./ResultCard";
+import VerdictGauge from "./VerdictGauge";
 
 type Mode = "text" | "image" | "audio";
 
+const MODE_TAGS: Record<Mode, string> = {
+  text: "TXT · URL",
+  image: "IMG",
+  audio: "AUD",
+};
+
 const MODE_LABELS: Record<Mode, string> = {
-  text: "Text / URL",
+  text: "Text or link",
   image: "Image",
   audio: "Audio",
 };
@@ -35,17 +43,17 @@ export default function CheckPanel() {
       let response: string;
       if (mode === "text") {
         if (!newsText.trim()) {
-          throw new Error("Enter some text or a URL to check.");
+          throw new Error("No signal to read — paste a claim or link first.");
         }
         response = await checkText(newsText.trim());
       } else if (mode === "image") {
         if (!file) {
-          throw new Error("Choose an image to check.");
+          throw new Error("No sample loaded — choose an image to scan.");
         }
         response = await checkImage(file);
       } else {
         if (!file) {
-          throw new Error("Choose an audio file to check.");
+          throw new Error("No sample loaded — choose an audio clip to scan.");
         }
         response = await checkAudio(file);
       }
@@ -57,53 +65,70 @@ export default function CheckPanel() {
     }
   }
 
+  const gaugeState = loading ? "reading" : result ? "settled" : "idle";
+  const verdict = result ? parseVerdict(result) : { classification: null, confidenceScore: null };
+
   return (
-    <div className="panel">
-      <div className="mode-tabs" role="tablist">
-        {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="tab"
-            aria-selected={mode === m}
-            className={mode === m ? "mode-tab active" : "mode-tab"}
-            onClick={() => switchMode(m)}
-          >
-            {MODE_LABELS[m]}
+    <div className="console">
+      <VerdictGauge state={gaugeState} verdict={verdict} />
+
+      <div className="panel">
+        <span className="eyebrow">Sample intake</span>
+
+        <div className="mode-tabs" role="tablist">
+          {(Object.keys(MODE_LABELS) as Mode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              className={mode === m ? "mode-tab active" : "mode-tab"}
+              onClick={() => switchMode(m)}
+            >
+              <span className="mode-tag">{MODE_TAGS[m]}</span>
+              {MODE_LABELS[m]}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleSubmit} className="check-form">
+          {mode === "text" && (
+            <textarea
+              placeholder="Paste a claim, an article, or a link…"
+              value={newsText}
+              onChange={(e) => setNewsText(e.target.value)}
+              rows={6}
+            />
+          )}
+          {mode === "image" && (
+            <label className="drop-slot">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              {file ? file.name : "Choose an image to scan"}
+            </label>
+          )}
+          {mode === "audio" && (
+            <label className="drop-slot">
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+              {file ? file.name : "Choose an audio clip to scan"}
+            </label>
+          )}
+
+          <button type="submit" disabled={loading} className="submit-button">
+            {loading ? "Reading…" : "Run analysis"}
           </button>
-        ))}
+        </form>
+
+        {error && <p className="error-message">{error}</p>}
       </div>
 
-      <form onSubmit={handleSubmit} className="check-form">
-        {mode === "text" && (
-          <textarea
-            placeholder="Paste a claim, article text, or a URL…"
-            value={newsText}
-            onChange={(e) => setNewsText(e.target.value)}
-            rows={6}
-          />
-        )}
-        {mode === "image" && (
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        )}
-        {mode === "audio" && (
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        )}
-
-        <button type="submit" disabled={loading} className="submit-button">
-          {loading ? "Checking…" : "Check facts"}
-        </button>
-      </form>
-
-      {error && <p className="error-message">{error}</p>}
       {result && <ResultCard response={result} />}
     </div>
   );

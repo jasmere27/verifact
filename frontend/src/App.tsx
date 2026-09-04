@@ -3,7 +3,7 @@ import CheckPanel from "./components/CheckPanel";
 import HistoryPanel from "./components/HistoryPanel";
 import "./App.css";
 
-type View = "check" | "history";
+type View = "check" | "log";
 
 function App() {
   const [view, setView] = useState<View>("check");
@@ -11,8 +11,16 @@ function App() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>VeriFact</h1>
-        <p className="tagline">AI-powered fact-checking for text, URLs, images, and audio.</p>
+        <div className="brand-plate">
+          <span className="brand-mark">VF</span>
+          <div>
+            <span className="eyebrow">Verification instrument</span>
+            <h1>VeriFact</h1>
+          </div>
+        </div>
+        <p className="tagline">
+          Feed it a claim. <em>Watch the needle move.</em>
+        </p>
         <nav className="view-tabs">
           <button
             type="button"
@@ -23,15 +31,19 @@ function App() {
           </button>
           <button
             type="button"
-            className={view === "history" ? "view-tab active" : "view-tab"}
-            onClick={() => setView("history")}
+            className={view === "log" ? "view-tab active" : "view-tab"}
+            onClick={() => setView("log")}
           >
-            History
+            Log
           </button>
         </nav>
       </header>
 
       <main>{view === "check" ? <CheckPanel /> : <HistoryPanel />}</main>
+
+      <footer className="app-footer">
+        Reads text, links, images, and audio against BBC, Reuters, AP, and other credible sources.
+      </footer>
     </div>
   );
 }

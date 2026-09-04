@@ -1,46 +1,35 @@
 :root {
-  --text: #4b4653;
-  --text-h: #08060d;
-  --bg: #fdfcfb;
-  --bg-raised: #ffffff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #8b2fd4;
-  --accent-bg: rgba(139, 47, 212, 0.1);
-  --danger: #c2410c;
-  --danger-bg: rgba(194, 65, 12, 0.1);
-  --success: #15803d;
-  --success-bg: rgba(21, 128, 61, 0.1);
-  --muted: rgba(21, 128, 61, 0);
+  /* Instrument palette — deep graphite-navy console, phosphor-teal / rust dual axis */
+  --ink: #10151c;
+  --panel: #171e27;
+  --panel-raised: #1d2530;
+  --paper: #e8edf2;
+  --muted: #8a97a6;
+  --line: rgba(232, 237, 242, 0.1);
+  --line-strong: rgba(232, 237, 242, 0.18);
 
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --signal: #4fd8b0;
+  /* TRUE */
+  --signal-dim: rgba(79, 216, 176, 0.14);
+  --alarm: #e8794a;
+  /* FALSE */
+  --alarm-dim: rgba(232, 121, 74, 0.14);
+  --brass: #c9a227;
+  /* MIXED / NO SIGNAL */
+  --brass-dim: rgba(201, 162, 39, 0.14);
 
-  font: 16px/1.5 var(--sans);
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  --display: "Newsreader", ui-serif, Georgia, serif;
+  --body: "IBM Plex Sans", system-ui, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  font: 16px/1.5 var(--body);
+  color-scheme: dark;
+  color: var(--paper);
+  background: var(--ink);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #b9b4c2;
-    --text-h: #f3f4f6;
-    --bg: #131117;
-    --bg-raised: #1a1820;
-    --border: #2e2b38;
-    --code-bg: #1f1d26;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --danger: #fb923c;
-    --danger-bg: rgba(251, 146, 60, 0.15);
-    --success: #4ade80;
-    --success-bg: rgba(74, 222, 128, 0.15);
-  }
 }
 
 * {
@@ -49,15 +38,41 @@
 
 body {
   margin: 0;
+  background: var(--ink);
+  background-image: radial-gradient(circle at 15% -10%, rgba(79, 216, 176, 0.07), transparent 40%),
+    radial-gradient(circle at 85% 0%, rgba(232, 121, 74, 0.05), transparent 35%);
+  background-attachment: fixed;
 }
 
 h1,
-h2 {
-  font-family: var(--sans);
-  font-weight: 600;
-  color: var(--text-h);
+h2,
+h3 {
+  font-family: var(--display);
+  font-weight: 500;
+  color: var(--paper);
+  margin: 0;
+}
+
+p {
+  margin: 0;
 }
 
 button {
   font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--signal-dim);
+  color: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

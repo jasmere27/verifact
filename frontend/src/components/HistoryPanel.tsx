@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { fetchHistory } from "../api";
 import type { FactCheckResult, HistoryPage } from "../types";
-import VerdictBadge from "./VerdictBadge";
+import { readVerdict } from "../verdict";
+import VerdictGauge from "./VerdictGauge";
+
+const CHANNEL_TAG: Record<string, string> = {
+  TEXT: "TXT",
+  URL: "URL",
+  IMAGE: "IMG",
+  AUDIO: "AUD",
+};
 
 function formatTimestamp(iso: string): string {
   try {
@@ -11,7 +19,7 @@ function formatTimestamp(iso: string): string {
   }
 }
 
-function snippet(text: string, max = 140): string {
+function snippet(text: string, max = 120): string {
   const trimmed = text.trim();
   return trimmed.length > max ? `${trimmed.slice(0, max)}…` : trimmed;
 }
@@ -30,7 +38,7 @@ export default function HistoryPanel() {
         if (!cancelled) setData(result);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load history.");
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load the log.");
       });
     return () => {
       cancelled = true;
@@ -42,36 +50,42 @@ export default function HistoryPanel() {
   }
 
   if (!data) {
-    return <p className="muted">Loading history…</p>;
+    return <p className="muted">Loading log…</p>;
   }
 
   if (data.content.length === 0) {
-    return <p className="muted">No fact-checks yet.</p>;
+    return <p className="muted">Log is empty — run a check to add the first entry.</p>;
   }
 
   return (
     <div className="panel">
+      <span className="eyebrow">Reading log</span>
       <ul className="history-list">
-        {data.content.map((item: FactCheckResult) => (
-          <li key={item.id} className="history-item">
-            <button
-              type="button"
-              className="history-row"
-              onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-            >
-              <VerdictBadge
-                verdict={{
-                  classification: item.classification,
-                  confidenceScore: item.confidenceScore,
-                }}
-              />
-              <span className="history-type">{item.inputType}</span>
-              <span className="history-snippet">{snippet(item.originalInput)}</span>
-              <span className="history-time">{formatTimestamp(item.createdAt)}</span>
-            </button>
-            {expandedId === item.id && <pre className="result-body">{item.fullResponse}</pre>}
-          </li>
-        ))}
+        {data.content.map((item: FactCheckResult) => {
+          const reading = readVerdict(item);
+          return (
+            <li key={item.id} className="history-item">
+              <button
+                type="button"
+                className="history-row"
+                onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+              >
+                <VerdictGauge
+                  compact
+                  state="settled"
+                  verdict={{ classification: item.classification, confidenceScore: item.confidenceScore }}
+                />
+                <span className="history-channel">{CHANNEL_TAG[item.inputType] ?? item.inputType}</span>
+                <span className="history-verdict" style={{ color: `var(${reading.colorVar})` }}>
+                  {reading.label}
+                </span>
+                <span className="history-snippet">{snippet(item.originalInput)}</span>
+                <span className="history-time">{formatTimestamp(item.createdAt)}</span>
+              </button>
+              {expandedId === item.id && <pre className="result-body">{item.fullResponse}</pre>}
+            </li>
+          );
+        })}
       </ul>
 
       <div className="pagination">
