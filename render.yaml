@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: verifact-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /api/v1/isFakeNews?news=ping
+    envVars:
+      - key: OPEN_AI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_SEARCH_ENGINE
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: SUPABASE_DB_USER
+        sync: false
+      - key: SUPABASE_DB_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false

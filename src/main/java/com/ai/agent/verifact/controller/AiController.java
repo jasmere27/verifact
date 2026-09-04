@@ -1,8 +1,13 @@
 package com.ai.agent.verifact.controller;
 
+import com.ai.agent.verifact.model.FactCheckResult;
+import com.ai.agent.verifact.model.InputType;
+import com.ai.agent.verifact.repository.FactCheckResultRepository;
 import com.ai.agent.verifact.service.AiService;
 import com.ai.agent.verifact.service.ImageOcrService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
@@ -16,11 +21,14 @@ public class AiController {
 
     private final AiService aiService;
     private final ImageOcrService imageOcrService;
+    private final FactCheckResultRepository factCheckResultRepository;
 
     @Autowired
-    public AiController(AiService aiService, ImageOcrService imageOcrService) {
+    public AiController(AiService aiService, ImageOcrService imageOcrService,
+                         FactCheckResultRepository factCheckResultRepository) {
         this.aiService = aiService;
         this.imageOcrService = imageOcrService;
+        this.factCheckResultRepository = factCheckResultRepository;
     }
 
     // ==============================
@@ -72,7 +80,7 @@ public class AiController {
             file.transferTo(tempFile);
 
             String extractedText = imageOcrService.extractTextFromImage(tempFile);
-            return aiService.isFakeNews(extractedText);
+            return aiService.isFakeNews(extractedText, InputType.IMAGE);
 
         } catch (IOException e) {
             return "Failed to process the image: " + e.getMessage();
@@ -95,5 +103,23 @@ public class AiController {
         } catch (IOException e) {
             return ResponseEntity.status(500).body("Failed to process the audio: " + e.getMessage());
         }
+    }
+
+    // ==============================
+    // FACT-CHECK HISTORY
+    // ==============================
+    @GetMapping("/history")
+    public Page<FactCheckResult> history(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        return factCheckResultRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(Math.max(page, 0), safeSize));
+    }
+
+    @GetMapping("/history/{id}")
+    public ResponseEntity<FactCheckResult> historyById(@PathVariable("id") Long id) {
+        return factCheckResultRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

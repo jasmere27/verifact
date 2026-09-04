@@ -1,5 +1,8 @@
 package com.ai.agent.verifact.service;
 
+import com.ai.agent.verifact.model.FactCheckResult;
+import com.ai.agent.verifact.model.InputType;
+import com.ai.agent.verifact.repository.FactCheckResultRepository;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
 import com.ai.agent.verifact.tool.DateTimeTool;
 import com.ai.agent.verifact.tool.GoogleSearchTool;
@@ -21,21 +24,32 @@ public class AiService {
     private final DateTimeTool dateTimeTool;
     private final UriContentTool uriContentTool;
     private final VoiceToTextTool voiceToTextTool;
+    private final FactCheckResultRepository factCheckResultRepository;
+    private final FactCheckResponseParser responseParser;
 
     @Autowired
     public AiService(ChatClient.Builder chatClientBuilder,
                      GoogleSearchTool googleSearchTool,
                      DateTimeTool dateTimeTool,
                      UriContentTool uriContentTool,
-                     VoiceToTextTool voiceToTextTool) {
+                     VoiceToTextTool voiceToTextTool,
+                     FactCheckResultRepository factCheckResultRepository,
+                     FactCheckResponseParser responseParser) {
         this.chatClient = chatClientBuilder.build();
         this.googleSearchTool = googleSearchTool;
         this.dateTimeTool = dateTimeTool;
         this.uriContentTool = uriContentTool;
         this.voiceToTextTool = voiceToTextTool;
+        this.factCheckResultRepository = factCheckResultRepository;
+        this.responseParser = responseParser;
     }
 
     public String isFakeNews(String input) {
+        InputType inputType = uriContentTool.isUrl(input) ? InputType.URL : InputType.TEXT;
+        return isFakeNews(input, inputType);
+    }
+
+    public String isFakeNews(String input, InputType inputType) {
         if (input == null || input.trim().isEmpty()) {
             throw new IllegalArgumentException("News cannot be null or empty");
         }
@@ -167,16 +181,29 @@ public class AiService {
                 .tools(dateTimeTool, uriContentTool, googleSearchTool)
                 .call();
 
-        return responseSpec.content();
+        String response = responseSpec.content();
+        persistResult(inputType, input, response);
+        return response;
     }
 
-    
+    private void persistResult(InputType inputType, String originalInput, String response) {
+        FactCheckResult result = new FactCheckResult();
+        result.setInputType(inputType);
+        result.setOriginalInput(originalInput);
+        result.setClassification(responseParser.extractClassification(response));
+        result.setConfidenceScore(responseParser.extractConfidenceScore(response));
+        result.setSources(responseParser.extractSources(response));
+        result.setCybersecurityTips(responseParser.extractCybersecurityTips(response));
+        result.setFullResponse(response);
+        factCheckResultRepository.save(result);
+    }
+
     public String isFakeNewsFromAudio(byte[] audioData) {
         if (audioData == null || audioData.length == 0) {
             throw new IllegalArgumentException("Audio data cannot be empty.");
         }
 
         String transcribedText = voiceToTextTool.transcribe(audioData);
-        return isFakeNews(transcribedText);
+        return isFakeNews(transcribedText, InputType.AUDIO);
     }
 }

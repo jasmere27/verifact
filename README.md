@@ -1,6 +1,6 @@
 # Verifact - AI-Powered Fact-Checking System
 
-Verifact is a Spring Boot application that leverages AI to verify the authenticity of news and information from multiple sources including text, URLs, images, and audio files.
+Verifact is a Spring Boot application (with a companion React frontend in `frontend/`) that leverages AI to verify the authenticity of news and information from multiple sources including text, URLs, images, and audio files. Every check is persisted to a Postgres database (Supabase) and browsable via `/api/v1/history`.
 
 ## Features
 
@@ -24,11 +24,14 @@ Verifact is a Spring Boot application that leverages AI to verify the authentici
 - **Google Custom Search API** for web search
 - **Google Cloud Speech API** for audio transcription
 - **Docker** for containerization
+- **Supabase (Postgres)** for persisting fact-check history, via Spring Data JPA + Flyway
+- **React + Vite (TypeScript)** frontend, deployed on Cloudflare Pages
 
 ## Prerequisites
 
 ### For Docker-based Setup (Recommended - No Java Required)
 - Docker and Docker Compose
+- A Supabase project (free tier is fine) — see [Database Setup](#database-setup-supabase)
 - API Keys:
   - OpenAI API key
   - Google Custom Search API key
@@ -38,7 +41,8 @@ Verifact is a Spring Boot application that leverages AI to verify the authentici
 - Java 17 or higher
 - Maven 3.6+
 - Tesseract OCR (for image analysis features)
-- API Keys (same as above)
+- Node.js 18+ (only if working on `frontend/`)
+- API Keys and Supabase project (same as above)
 
 ## Getting Started
 
@@ -51,15 +55,30 @@ cd verifact-backend
 
 ### 2. Configure Environment Variables
 
-Create a `.env` file in the project root:
+Copy `.env.example` to `.env` in the project root and fill in the values:
 
 ```env
 OPEN_AI_API_KEY=your-openai-api-key
 GOOGLE_API_KEY=your-google-api-key
 GOOGLE_SEARCH_ENGINE=your-search-engine-id
+
+# From your Supabase project (Project Settings -> Database -> Connection string)
+SUPABASE_DB_URL=jdbc:postgresql://<project-ref>.supabase.co:5432/postgres
+SUPABASE_DB_USER=postgres
+SUPABASE_DB_PASSWORD=your-db-password
+
+# Origin(s) allowed to call the API, comma-separated
+ALLOWED_ORIGIN=http://localhost:3000
 ```
 
 **Important**: Never commit the `.env` file to version control. It's already included in `.gitignore`.
+
+### Database Setup (Supabase)
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Grab the Postgres connection string from **Project Settings → Database → Connection string** (use the direct connection, port `5432`, for this long-running Spring Boot app rather than the transaction pooler).
+3. Set `SUPABASE_DB_URL` / `SUPABASE_DB_USER` / `SUPABASE_DB_PASSWORD` accordingly.
+4. No manual schema setup needed — Flyway runs `src/main/resources/db/migration/V1__init.sql` automatically on startup and creates the `fact_check_results` table.
 
 ### 3. Run the Application
 
@@ -120,6 +139,17 @@ docker run -p 8080:8080 --env-file .env verifact
 
 The application will start on `http://localhost:8080`
 
+### 4. Run the Frontend (optional, for local dev)
+
+```bash
+cd frontend
+cp .env.example .env   # defaults to http://localhost:8080
+npm install
+npm run dev
+```
+
+Opens on `http://localhost:5173` by default.
+
 ## API Endpoints
 
 ### 1. Text-based Fact-Checking
@@ -159,6 +189,16 @@ curl -X POST http://localhost:8080/api/v1/analyzeImage \
 curl -X POST http://localhost:8080/api/v1/analyzeAudio \
   -F "file=@/path/to/audio.wav"
 ```
+
+### 4. Fact-Check History
+
+**Endpoint**: `GET /api/v1/history?page=0&size=20`
+
+Returns a paginated list of past checks (most recent first), each with its input type, classification, confidence score, and full response.
+
+**Endpoint**: `GET /api/v1/history/{id}`
+
+Returns a single past check by id (404 if not found).
 
 ## How It Works
 
@@ -230,21 +270,26 @@ The JAR file will be created in the `target/` directory.
 ## Project Structure
 
 ```
-verifact-backend/
+verifact/
 ├── src/main/java/com/ai/agent/verifact/
 │   ├── config/          # Configuration classes (CORS, beans)
 │   ├── controller/      # REST API controllers
+│   ├── model/           # JPA entities (FactCheckResult, InputType)
+│   ├── repository/      # Spring Data repositories
 │   ├── service/         # Business logic services
 │   ├── tool/            # Spring AI tools for LLM
 │   └── VerifactApplication.java
 ├── src/main/resources/
-│   └── application.properties
+│   ├── application.properties
+│   └── db/migration/    # Flyway SQL migrations
 ├── src/test/
-├── .env                 # Environment variables (not in git)
-├── build.sh             # Build and run script
-├── docker-compose.yml   # Docker Compose configuration
-├── Dockerfile           # Docker image definition
-└── pom.xml             # Maven dependencies
+├── frontend/             # React + Vite SPA (deployed to Cloudflare Pages)
+├── .env                  # Environment variables (not in git)
+├── build.sh              # Build and run script
+├── docker-compose.yml    # Docker Compose configuration
+├── Dockerfile             # Docker image definition (backend)
+├── render.yaml            # Render Blueprint (backend deploy)
+└── pom.xml                # Maven dependencies
 ```
 
 ## Configuration
@@ -256,21 +301,41 @@ The application can be configured via `src/main/resources/application.properties
 ```properties
 spring.application.name=verifact
 spring.ai.openai.api-key=${OPEN_AI_API_KEY}
-spring.google.api-key=${GOOGLE_API_KEY}
-spring.google.search.engine_id=${GOOGLE_SEARCH_ENGINE}
+google.api.key=${GOOGLE_API_KEY}
+google.cse.id=${GOOGLE_SEARCH_ENGINE}
 server.port=8080
+
+spring.datasource.url=${SUPABASE_DB_URL}
+spring.datasource.username=${SUPABASE_DB_USER}
+spring.datasource.password=${SUPABASE_DB_PASSWORD}
+app.allowed-origin=${ALLOWED_ORIGIN:http://localhost:3000}
+tesseract.datapath=${TESSDATA_PATH:/usr/share/tesseract-ocr/5/tessdata}
 ```
 
 ### Tesseract OCR Configuration
 
-For image analysis, Tesseract OCR must be installed. The current implementation expects:
-- **Windows**: `C:/Program Files/Tesseract-OCR/tessdata`
-- For other platforms, update the path in `ImageOcrService.java`
+The tessdata path is configurable via the `TESSDATA_PATH` environment variable (`tesseract.datapath` property), defaulting to `/usr/share/tesseract-ocr/5/tessdata` for local Linux dev. The Docker image installs `tesseract-ocr` at build time and sets `TESSDATA_PATH` automatically — no manual configuration needed for Docker/Render deploys. For local Windows development without Docker, set `TESSDATA_PATH` to your Tesseract-OCR install's `tessdata` folder (e.g. `C:/Program Files/Tesseract-OCR/tessdata`).
+
+## Deployment
+
+Cloudflare Pages/Workers cannot run this JVM application directly, so the backend and frontend deploy to different platforms:
+
+### Backend → Render
+
+1. Push this repo to GitHub and create a new **Blueprint** on [Render](https://render.com) pointing at it — it picks up `render.yaml` and the existing `Dockerfile` automatically.
+2. In the Render dashboard, set the env vars declared in `render.yaml` (`OPEN_AI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_SEARCH_ENGINE`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `ALLOWED_ORIGIN`) with your real values — none of these are committed to the repo.
+3. Deploy. Render builds the Docker image and exposes the service on its own `https://<service>.onrender.com` URL.
+
+### Frontend → Cloudflare Pages
+
+1. Create a Cloudflare Pages project connected to this repo, with **root directory** set to `frontend`.
+2. Build command: `npm run build`. Output directory: `dist`.
+3. Set the `VITE_API_BASE_URL` environment variable to your Render backend URL.
+4. Once deployed, set `ALLOWED_ORIGIN` on the Render backend to the resulting `https://<project>.pages.dev` URL (comma-separate multiple origins if needed) so CORS allows it.
 
 ## Known Limitations
 
 - **VoiceToTextTool**: Currently returns placeholder text. Integration with Google Cloud Speech or OpenAI Whisper is needed for actual audio transcription.
-- **Tesseract Path**: Hardcoded for Windows. Needs to be made configurable for cross-platform support.
 
 ## Security Considerations
 
