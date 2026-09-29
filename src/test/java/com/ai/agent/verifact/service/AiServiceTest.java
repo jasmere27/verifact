@@ -8,7 +8,7 @@ import com.ai.agent.verifact.model.FactCheckResult;
 import com.ai.agent.verifact.model.InputType;
 import com.ai.agent.verifact.repository.FactCheckResultRepository;
 import com.ai.agent.verifact.tool.DateTimeTool;
-import com.ai.agent.verifact.tool.GoogleSearchTool;
+import com.ai.agent.verifact.tool.WebSearchTool;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ class AiServiceTest {
     private FactCheckResultRepository repository;
     private VoiceToTextTool voiceToText;
     private DateTimeTool dateTimeTool;
-    private GoogleSearchTool searchTool;
+    private WebSearchTool searchTool;
     private AiService service;
 
     @BeforeEach
@@ -49,7 +49,7 @@ class AiServiceTest {
         repository = mock(FactCheckResultRepository.class);
         voiceToText = mock(VoiceToTextTool.class);
         dateTimeTool = new DateTimeTool();
-        searchTool = mock(GoogleSearchTool.class);
+        searchTool = mock(WebSearchTool.class);
         service = new AiService(builder, searchTool, dateTimeTool, fetcher, voiceToText, repository,
                 new FactCheckResponseParser(), 100);
     }
@@ -165,7 +165,7 @@ class AiServiceTest {
 
     @Test
     void searchOutageIs503AndNotPersisted() {
-        modelReplies("Note: " + AiService.SEARCH_UNAVAILABLE_MARKER + " at the moment. Classification: real");
+        modelReplies("Note: " + WebSearchTool.UNAVAILABLE + " Classification: real");
         assertThatThrownBy(() -> service.isFakeNews("claim"))
                 .isInstanceOfSatisfying(ApiException.class,
                         e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));

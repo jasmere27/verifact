@@ -9,7 +9,7 @@ import com.ai.agent.verifact.model.FactCheckResult;
 import com.ai.agent.verifact.model.InputType;
 import com.ai.agent.verifact.repository.FactCheckResultRepository;
 import com.ai.agent.verifact.tool.DateTimeTool;
-import com.ai.agent.verifact.tool.GoogleSearchTool;
+import com.ai.agent.verifact.tool.WebSearchTool;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
 
 import org.slf4j.Logger;
@@ -25,11 +25,11 @@ public class AiService {
 
     private static final Logger log = LoggerFactory.getLogger(AiService.class);
 
-    /** Marker GoogleSearchTool returns to the model when search is down. */
+    /** Prefix of the marker WebSearchTool returns to the model when search is down. */
     static final String SEARCH_UNAVAILABLE_MARKER = "Web Search is not available";
 
     private final ChatClient chatClient;
-    private final GoogleSearchTool googleSearchTool;
+    private final WebSearchTool webSearchTool;
     private final DateTimeTool dateTimeTool;
     private final SafeUrlFetcher safeUrlFetcher;
     private final VoiceToTextTool voiceToTextTool;
@@ -38,7 +38,7 @@ public class AiService {
     private final int maxContentChars;
 
     public AiService(ChatClient.Builder chatClientBuilder,
-                     GoogleSearchTool googleSearchTool,
+                     WebSearchTool webSearchTool,
                      DateTimeTool dateTimeTool,
                      SafeUrlFetcher safeUrlFetcher,
                      VoiceToTextTool voiceToTextTool,
@@ -46,7 +46,7 @@ public class AiService {
                      FactCheckResponseParser responseParser,
                      @Value("${app.ai.max-content-chars:20000}") int maxContentChars) {
         this.chatClient = chatClientBuilder.build();
-        this.googleSearchTool = googleSearchTool;
+        this.webSearchTool = webSearchTool;
         this.dateTimeTool = dateTimeTool;
         this.safeUrlFetcher = safeUrlFetcher;
         this.voiceToTextTool = voiceToTextTool;
@@ -111,7 +111,7 @@ public class AiService {
         		========================
         		WEB SEARCH REQUIREMENT
         		========================
-        		* Always attempt web search using googleSearchTool
+        		* Always attempt web search using the searchWeb tool
         		* Use web search to:
         		    - Verify claims
         		    - Confirm publication dates
@@ -163,7 +163,7 @@ public class AiService {
         		    - Extract/summarize content
         		    - Fact-check claims inside
         		* All claims → must be labeled TRUE / FALSE / UNVERIFIED
-        		* Cite sources ONLY using URLs that appear in googleSearchTool results. Never invent,
+        		* Cite sources ONLY using URLs that appear in searchWeb results. Never invent,
         		  guess, or complete URLs. Aim for at least two; if fewer relevant sources were found,
         		  say so explicitly.
         		* Include 1–2 cybersecurity tips starting with:
@@ -217,7 +217,7 @@ public class AiService {
             // URL fetching is deliberately NOT offered to the model: a hostile page could
             // otherwise steer the server into requesting arbitrary addresses.
             response = chatClient.prompt(promptTemplate.create())
-                    .tools(dateTimeTool, googleSearchTool)
+                    .tools(dateTimeTool, webSearchTool)
                     .call()
                     .content();
         } catch (RuntimeException e) {

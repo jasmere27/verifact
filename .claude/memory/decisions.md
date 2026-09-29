@@ -28,10 +28,16 @@ Only record decisions with real tradeoffs.
 - Replace the numeric "confidence %" with **evidence strength** (`STRONG` / `MODERATE` / `LIMITED`) derived from rules the backend can explain: number of independent sources, agreement, recency, source type. Model proposes; backend clamps (e.g., can't be STRONG with one source).
 - Legacy mapping for v1 endpoints: SUPPORTED→real, CONTRADICTED→fake, PARTLY_SUPPORTED/MISLEADING→mixed, INSUFFICIENT_EVIDENCE→unverified.
 
-## ADR-5 — Search provider must be replaced before 2027-01-01
-**Proposed** · 2026-09-29
-- Google Custom Search JSON API is discontinued 2027-01-01 and closed to new customers.
-- Decision: introduce `SearchProvider` interface; `research-agent` selects the replacement (candidates: Brave Search API, Tavily, Exa, Serper, self-hosted SearXNG) on cost, result quality, returned metadata (URL, title, date), and ToS for this use.
+## ADR-5 — Replace Google Custom Search with Tavily behind a SearchProvider interface
+**Accepted — implemented 2026-09-30** · proposed 2026-09-29
+- Context: Google Custom Search JSON API is discontinued 2027-01-01 and closed to new customers.
+- Research (2026-09-30, official pricing/docs/ToS pages):
+  - **Tavily** (chosen): 1,000 free credits/month; PAYG ~$0.008/search → ~$16–152/mo at 3k–20k searches. Returns `published_date`. No storage ban or attribution requirement found. ToS forbids relying on output "in isolation" for decisions with legal/significant effect on a person — relevant to claims about individuals.
+  - **Exa** (fallback): own index, `publishedDate`, $10 free/month. ToS not verified (PDF unreadable).
+  - **Brave** rejected despite the best index/price: ToS forbids storing results beyond transient use and requires "POWERED BY BRAVE" attribution — conflicts with persisting evidence URLs/snippets.
+  - Excluded: Bing (retired 2025-08-11), Serper/SerpApi/SearXNG (Google scraping, legal risk), Mojeek (small index, no dates).
+- Decision: `search/SearchProvider` with `TavilySearchProvider` and legacy `GoogleCustomSearchProvider`; `SEARCH_PROVIDER=auto` prefers Tavily. Adding Exa later is one class.
+- To re-check: Tavily's `published_date` coverage for `topic=general`; written confirmation that storing URLs/snippets indefinitely is allowed.
 
 ## ADR-6 — Upgrade to Spring Boot 4.x + Spring AI 2.0 GA
 **Accepted — done 2026-09-30** (Boot 4.1.1, Spring AI 2.0.1, Java 21) · proposed 2026-09-29

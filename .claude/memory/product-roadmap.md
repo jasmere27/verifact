@@ -13,7 +13,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 
 ## Phase 1 — Core verification (the product)
 - ☐ Backend-controlled pipeline (ADR-3) with structured output
-- ☐ Replace Google CSE with a new `SearchProvider` (ADR-5) returning URL/title/date
+- ◐ Replace Google CSE with a new `SearchProvider` (ADR-5) returning URL/title/date — Tavily implemented; needs a production key + live smoke test
 - ☐ New taxonomy + evidence strength (ADR-4)
 - ☐ Evidence model persisted: claims, evidence items, sources, AI run metadata
 - ☐ Result page redesign: checked → assessment → why → supporting/contradicting evidence → sources/dates → limitations

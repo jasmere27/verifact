@@ -13,159 +13,47 @@ The main session acts as orchestrator for a team of specialist subagents. Protoc
 - Playbooks: `.claude/playbooks/` (feature development, bug fix, AI verification, release)
 - Project memory (keep current; don't fill with temporary details): `.claude/memory/` — start with `project-context.md` and `known-issues.md`
 
-**Current state:** see `.claude/memory/architecture.md` (kept up to date) — it supersedes the older description below where they differ. The JDK is at `~/.local/jdks/`; see `.claude/memory/project-context.md` for toolchain setup.
+**Current state:** `.claude/memory/architecture.md` is the detailed, maintained description; update it when architecture changes.
 
-## Project Overview
+## Project overview
 
-Verifact is a Spring Boot 4.1 AI-powered fact-checking application that uses Spring AI (OpenAI integration) to verify news content from multiple input formats: text, URLs, images, and audio. The application employs an agentic architecture where tools are provided to the AI model for web searching, content extraction, and date/time awareness.
+VeriFact verifies claims submitted as text, a link, an image (OCR), or audio (speech-to-text). A Spring Boot backend sends the content to an LLM (Spring AI, OpenAI) that can call a web search tool, and returns a plain-text report. A React/Vite frontend lives in `frontend/`. Results are persisted to Supabase Postgres.
 
-## Technology Stack
+## Stack
 
-- **Java 21** with Spring Boot 4.1
-- **Spring AI 2.0** for OpenAI model integration
-- **Maven** for dependency management and build
-- **Tesseract OCR** (Tess4j 5.4.0) for image text extraction
-- **Jsoup** for HTML parsing and web scraping
-- **Google Cloud Speech API** for audio transcription
-- **Google Custom Search API** for web search capabilities
+Java 21 · Spring Boot 4.1 (modular starters, Jackson 3) · Spring AI 2.0 (OpenAI via openai-java SDK) · Spring Data JPA + Flyway · PostgreSQL (Supabase; H2 in tests) · Jsoup · Tess4j · Google Cloud Speech · Tavily Search (Google Custom Search as legacy fallback) · React 19 + Vite + TypeScript.
 
-## Development Commands
+## Commands
 
-### Build and Run
-```bash
-# Build the project (skipping tests)
-./mvnw clean package -DskipTests
-
-# Run the application
-./mvnw spring-boot:run
-
-# Build with tests
-./mvnw clean package
-```
-
-### Testing
-```bash
-# Run all tests
-./mvnw test
-
-# Run a specific test class
-./mvnw test -Dtest=VerifactApplicationTests
-
-# Run tests with coverage
-./mvnw clean test jacoco:report
-```
-
-### Docker
+The JDK is not on PATH in this environment:
 
 ```bash
-# Using Docker Compose (recommended)
-docker-compose up --build
+export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH
+./mvnw test                         # all backend tests (no keys, DB, or network needed)
+./mvnw test -Dtest=AiServiceTest    # one class
+./mvnw clean package                # build jar (run `clean` after dependency changes; incremental builds hide errors)
+./mvnw spring-boot:run              # needs .env values exported (see .env.example)
 
-# Or build and run manually with environment file
-docker build -t verifact .
-docker run -p 8080:8080 --env-file .env verifact
-
-# Or pass environment variables directly
-docker run -p 8080:8080 \
-  -e OPEN_AI_API_KEY="your-key" \
-  -e GOOGLE_API_KEY="your-key" \
-  -e GOOGLE_SEARCH_ENGINE="your-id" \
-  verifact
+cd frontend && npm ci && npm run build && npm run lint
 ```
 
-## Environment Configuration
+## Code map (`src/main/java/com/ai/agent/verifact/`)
 
-The application requires the following environment variables:
+- `controller/` — `AiController` (`/api/v1/isFakeNews`, `/analyzeImage`, `/analyzeAudio`), `HistoryController` (disabled unless `HISTORY_API_ENABLED`).
+- `service/AiService` — builds the prompt, calls the model with tools `dateTimeTool` + `webSearchTool`, maps failures to `ApiException`, persists results. `ImageOcrService` decodes/validates images and runs Tesseract. `FactCheckResponseParser` regex-extracts fields from the model's markdown.
+- `search/` — `SearchProvider` interface, `TavilySearchProvider`, `GoogleCustomSearchProvider` (legacy), `SearchConfig` (selection via `SEARCH_PROVIDER`).
+- `tool/` — Spring AI `@Tool`s given to the model: `WebSearchTool`, `DateTimeTool`. `VoiceToTextTool` is a plain service (not a model tool).
+- `fetch/` — `UrlGuard` + `SafeUrlFetcher`: the only way the server fetches user-supplied URLs.
+- `common/` — `ApiException`, `GlobalExceptionHandler` (problem+json), `RequestIdFilter`, `RateLimitFilter`, `FixedWindowRateLimiter`.
+- `config/CorsConfig` — CORS as a servlet filter (so 429/413 responses get CORS headers).
+- `model/`, `repository/` — `FactCheckResult` entity; schema in `src/main/resources/db/migration/` (Flyway, never edit applied migrations).
 
-- `OPEN_AI_API_KEY` - OpenAI API key for Spring AI
-- `GOOGLE_API_KEY` - Google Custom Search API key
-- `GOOGLE_SEARCH_ENGINE` - Google Custom Search Engine ID
+## Rules specific to this codebase
 
-### Setup Options
-
-1. **Using .env file** (recommended for local development):
-   - Create a `.env` file in the project root with the required variables
-   - The file is already in `.gitignore` to prevent committing secrets
-   - Used automatically by `docker-compose.yml`
-
-2. **Direct environment variables**:
-   - Set variables in your shell before running Maven
-   - Pass via `-e` flags when using Docker
-
-3. **Update application.properties**:
-   - Modify `src/main/resources/application.properties` (not recommended for secrets)
-
-**Note:** The application runs on port 8080 by default.
-
-## Architecture
-
-### Agentic AI Pattern
-
-This application implements an **agentic AI architecture** where the LLM is given access to tools that it can call autonomously:
-
-1. **AiService** (src/main/java/com/ai/agent/verifact/service/AiService.java:17) - Core service that:
-   - Accepts user input (text, URL, or extracted content from images/audio)
-   - Provides the AI model with a detailed prompt template for fact-checking
-   - Registers tools with the ChatClient using `.tools(dateTimeTool, uriContentTool, googleSearchTool)`
-   - The AI model decides when and how to invoke these tools based on the input
-
-2. **Tools** - Spring AI tools (annotated with `@Tool`) that the LLM can invoke:
-   - **DateTimeTool** - Provides current date/time for temporal context
-   - **GoogleSearchTool** - Searches the web using Google Custom Search API
-   - **UriContentTool** - Validates URLs and fetches/extracts web page content using Jsoup
-   - **VoiceToTextTool** - Transcribes audio via Google Cloud Speech (LINEAR16, en-US; needs GCP credentials). Not an LLM tool.
-
-### Input Processing Flow
-
-1. **Text Input** → AiService validates and processes directly
-2. **URL Input** → UriContentTool extracts content → AiService fact-checks the content
-3. **Image Input** → ImageOcrService (Tesseract) extracts text → AiService fact-checks
-4. **Audio Input** → VoiceToTextTool transcribes → AiService fact-checks
-
-### Key Components
-
-- **AiController** (src/main/java/com/ai/agent/verifact/controller/AiController.java:16) - REST endpoints:
-  - `GET /api/v1/isFakeNews?news={text}` - Text-based fact-checking
-  - `POST /api/v1/analyzeImage` - Image-based fact-checking (multipart file upload)
-  - `POST /api/v1/analyzeAudio` - Audio-based fact-checking (multipart file upload)
-
-- **AiService** - Orchestrates the AI model with tool access and contains the fact-checking prompt template with specific instructions for credibility assessment, source verification, and accuracy scoring
-
-- **ImageOcrService** (src/main/java/com/ai/agent/verifact/service/ImageOcrService.java:13) - Uses Tesseract OCR with hardcoded path `C:/Program Files/Tesseract-OCR/tessdata`
-
-### Important Implementation Details
-
-- The AI prompt template (src/main/java/com/ai/agent/verifact/service/AiService.java:56-97) includes:
-  - Trusted source detection (BBC, CNN, Reuters, etc.) for automatic high-accuracy classification
-  - Mixed real/fake content handling
-  - Accuracy percentage requirements
-  - Cybersecurity tips for relevant topics
-  - Plain text output formatting
-
-- **CORS Configuration** - Check `CorsConfig.java` for cross-origin settings if frontend integration is needed
-
-- **Tesseract OCR Path** - Currently hardcoded to Windows path. For cross-platform support, this needs to be configurable via application.properties
-
-- **VoiceToTextTool** - Uses Google Cloud Speech `SpeechClient.create()`, which requires Application Default Credentials that no config currently provides
-
-- **Security:** see `.claude/memory/known-issues.md` — notably SSRF in `UriContentTool` and prompt injection via fetched content. Treat all user input and fetched web content as untrusted data.
-
-## Package Structure
-
-```
-com.ai.agent.verifact/
-├── config/          - Spring configuration beans (CORS, RestTemplate)
-├── controller/      - REST API endpoints
-├── service/         - Business logic (AiService, ImageOcrService)
-└── tool/            - Spring AI tools for LLM invocation
-```
-
-## Working with Spring AI Tools
-
-When adding or modifying tools:
-1. Annotate the class with `@Component`
-2. Annotate methods with `@Tool(description = "clear description for the LLM")`
-3. Register the tool in AiService constructor via dependency injection
-4. Add to the `.tools()` call in the ChatClient prompt execution (src/main/java/com/ai/agent/verifact/service/AiService.java:110)
-
-The LLM will autonomously decide when to invoke tools based on the prompt and tool descriptions.
+- Never give the model a tool that fetches URLs or has side effects; the backend fetches via `SafeUrlFetcher`.
+- User input and fetched/search content are untrusted: keep them inside the per-request nonce-delimited block in the prompt.
+- Errors to clients go through `ApiException` / `GlobalExceptionHandler` with user-safe messages; never return exception messages.
+- Don't log API keys, full user submissions at INFO, or URLs that carry keys.
+- New config → `application.properties` with an env var, plus `.env.example` (and `render.yaml` if needed for deploy).
+- Tests must not call real AI/search providers; use mocks, `MockRestServiceServer`, or local HTTP servers.
+- Boot 4 notes: inject `tools.jackson.databind.json.JsonMapper` (not Jackson 2 `ObjectMapper`); test slices are in `org.springframework.boot.webmvc.test.autoconfigure`; AI timeouts/retries are `spring.ai.openai.*` properties.

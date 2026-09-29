@@ -4,7 +4,7 @@ _Last updated: 2026-09-30 (after Phase 0a). Ranked. Resolved items are listed at
 for context; delete them once they stop being useful._
 
 ## Critical
-1. **Google Custom Search JSON API is discontinued 2027-01-01** and closed to new customers. New developers cannot get keys; production breaks in ~3 months. → Phase 1 `SearchProvider` (ADR-5).
+1. **Production search still needs a Tavily key.** Code supports Tavily (ADR-5), but until `TAVILY_API_KEY` is set, `auto` falls back to Google Custom Search, which stops working on 2027-01-01. Tavily integration has only been tested against its documented contract (mocked), not a live call.
 
 ## High
 2. **Model-driven, unstructured verification.** The LLM decides when to search (unbounded tool loop, capped only by Spring AI internals) and returns free-form markdown that is regex-parsed in `FactCheckResponseParser` and `frontend/src/parseResponse.ts`. → Phase 1 pipeline (ADR-3).
@@ -24,7 +24,7 @@ for context; delete them once they stop being useful._
 14a. **Verify X-Forwarded-For on Render before relying on per-IP limits.** With `TRUST_FORWARDED_FOR=true` the right-most entry is used; if Render/Cloudflare puts its own hop there, all users share one bucket. Check real headers on first deploy (alternative: `server.forward-headers-strategy=native`).
 14b. **Search-outage detection is weak.** `AiService` relies on the model echoing `Web Search is not available`, while the prompt still says to "continue using internal knowledge" if search is down. Replace with a tool-set flag / backend-run search in Phase 1.
 14c. **No overall per-request deadline.** Model call ≤60 s × 2 attempts (max-retries=1) × several tool rounds. Bounded by Phase 1's fixed pipeline.
-14d. Google API key is sent as a query parameter (would appear if RestTemplate DEBUG logging were enabled). Consider the `X-goog-api-key` header once verified against the Custom Search API — or moot after the search provider is replaced.
+14d. Legacy Google provider sends its API key as a query parameter (would appear with HTTP DEBUG logging). Moot once Google is unused.
 14e. Global daily cap (1000) can be exhausted by ~20 IPs → deliberate cost-over-availability tradeoff until accounts exist.
 
 ## Low / hygiene

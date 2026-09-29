@@ -21,7 +21,7 @@ Verifact is a Spring Boot application (with a companion React frontend in `front
 - **Maven** for build management
 - **Tesseract OCR** for image text extraction
 - **Jsoup** for HTML parsing
-- **Google Custom Search API** for web search
+- **Tavily Search API** for web search (Google Custom Search supported as a legacy fallback until its 2027-01-01 shutdown)
 - **Google Cloud Speech API** for audio transcription
 - **Docker** for containerization
 - **Supabase (Postgres)** for persisting fact-check history, via Spring Data JPA + Flyway
@@ -34,8 +34,7 @@ Verifact is a Spring Boot application (with a companion React frontend in `front
 - A Supabase project (free tier is fine) — see [Database Setup](#database-setup-supabase)
 - API Keys:
   - OpenAI API key
-  - Google Custom Search API key
-  - Google Search Engine ID
+  - Tavily API key (free tier: 1,000 searches/month at https://app.tavily.com)
 
 ### For Local Development (Optional)
 - Java 21 or higher
@@ -59,8 +58,7 @@ Copy `.env.example` to `.env` in the project root and fill in the values:
 
 ```env
 OPEN_AI_API_KEY=your-openai-api-key
-GOOGLE_API_KEY=your-google-api-key
-GOOGLE_SEARCH_ENGINE=your-search-engine-id
+TAVILY_API_KEY=your-tavily-api-key
 
 # From your Supabase project (Project Settings -> Database -> Connection string)
 SUPABASE_DB_URL=jdbc:postgresql://<project-ref>.supabase.co:5432/postgres
@@ -217,7 +215,7 @@ Verifact uses an **agentic AI pattern** where the AI model is equipped with tool
 2. **Content Extraction**: Extract text from images (OCR) or audio (speech-to-text)
 3. **Tool-Augmented Analysis**: The AI model can call two tools:
    - `DateTimeTool`: Get current date/time for temporal context
-   - `GoogleSearchTool`: Search the web; results include title, URL, and snippet, and only those URLs may be cited
+   - `WebSearchTool`: Search the web through the configured `SearchProvider` (Tavily by default); results include title, URL, publication date when known, and snippet, and only those URLs may be cited
 
    Links submitted by users are fetched by the backend (`SafeUrlFetcher`), never by the model. All submitted and fetched content is passed to the model as clearly delimited, untrusted data.
 4. **Fact-Checking**: Analyze against credible sources
@@ -326,7 +324,7 @@ Cloudflare Pages/Workers cannot run this JVM application directly, so the backen
 ### Backend → Render
 
 1. Push this repo to GitHub and create a new **Blueprint** on [Render](https://render.com) pointing at it — it picks up `render.yaml` and the existing `Dockerfile` automatically.
-2. In the Render dashboard, set the env vars declared in `render.yaml` (`OPEN_AI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_SEARCH_ENGINE`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `ALLOWED_ORIGIN`) with your real values — none of these are committed to the repo. `TRUST_FORWARDED_FOR=true` is set by the blueprint so rate limits see real client IPs; the health check uses `/actuator/health`.
+2. In the Render dashboard, set the env vars declared in `render.yaml` (`OPEN_AI_API_KEY`, `TAVILY_API_KEY`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `ALLOWED_ORIGIN`) with your real values — none of these are committed to the repo. `TRUST_FORWARDED_FOR=true` is set by the blueprint so rate limits see real client IPs; the health check uses `/actuator/health`.
    `render.yaml` uses the paid `starter` plan (the free plan sleeps after 15 minutes idle and has 512 MB RAM, which is tight for the JVM plus Tesseract). Change `plan` if you prefer.
 3. Deploy. Render builds the Docker image and exposes the service on its own `https://<service>.onrender.com` URL.
 
@@ -339,7 +337,7 @@ Cloudflare Pages/Workers cannot run this JVM application directly, so the backen
 
 ## Known Limitations
 
-- **Google Custom Search JSON API is discontinued on 2027-01-01** and closed to new customers. A replacement search provider is planned.
+- **Search provider:** Tavily is the default. Google Custom Search still works with existing keys (`SEARCH_PROVIDER=google` or `auto` without a Tavily key) but is discontinued on 2027-01-01. With no search configured, the app starts but verifications return `503`.
 - **Audio** uses Google Cloud Speech, which needs Google Application Default Credentials (`GOOGLE_APPLICATION_CREDENTIALS`); without them the audio endpoint returns `503`.
 - **Images** are converted to text with OCR; the model never sees the image itself.
 - Verdicts (`real`/`fake`/`mixed`/`unverified`) and confidence scores come from the model's report. A structured, evidence-cited verdict model is planned.

@@ -20,14 +20,14 @@ GlobalExceptionHandler → problem+json for ApiException, MVC errors, and a gene
 AiService.isFakeNews(input)                  (service/AiService.java)
    ├─ if input is a single http(s) token: SafeUrlFetcher (UrlGuard on every hop, size/time caps)
    ├─ content sanitized (delimiters stripped, truncated) and placed in an untrusted-content block
-   ├─ ChatClient.prompt().tools(dateTimeTool, googleSearchTool).call()
+   ├─ ChatClient.prompt().tools(dateTimeTool, webSearchTool).call()   (WebSearchTool → SearchProvider: Tavily | Google legacy)
    │     the MODEL still decides when to search (no fetch tool any more)
    ├─ returns free-form markdown string; 502 on provider failure, 503 if search was down
    └─ FactCheckResponseParser regex-extracts classification/confidence/sources → DB (failure is logged, not fatal)
 ```
 
 - **Model-driven search.** The LLM calls `searchWeb` and `getCurrentDateTime` as Spring AI `@Tool`s. URL fetching is backend-only.
-- **Search results** are `title | url | snippet` lines; the prompt forbids citing other URLs (not yet validated server-side).
+- **Search results** are `title | url | published: date | snippet` lines from the configured `SearchProvider`; the prompt forbids citing other URLs (not yet validated server-side).
 - **Output is unstructured text**; both the backend parser and the frontend (`parseResponse.ts`) regex-scrape `**Classification:**` and `**Confidence Score:**`.
 - Verdicts: `real | fake | mixed | unverified` + a prompt-dictated confidence number.
 - No auth or users. In-memory rate limits; SLF4J logging with request IDs; `/actuator/health`.
@@ -36,7 +36,7 @@ AiService.isFakeNews(input)                  (service/AiService.java)
 `fact_check_results(id bigserial, input_type, original_input text, classification, confidence_score, sources text, cybersecurity_tips text, full_response text, created_at timestamptz)` + index on `created_at desc`.
 
 ### Packages
-`common/` (errors, request ID, rate limit) · `config/` (RestTemplate timeouts, CORS) · `controller/` · `fetch/` (UrlGuard, SafeUrlFetcher) · `model/` · `repository/` · `service/` · `tool/`.
+`common/` (errors, request ID, rate limit) · `config/` (CORS) · `search/` (SearchProvider, Tavily, Google legacy, selection) · `controller/` · `fetch/` (UrlGuard, SafeUrlFetcher) · `model/` · `repository/` · `service/` · `tool/`.
 
 ## Target (proposed, pending approval; see decisions.md)
 
