@@ -1,300 +1,120 @@
-# Verifact - AI-Powered Fact-Checking System
+# VeriFact
 
-Verifact is a Spring Boot application that leverages AI to verify the authenticity of news and information from multiple sources including text, URLs, images, and audio files.
+**Verify Truth, Fight the False.**
 
-## Features
+VeriFact checks claims against the web and shows its work. Paste a claim, an article, or a link (or upload a screenshot or a short voice clip), and VeriFact:
 
-- **Text-based fact-checking**: Verify news articles and statements directly
-- **URL content analysis**: Extract and analyze content from web pages
-- **Image-based verification**: Use OCR to extract text from images and verify claims
-- **Audio transcription**: Convert audio files to text and fact-check the content
-- **Intelligent web search**: Automatically searches credible sources for verification
-- **Accuracy scoring**: Provides percentage-based accuracy assessments
-- **Source verification**: Checks against trusted news sources (BBC, CNN, Reuters, etc.)
-- **Cybersecurity tips**: Offers security advice for relevant topics
+1. finds the specific factual claims in it,
+2. searches the web for evidence,
+3. judges each claim **only against the sources it retrieved**, and
+4. returns a report: what was checked, a verdict per claim, the supporting and contradicting sources with dates, and what remains uncertain.
 
-## Technology Stack
+Verdicts: **Supported · Partly supported · Misleading · Contradicted · Not enough evidence** (plus **Mixed results** across several claims). Evidence strength (Strong / Moderate / Limited) is computed from how many independent sites were cited. Neither the verdict nor its strength is taken on the model's word: citations are checked against what was actually retrieved.
 
-- **Java 17**
-- **Spring Boot 3.4.5**
-- **Spring AI 1.0.0-M8** (OpenAI integration)
-- **Maven** for build management
-- **Tesseract OCR** for image text extraction
-- **Jsoup** for HTML parsing
-- **Google Custom Search API** for web search
-- **Google Cloud Speech API** for audio transcription
-- **Docker** for containerization
+VeriFact is an aid for checking information, not a final authority.
 
-## Prerequisites
+## Architecture
 
-### For Docker-based Setup (Recommended - No Java Required)
-- Docker and Docker Compose
-- API Keys:
-  - OpenAI API key
-  - Google Custom Search API key
-  - Google Search Engine ID
+```
+frontend/ (React + Vite, Cloudflare Pages) ──► Spring Boot API (Render) ──► Supabase Postgres
+                                                     ├─► OpenAI (claim extraction + assessment)
+                                                     └─► Tavily (web search)
+```
 
-### For Local Development (Optional)
-- Java 17 or higher
-- Maven 3.6+
-- Tesseract OCR (for image analysis features)
-- API Keys (same as above)
+- **Backend:** Java 21, Spring Boot 4.1, Spring AI 2.0, Flyway, Jsoup, Tesseract OCR, Google Cloud Speech (optional).
+- **Pipeline:** at most 2 AI calls and 4 searches per check. The model has no tools. User content and web results are treated as untrusted data.
+- **Safety:** SSRF-guarded link fetching, per-IP and global rate limits, RFC 9457 errors with request IDs, no secrets in logs.
 
-## Getting Started
+Details: `.claude/memory/architecture.md`. API contract: `.claude/memory/api-contracts.md`.
 
-### 1. Clone the Repository
+## Quick start (local)
+
+Prerequisites: Java 21+, Node 22+, a Postgres database (a free Supabase project works), an OpenAI API key and a Tavily API key. Tesseract is only needed for image checks.
 
 ```bash
-git clone <repository-url>
-cd verifact-backend
+cp .env.example .env            # fill in the values
+set -a; source .env; set +a     # export them into your shell
+./mvnw spring-boot:run          # API on http://localhost:8080 (Flyway creates the tables)
+
+cd frontend
+cp .env.example .env            # VITE_API_BASE_URL=http://localhost:8080
+npm ci
+npm run dev                     # http://localhost:5173
 ```
 
-### 2. Configure Environment Variables
+Or run the backend in Docker: `docker compose up --build` (reads `.env`).
 
-Create a `.env` file in the project root:
+## API (v2)
 
-```env
-OPEN_AI_API_KEY=your-openai-api-key
-GOOGLE_API_KEY=your-google-api-key
-GOOGLE_SEARCH_ENGINE=your-search-engine-id
-```
-
-**Important**: Never commit the `.env` file to version control. It's already included in `.gitignore`.
-
-### 3. Run the Application
-
-#### Option A: Using build.sh Script (Recommended - No Java Required)
-
-The `build.sh` script automatically builds and runs the application on port 8080:
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `/api/v2/verifications` | `{"input": "claim, article text, or one http(s) link"}` | report |
+| POST | `/api/v2/verifications/image` | multipart `file` (JPEG/PNG/GIF/BMP/TIFF, ≤10 MB) | report |
+| POST | `/api/v2/verifications/audio` | multipart `file` (WAV, English, ≲1 min) | report |
+| GET | `/api/v2/verifications/{id}` | | stored report (shareable) |
+| GET | `/actuator/health` | | `{"status":"UP"}` |
 
 ```bash
-# Make the script executable (first time only)
-chmod +x build.sh
-
-# Build with Docker and run (DEFAULT - no Java required locally)
-./build.sh
-# or explicitly:
-./build.sh docker
-
-# Build with Maven and run (requires Java 17+ installed)
-./build.sh maven
-
-# Build both Maven and Docker, then run
-./build.sh all
-
-# Clean all build artifacts
-./build.sh clean
+curl -s -X POST http://localhost:8080/api/v2/verifications \
+  -H 'Content-Type: application/json' -d '{"input":"The Eiffel Tower is in Rome."}'
 ```
 
-**What the script does:**
-1. Builds the project inside a Docker container (Maven + Java 17 included)
-2. Creates a Docker image with the application
-3. Automatically starts the application on port 8080 via Docker Compose
-4. Press `Ctrl+C` to stop the application
+Errors are `application/problem+json` with a user-safe `detail` and a `requestId`. `422` means no checkable claim was found or a link couldn't be read, `429` means you're rate limited (see `Retry-After`), and `503` means web search is down (VeriFact won't guess without evidence).
 
-**No Java installation required** - Everything runs inside Docker containers!
-
-#### Option B: Using Maven
-
-```bash
-# Build and run
-./mvnw spring-boot:run
-
-# Or build first, then run
-./mvnw clean package -DskipTests
-java -jar target/verifact-0.0.1-SNAPSHOT.jar
-```
-
-#### Option C: Using Docker Compose
-
-```bash
-docker-compose up --build
-```
-
-#### Option D: Using Docker
-
-```bash
-docker build -t verifact .
-docker run -p 8080:8080 --env-file .env verifact
-```
-
-The application will start on `http://localhost:8080`
-
-## API Endpoints
-
-### 1. Text-based Fact-Checking
-
-**Endpoint**: `GET /api/v1/isFakeNews`
-
-**Parameters**:
-- `news` (string, required): The text or URL to fact-check
-
-**Example**:
-```bash
-curl "http://localhost:8080/api/v1/isFakeNews?news=Your%20news%20statement%20here"
-```
-
-### 2. Image-based Fact-Checking
-
-**Endpoint**: `POST /api/v1/analyzeImage`
-
-**Parameters**:
-- `file` (multipart file, required): Image file containing text
-
-**Example**:
-```bash
-curl -X POST http://localhost:8080/api/v1/analyzeImage \
-  -F "file=@/path/to/image.jpg"
-```
-
-### 3. Audio-based Fact-Checking
-
-**Endpoint**: `POST /api/v1/analyzeAudio`
-
-**Parameters**:
-- `file` (multipart file, required): Audio file to transcribe and verify
-
-**Example**:
-```bash
-curl -X POST http://localhost:8080/api/v1/analyzeAudio \
-  -F "file=@/path/to/audio.wav"
-```
-
-## How It Works
-
-### Agentic AI Architecture
-
-Verifact uses an **agentic AI pattern** where the AI model is equipped with tools it can invoke autonomously:
-
-1. **User Input**: Accept text, URL, image, or audio
-2. **Content Extraction**: Extract text from images (OCR) or audio (speech-to-text)
-3. **Tool-Augmented Analysis**: The AI model uses various tools:
-   - `DateTimeTool`: Get current date/time for temporal context
-   - `GoogleSearchTool`: Search the web for verification
-   - `UriContentTool`: Extract content from URLs
-4. **Fact-Checking**: Analyze against credible sources
-5. **Response**: Return verdict with accuracy score and sources
-
-### Trusted Sources
-
-The system prioritizes content from:
-- BBC News (bbc.com)
-- CNN (cnn.com)
-- Reuters (reuters.com)
-- The Guardian (theguardian.com)
-- Associated Press (apnews.com)
-- New York Times (nytimes.com)
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-./mvnw test
-
-# Run specific test class
-./mvnw test -Dtest=VerifactApplicationTests
-
-# Run tests with coverage
-./mvnw clean test jacoco:report
-```
-
-### Building for Production
-
-#### Using build.sh (Recommended - No Java Required)
-
-```bash
-# Build Docker image (no Java installation needed)
-./build.sh docker
-
-# Build with Maven (requires Java 17+ installed locally)
-./build.sh maven
-
-# Build both
-./build.sh all
-```
-
-**Note**: The build.sh script automatically runs the application after building. Press `Ctrl+C` to stop it if you only want to build without running.
-
-**For production deployment**, the Docker image (`verifact:latest`) is built with all dependencies included. You can deploy it to any Docker-compatible environment without needing Java installed on the host machine.
-
-#### Manual Build
-
-```bash
-./mvnw clean package
-```
-
-The JAR file will be created in the `target/` directory.
-
-## Project Structure
-
-```
-verifact-backend/
-├── src/main/java/com/ai/agent/verifact/
-│   ├── config/          # Configuration classes (CORS, beans)
-│   ├── controller/      # REST API controllers
-│   ├── service/         # Business logic services
-│   ├── tool/            # Spring AI tools for LLM
-│   └── VerifactApplication.java
-├── src/main/resources/
-│   └── application.properties
-├── src/test/
-├── .env                 # Environment variables (not in git)
-├── build.sh             # Build and run script
-├── docker-compose.yml   # Docker Compose configuration
-├── Dockerfile           # Docker image definition
-└── pom.xml             # Maven dependencies
-```
+The v1 endpoints (`/api/v1/isFakeNews`, `/analyzeImage`, `/analyzeAudio`) still work but are **deprecated**.
 
 ## Configuration
 
-### Application Properties
+Everything is configured through environment variables; `.env.example` lists them all with safe placeholders. The main ones:
 
-The application can be configured via `src/main/resources/application.properties`:
+| Variable | Purpose |
+|---|---|
+| `OPEN_AI_API_KEY` | AI provider key (optionally `SPRING_AI_OPENAI_CHAT_MODEL` to choose the model) |
+| `TAVILY_API_KEY` | Web search (`SEARCH_PROVIDER=auto` uses Tavily when set; legacy Google keys are a fallback until 2027-01-01) |
+| `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD` | Postgres via the Supabase **Session pooler** |
+| `ALLOWED_ORIGIN` | Comma-separated frontend origins for CORS |
+| `RATE_LIMIT_*`, `MAX_INPUT_CHARS` | Abuse and cost limits |
+| `TRUST_FORWARDED_FOR` | `true` behind a proxy that appends the client IP (Render) |
 
-```properties
-spring.application.name=verifact
-spring.ai.openai.api-key=${OPEN_AI_API_KEY}
-spring.google.api-key=${GOOGLE_API_KEY}
-spring.google.search.engine_id=${GOOGLE_SEARCH_ENGINE}
-server.port=8080
+## Tests
+
+```bash
+./mvnw test                     # 147 tests; no keys, database, or network needed
+cd frontend && npm run build && npm run lint
 ```
 
-### Tesseract OCR Configuration
+AI and search are faked in tests, and H2 stands in for Postgres. A **live evaluation** over 20 labeled claims (true, false, unverifiable, opinion, prompt injection) runs against the real services and costs a few cents:
 
-For image analysis, Tesseract OCR must be installed. The current implementation expects:
-- **Windows**: `C:/Program Files/Tesseract-OCR/tessdata`
-- For other platforms, update the path in `ImageOcrService.java`
+```bash
+RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=VerificationEvalIT
+```
 
-## Known Limitations
+## Deployment
 
-- **VoiceToTextTool**: Currently returns placeholder text. Integration with Google Cloud Speech or OpenAI Whisper is needed for actual audio transcription.
-- **Tesseract Path**: Hardcoded for Windows. Needs to be made configurable for cross-platform support.
+Cloudflare Pages (frontend) + Render (backend Docker image) + Supabase (Postgres). Step-by-step guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
-## Security Considerations
+## Project structure
 
-- Never commit API keys or secrets to version control
-- The `.env` file is excluded via `.gitignore`
-- Rotate API keys immediately if accidentally exposed
-- Use environment variables for sensitive configuration
+```
+src/main/java/com/ai/agent/verifact/
+  verification/   v2 pipeline, prompts, report model, persistence, API
+  ai/             LLM client seam (Spring AI)
+  search/         SearchProvider: Tavily, Google (legacy)
+  fetch/          SSRF-safe URL fetching
+  common/         errors, request IDs, rate limiting
+  config/         CORS, clock
+  controller/ service/ tool/ model/ repository/   v1 (deprecated) + OCR / speech
+src/main/resources/db/migration/   Flyway migrations
+frontend/         React + Vite SPA
+docs/             deployment guide
+.claude/          AI-assisted development setup (agents, commands, project memory)
+```
 
-## Contributing
+## Known limitations
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- Evidence comes from search-result snippets, not full articles, so nuanced claims can end up as "Not enough evidence".
+- Images are read with OCR; the image itself isn't analysed.
+- Audio requires Google Cloud credentials (`GOOGLE_APPLICATION_CREDENTIALS`).
+- Anyone with a report's link can view it; there are no accounts yet.
 
-## License
-
-This project is licensed under the MIT License.
-
-## Support
-
-For issues, questions, or contributions, please open an issue on the GitHub repository.
-
----
-
-**Built with Spring AI and powered by OpenAI**
+Full, ranked list: `.claude/memory/known-issues.md`.

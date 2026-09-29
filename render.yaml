@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: verifact-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # starter ($7/mo) stays awake. "free" works but sleeps after 15 idle minutes (~1 min cold start)
+    # and has 512 MB RAM, which is tight for the JVM plus OCR.
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: OPEN_AI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      # Legacy search (discontinued 2027-01-01); optional once TAVILY_API_KEY is set
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: GOOGLE_SEARCH_ENGINE
+        sync: false
+      # Supabase "Session pooler" JDBC URL (IPv4). The direct connection is IPv6-only and fails on Render.
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: SUPABASE_DB_USER
+        sync: false
+      - key: SUPABASE_DB_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false
+      # Render's proxy appends the client IP to X-Forwarded-For; needed for per-IP rate limits.
+      - key: TRUST_FORWARDED_FOR
+        value: "true"
