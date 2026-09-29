@@ -1,32 +1,52 @@
-# React + TypeScript + Vite
+# VeriFact frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+*Verify Truth, Fight the False.*
 
-Currently, two official plugins are available:
+The web client for VeriFact. You paste a claim, an article, or a link, or upload an image or a short WAV clip. VeriFact
+pulls out the specific factual claims, searches the web for sources, and returns a structured report. The report gives
+a verdict and evidence strength for each claim, lists the supporting and contradicting sources with quotes, and says
+what remains uncertain.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Built with React 19, Vite and TypeScript. It has no router or UI library: a small pathname router (`src/router.ts`)
+serves `/` (check) and `/r/{id}` (shareable report).
 
-## React Compiler
+## Configuration
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Variable | Purpose | Example |
+|---|---|---|
+| `VITE_API_BASE_URL` | Base URL of the VeriFact backend (v2 API). Read at build time. | `http://localhost:8080` |
 
-## Expanding the Oxlint configuration
+Copy `.env.example` to `.env.local` for local development.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Scripts
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm ci            # install
+npm run dev       # dev server with HMR
+npm run build     # type-check and build to dist/
+npm run lint      # oxlint
+npm run preview   # serve the production build locally
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## How it talks to the backend
+
+All requests go through `src/api.ts`:
+
+- `POST /api/v2/verifications`: text or a link (`{"input": "..."}`)
+- `POST /api/v2/verifications/image` and `/audio`: multipart `file`
+- `GET /api/v2/verifications/{id}`: a saved report (used by `/r/{id}`)
+
+Errors are RFC 9457 problem+json. The UI shows the `detail`, the `X-Request-Id` as a reference, and `Retry-After`
+when the server rate-limits (429). API text is always rendered as plain text, never as HTML.
+
+"Recent checks" are stored only in the browser's `localStorage`: the last 10 report IDs, with each report's verdict and label.
+
+## Deploy (Cloudflare Pages)
+
+- Root directory: `frontend`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Environment variable: `VITE_API_BASE_URL`, set to the public backend URL
+
+`public/_redirects` (`/*  /index.html  200`) makes deep links such as `/r/{id}` load the app.
+The backend's `ALLOWED_ORIGIN` must include the Pages domain.
