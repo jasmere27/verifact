@@ -6,3 +6,12 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+
+# Build output / IDE
+/bin/
+.classpath
+.project
+.settings/
+.idea/
+*.iml
+.vscode/
