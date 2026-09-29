@@ -39,7 +39,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     static final Set<String> LIMITED_PATHS = Set.of(
             "/api/v1/isFakeNews",
             "/api/v1/analyzeImage",
-            "/api/v1/analyzeAudio");
+            "/api/v1/analyzeAudio",
+            "/api/v2/verifications",
+            "/api/v2/verifications/image",
+            "/api/v2/verifications/audio");
 
     private final FixedWindowRateLimiter perIpMinute;
     private final FixedWindowRateLimiter perIpDay;
