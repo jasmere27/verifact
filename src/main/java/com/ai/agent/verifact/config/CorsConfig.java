@@ -19,8 +19,9 @@ public class CorsConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                         .allowedOrigins(allowedOrigins.split("\\s*,\\s*"))
-                        .allowedMethods("*")
-                        .allowedHeaders("*");
+                        .allowedMethods("GET", "POST", "OPTIONS")
+                        .allowedHeaders("Content-Type", "X-Request-Id")
+                        .exposedHeaders("X-Request-Id", "Retry-After");
             }
         };
     }

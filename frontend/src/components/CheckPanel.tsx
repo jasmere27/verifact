@@ -104,7 +104,7 @@ export default function CheckPanel() {
             <label className="drop-slot">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/bmp,image/tiff"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
               {file ? file.name : "Choose an image to scan"}
@@ -114,7 +114,7 @@ export default function CheckPanel() {
             <label className="drop-slot">
               <input
                 type="file"
-                accept="audio/*"
+                accept="audio/wav,audio/x-wav"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
               {file ? file.name : "Choose an audio clip to scan"}

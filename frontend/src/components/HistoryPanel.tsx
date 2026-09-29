@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchHistory } from "../api";
+import { ApiError, fetchHistory } from "../api";
 import type { FactCheckResult, HistoryPage } from "../types";
 import { readVerdict } from "../verdict";
 import VerdictGauge from "./VerdictGauge";
@@ -28,22 +28,41 @@ export default function HistoryPanel() {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<HistoryPage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
     fetchHistory(page)
       .then((result) => {
         if (!cancelled) setData(result);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load the log.");
+        if (cancelled) return;
+        // The history API is disabled until accounts exist (it would expose everyone's checks).
+        if (err instanceof ApiError && err.status === 404) {
+          setUnavailable(true);
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load the log.");
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [page]);
+
+  function goToPage(next: number) {
+    setError(null);
+    setPage(next);
+  }
+
+  if (unavailable) {
+    return (
+      <p className="muted">
+        Your check history will appear here once accounts are available. Checks aren&apos;t shown publicly.
+      </p>
+    );
+  }
 
   if (error) {
     return <p className="error-message">{error}</p>;
@@ -89,7 +108,7 @@ export default function HistoryPanel() {
       </ul>
 
       <div className="pagination">
-        <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+        <button type="button" disabled={page === 0} onClick={() => goToPage(page - 1)}>
           Previous
         </button>
         <span>
@@ -98,7 +117,7 @@ export default function HistoryPanel() {
         <button
           type="button"
           disabled={page + 1 >= data.totalPages}
-          onClick={() => setPage((p) => p + 1)}
+          onClick={() => goToPage(page + 1)}
         >
           Next
         </button>

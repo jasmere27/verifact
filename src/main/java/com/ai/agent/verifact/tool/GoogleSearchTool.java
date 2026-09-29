@@ -1,66 +1,77 @@
 package com.ai.agent.verifact.tool;
 
-import org.springframework.web.util.UriComponentsBuilder;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Component
 public class GoogleSearchTool {
 
-    @Value("${GOOGLE_API_KEY}")
-    private String API_KEY;
+    private static final Logger log = LoggerFactory.getLogger(GoogleSearchTool.class);
+    private static final String UNAVAILABLE = "Web Search is not available at the moment.";
 
-    @Value("${GOOGLE_SEARCH_ENGINE}")
-    private String SEARCH_ENGINE_ID;
-
+    private final String apiKey;
+    private final String searchEngineId;
     private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
-    public GoogleSearchTool(RestTemplate restTemplate) {
+    public GoogleSearchTool(RestTemplate restTemplate,
+                            ObjectMapper objectMapper,
+                            @Value("${google.api.key}") String apiKey,
+                            @Value("${google.cse.id}") String searchEngineId) {
         this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+        this.apiKey = apiKey;
+        this.searchEngineId = searchEngineId;
     }
 
-    @Tool(description = "Search the web using Google Custom Search API")
+    @Tool(description = "Search the web. Returns results as 'title | url | snippet' lines. "
+            + "Only these URLs may be cited as sources.")
     public String searchWeb(String query) {
-        System.out.println("Google Search query: " + query);
+        log.debug("Web search requested ({} chars)", query == null ? 0 : query.length());
 
         final String url = UriComponentsBuilder.fromUriString("https://www.googleapis.com/customsearch/v1")
-                .queryParam("key", API_KEY)
-                .queryParam("cx", SEARCH_ENGINE_ID)
+                .queryParam("key", apiKey)
+                .queryParam("cx", searchEngineId)
                 .queryParam("q", query)
                 .build()
                 .toUriString();
 
-        final StringBuilder snippets = new StringBuilder();
-
         try {
             final String response = restTemplate.getForObject(url, String.class);
-
-            final JsonNode root = new ObjectMapper().readTree(response);
-            for (final JsonNode item : root.path("items")) {
-                snippets.append("- ").append(item.path("snippet").asText()).append("\n");
-            }
-
-        } catch (HttpClientErrorException e) {
-            if (e.getStatusCode().value() == 403) {
-                System.out.println("Web Search is not available: 403 Forbidden. " +
-                        "Check if Custom Search API is enabled and API key is valid.");
-                return "Web Search is not available at the moment: 403 Forbidden. " +
-                        "Please check your API key and enable the Custom Search API.";
-            }
-            System.out.println("HttpClientErrorException: " + e.getMessage());
-            return "Web Search is not available at the moment: " + e.getMessage();
+            return formatResults(objectMapper.readTree(response));
+        } catch (RestClientResponseException e) {
+            // Never log the exception message or URL: the request URL carries the API key.
+            log.warn("Web search failed with HTTP {}", e.getStatusCode().value());
+            return UNAVAILABLE;
         } catch (Exception e) {
-            System.out.println("Unexpected error: " + e.getMessage());
-            return "Web Search is not available at the moment.";
+            log.warn("Web search failed: {}", e.getClass().getSimpleName());
+            return UNAVAILABLE;
         }
+    }
 
-        System.out.println("Google Search Response: " + snippets.toString());
+    String formatResults(JsonNode root) {
+        final StringBuilder results = new StringBuilder();
+        for (final JsonNode item : root.path("items")) {
+            results.append("- ")
+                    .append(clean(item.path("title").asText()))
+                    .append(" | ")
+                    .append(item.path("link").asText())
+                    .append(" | ")
+                    .append(clean(item.path("snippet").asText()))
+                    .append('\n');
+        }
+        return results.isEmpty() ? "No results found." : results.toString();
+    }
 
-        return snippets.toString();
+    private static String clean(String text) {
+        return text.replace('\n', ' ').replace('|', '/').trim();
     }
 }
