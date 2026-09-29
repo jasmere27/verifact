@@ -30,7 +30,7 @@ for context; delete them once they stop being useful._
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.
-16. Reports are readable by anyone with the link (UUID). Intended (sharing), but users should be told near the share action; no deletion path yet.
+16. Reports are readable by anyone with the link (UUID) — the report page says so. No retention policy or deletion path: reports keep up to 1,500 chars of submitted/OCR/transcript text indefinitely. Add a retention job (e.g. 90 days) and a delete route before promoting sharing widely.
 
 ## Resolved in Phase 0a (2026-09-30)
 - SSRF via user URLs and LLM-callable fetch tool → `SafeUrlFetcher`/`UrlGuard`; fetch tool removed from the model.
@@ -50,4 +50,5 @@ for context; delete them once they stop being useful._
 - (review) Nested delimiter reconstruction → per-request random delimiter nonce; attacker URL removed from trusted prompt text (host only).
 - (review) Unbounded rate-limiter map / per-request scans → capped at 100k keys, cleanup at most once a minute, IPv6 grouped by /64.
 - (review) OCR memory exhaustion → 16 MP cap, at most 2 concurrent OCR jobs.
+- (Phase 1 review) Self-corroborating links, subdomain/`site:` strength inflation, stance inversion on debunking articles, MISLEADING hedging, unbacked model summaries, prose-wrapped JSON → all fixed with tests.
 - (review) Malformed redirect → 500; non-multipart upload → 500; requestId missing on Spring's own errors; health check tied to DB → all fixed.
