@@ -19,7 +19,7 @@ real, maintainable, eventually monetizable product run by one developer.
 - Frontend: React 19, Vite 8, TypeScript 6, oxlint. No router, no test runner.
 - DB: Supabase Postgres, project ref `yappnvazdkscgqzipdxd`, region ap-southeast-2 (Sydney). Session pooler host `aws-0-ap-southeast-2.pooler.supabase.com:5432`, user `postgres.yappnvazdkscgqzipdxd`. Tables via Flyway (`fact_check_results`, `verifications`). Render region set to singapore to match.
 - Search: Google Custom Search JSON API (**shuts down 2027-01-01; closed to new customers**).
-- Hosting config: `render.yaml` (Render, Docker, `plan: starter`), `frontend/wrangler.toml` + `public/_redirects` (Cloudflare Pages). Guide: `docs/DEPLOYMENT.md`. **Not deployed yet** as of 2026-09-30 — waiting on the owner's Supabase/Render/Cloudflare/OpenAI/Tavily accounts.
+- Hosting config: `render.yaml` (Render, Docker, `plan: starter`), `frontend/wrangler.toml` + `public/_redirects` (Cloudflare Pages). **Live since 2026-09-30:** frontend https://verifact-blf.pages.dev (Pages project `verifact`, direct upload via wrangler), backend https://verifact-backend-5mux.onrender.com (Render `srv-dad6lhrncjis7387if1g`, free, Singapore, auto-deploys `main`). Redeploy steps: top of `docs/DEPLOYMENT.md`. Render CLI at `~/.local/bin/render` and wrangler (via npx) are logged in as the owner. The old `verifact-bw9.pages.dev` site lives in a different Cloudflare account and is stale.
 
 ## Users (hypothesis, not validated)
 Students, general public checking viral claims/screenshots, educators; later journalists/moderators.

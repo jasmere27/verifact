@@ -4,6 +4,7 @@ _Last updated: 2026-09-30 (Phase 1). Ranked. Resolved items are listed at the bo
 for context; delete them once they stop being useful._
 
 ## Critical
+0. **Rotate API keys.** The OpenAI, Tavily and Google keys were pasted into a chat on 2026-09-30. Replace them in the Render dashboard (and local `.env`), redeploy, then delete the old keys at each provider.
 1. **Production search still needs a Tavily key.** Code supports Tavily (ADR-5), but until `TAVILY_API_KEY` is set, `auto` falls back to Google Custom Search, which stops working on 2027-01-01. Tavily integration has only been tested against its documented contract (mocked), not a live call.
 
 ## High
@@ -21,7 +22,7 @@ for context; delete them once they stop being useful._
 12. Render `plan: starter` is paid; free tier (512 MB, sleeps after 15 min) is tight for JVM + Tesseract.
 13. Local dev environment: JDK 21 installed at `~/.local/jdks/` (not on PATH by default); no Docker, so the Docker image build is untested locally.
 
-14a. **Verify X-Forwarded-For on Render before relying on per-IP limits.** With `TRUST_FORWARDED_FOR=true` the right-most entry is used; if Render/Cloudflare puts its own hop there, all users share one bucket. Check real headers on first deploy (alternative: `server.forward-headers-strategy=native`).
+14a. **X-Forwarded-For on Render:** verified 2026-09-30 that spoofed XFF headers don't bypass per-IP limits (right-most entry is Render's). Not yet verified that two real clients get separate buckets. With `TRUST_FORWARDED_FOR=true` the right-most entry is used; if Render/Cloudflare puts its own hop there, all users share one bucket. Check real headers on first deploy (alternative: `server.forward-headers-strategy=native`).
 14b. (v1 only) Search-outage detection relies on the model echoing a marker. v2 detects outages directly.
 14c. **No overall per-request deadline.** v2 worst case ≈ 2 model calls × 60 s × 2 attempts + 4 searches × 15 s. Acceptable for now; consider a global deadline if users hit it.
 14d. Legacy Google provider sends its API key as a query parameter (would appear with HTTP DEBUG logging). Moot once Google is unused.
