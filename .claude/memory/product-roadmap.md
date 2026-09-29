@@ -12,12 +12,12 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☐ Decide data retention for stored submissions
 
 ## Phase 1 — Core verification (the product)
-- ☐ Backend-controlled pipeline (ADR-3) with structured output
+- ☑ Backend-controlled pipeline (ADR-3) with structured output — API v2
 - ◐ Replace Google CSE with a new `SearchProvider` (ADR-5) returning URL/title/date — Tavily implemented; needs a production key + live smoke test
-- ☐ New taxonomy + evidence strength (ADR-4)
-- ☐ Evidence model persisted: claims, evidence items, sources, AI run metadata
+- ☑ New taxonomy + evidence strength (ADR-4)
+- ◐ Evidence model persisted — full report as JSON (ADR-7); normalised tables deferred
 - ☐ Result page redesign: checked → assessment → why → supporting/contradicting evidence → sources/dates → limitations
-- ☐ Eval set (30–50 labeled claims) + cost/latency logging
+- ◐ Eval set (20 labeled claims, opt-in live runner) + token/latency logging — not yet run live
 
 ## Phase 2 — Better verification
 - ☐ Source credibility signals (source type, known publisher, date recency) — explainable, not a secret score

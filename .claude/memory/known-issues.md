@@ -1,15 +1,15 @@
 # Known Issues
 
-_Last updated: 2026-09-30 (after Phase 0a). Ranked. Resolved items are listed at the bottom
+_Last updated: 2026-09-30 (Phase 1). Ranked. Resolved items are listed at the bottom
 for context; delete them once they stop being useful._
 
 ## Critical
 1. **Production search still needs a Tavily key.** Code supports Tavily (ADR-5), but until `TAVILY_API_KEY` is set, `auto` falls back to Google Custom Search, which stops working on 2027-01-01. Tavily integration has only been tested against its documented contract (mocked), not a live call.
 
 ## High
-2. **Model-driven, unstructured verification.** The LLM decides when to search (unbounded tool loop, capped only by Spring AI internals) and returns free-form markdown that is regex-parsed in `FactCheckResponseParser` and `frontend/src/parseResponse.ts`. → Phase 1 pipeline (ADR-3).
-3. **Prompt biases toward confident, knowledge-based verdicts.** "Trusted source → real, 100%", "use internal knowledge if search unavailable", "don't classify unverified unless absolutely no evidence", fixed confidence rules. Left unchanged in Phase 0a deliberately: verdict logic changes need the eval set first (ai-verification playbook).
-4. **Citations are constrained, not enforced.** Search now returns URLs and the prompt forbids citing others, but nothing validates the model's citations server-side. → Phase 1 citation validator.
+2. **Live eval not yet run.** The v2 pipeline is verified with fakes (138 tests) and an eval set exists (`VerificationEvalIT`, 20 labeled claims), but it has never been run against the real model + Tavily. Run it once keys exist; tune prompts if accuracy < 80%.
+3. **v1 endpoints (deprecated) keep the old behaviour:** model-driven search, free-form markdown regex-parsed, and a prompt biased toward confident verdicts ("trusted source → real 100%", "use internal knowledge"). v2 fixes all of this; remove v1 once unused.
+4. **Evidence is search snippets only.** v2 judges from titles/snippets, not full articles, so nuanced claims may land on INSUFFICIENT_EVIDENCE or be judged on thin excerpts. Possible next step: safe-fetch the top 2–3 cited pages for longer excerpts (cost/latency tradeoff).
 6. **Audio path needs Google credentials** that no deploy config provides → `503` in practice. Also LINEAR16/en-US only.
 7. **Stored submissions have no retention policy.** Every check (including user text) is persisted to `fact_check_results` indefinitely; no deletion path. Decide retention before public launch.
 
@@ -22,15 +22,15 @@ for context; delete them once they stop being useful._
 13. Local dev environment: JDK 21 installed at `~/.local/jdks/` (not on PATH by default); no Docker, so the Docker image build is untested locally.
 
 14a. **Verify X-Forwarded-For on Render before relying on per-IP limits.** With `TRUST_FORWARDED_FOR=true` the right-most entry is used; if Render/Cloudflare puts its own hop there, all users share one bucket. Check real headers on first deploy (alternative: `server.forward-headers-strategy=native`).
-14b. **Search-outage detection is weak.** `AiService` relies on the model echoing `Web Search is not available`, while the prompt still says to "continue using internal knowledge" if search is down. Replace with a tool-set flag / backend-run search in Phase 1.
-14c. **No overall per-request deadline.** Model call ≤60 s × 2 attempts (max-retries=1) × several tool rounds. Bounded by Phase 1's fixed pipeline.
+14b. (v1 only) Search-outage detection relies on the model echoing a marker. v2 detects outages directly.
+14c. **No overall per-request deadline.** v2 worst case ≈ 2 model calls × 60 s × 2 attempts + 4 searches × 15 s. Acceptable for now; consider a global deadline if users hit it.
 14d. Legacy Google provider sends its API key as a query parameter (would appear with HTTP DEBUG logging). Moot once Google is unused.
 14e. Global daily cap (1000) can be exhausted by ~20 IPs → deliberate cost-over-availability tradeoff until accounts exist.
 
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.
-16. Frontend: result shown as raw markdown in `<pre>`; TRUE/FALSE needle gauge implies binary truth and false precision; dark mode only. → Phase 1 result page redesign.
+16. Reports are readable by anyone with the link (UUID). Intended (sharing), but users should be told near the share action; no deletion path yet.
 
 ## Resolved in Phase 0a (2026-09-30)
 - SSRF via user URLs and LLM-callable fetch tool → `SafeUrlFetcher`/`UrlGuard`; fetch tool removed from the model.

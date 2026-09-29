@@ -1,58 +1,50 @@
 # Architecture
 
-_Last updated: 2026-09-30. Describes code as it exists; the target is at the bottom._
+_Last updated: 2026-09-30 (Phase 1). Describes the code as it exists._
 
-## Current (after Phase 0a)
+Modular monolith: one Spring Boot 4 app (Java 21) + a static React SPA. Deploy topology: ADR-8.
 
-```
-React SPA (frontend/, Cloudflare Pages)
-   │  fetch; 200 text/plain reports, problem+json errors
-   ▼
-RequestIdFilter → RateLimitFilter (verification paths) → CORS
-   ▼
-AiController  /api/v1/*                      (controller/AiController.java)
-   ├─ isFakeNews (GET ?news= | POST {news})
-   ├─ analyzeImage (multipart) → ImageOcrService (in-memory decode + size checks, Tesseract) → AiService
-   ├─ analyzeAudio (multipart) → VoiceToTextTool (Google Speech, LINEAR16/en-US) → AiService
-HistoryController /api/v1/history* → 404 unless HISTORY_API_ENABLED
-GlobalExceptionHandler → problem+json for ApiException, MVC errors, and a generic 500
-   ▼
-AiService.isFakeNews(input)                  (service/AiService.java)
-   ├─ if input is a single http(s) token: SafeUrlFetcher (UrlGuard on every hop, size/time caps)
-   ├─ content sanitized (delimiters stripped, truncated) and placed in an untrusted-content block
-   ├─ ChatClient.prompt().tools(dateTimeTool, webSearchTool).call()   (WebSearchTool → SearchProvider: Tavily | Google legacy)
-   │     the MODEL still decides when to search (no fetch tool any more)
-   ├─ returns free-form markdown string; 502 on provider failure, 503 if search was down
-   └─ FactCheckResponseParser regex-extracts classification/confidence/sources → DB (failure is logged, not fatal)
-```
-
-- **Model-driven search.** The LLM calls `searchWeb` and `getCurrentDateTime` as Spring AI `@Tool`s. URL fetching is backend-only.
-- **Search results** are `title | url | published: date | snippet` lines from the configured `SearchProvider`; the prompt forbids citing other URLs (not yet validated server-side).
-- **Output is unstructured text**; both the backend parser and the frontend (`parseResponse.ts`) regex-scrape `**Classification:**` and `**Confidence Score:**`.
-- Verdicts: `real | fake | mixed | unverified` + a prompt-dictated confidence number.
-- No auth or users. In-memory rate limits; SLF4J logging with request IDs; `/actuator/health`.
-
-### Data model (feature branch, `V1__init.sql`)
-`fact_check_results(id bigserial, input_type, original_input text, classification, confidence_score, sources text, cybersecurity_tips text, full_response text, created_at timestamptz)` + index on `created_at desc`.
-
-### Packages
-`common/` (errors, request ID, rate limit) · `config/` (CORS) · `search/` (SearchProvider, Tavily, Google legacy, selection) · `controller/` · `fetch/` (UrlGuard, SafeUrlFetcher) · `model/` · `repository/` · `service/` · `tool/`.
-
-## Target (proposed, pending approval; see decisions.md)
-
-Modular monolith, backend-controlled pipeline:
+## Request path
 
 ```
-verification/   VerificationController (v2 JSON API), VerificationService (pipeline), DTO records
-claims/         ClaimExtractor (LLM #1, structured)
-search/         SearchProvider interface → one impl (chosen via research), result cache
-fetch/          SafeContentFetcher (SSRF guard, size/time caps, redirect re-validation)
-evidence/       EvidenceItem, Source (publisher, domain, published_at, retrieved_at)
-assessment/     Assessor (LLM #2, structured, cites evidence IDs) + CitationValidator
-ai/             provider config (AI_PROVIDER / AI_MODEL), usage/cost logging
-media/          image → text (OCR or vision model), audio → transcript
-history/        persistence + read APIs (scoped per user once auth exists)
-common/         ProblemDetail error handling, request ID filter, rate limiting
+React SPA (frontend/, Cloudflare Pages) ── JSON ──►
+RequestIdFilter → CorsFilter → RateLimitFilter (normalized path; verification POSTs only) → Spring MVC
+  ├─ VerificationController  /api/v2/verifications[/image|/audio|/{id}]      ← current
+  ├─ AiController            /api/v1/isFakeNews|analyzeImage|analyzeAudio    ← deprecated (v1)
+  ├─ HistoryController       /api/v1/history*  (404 unless HISTORY_API_ENABLED)
+  └─ /actuator/health        (no DB/AI/search)
+GlobalExceptionHandler → RFC 9457 problem+json with requestId for every error
 ```
 
-Legacy `/api/v1/isFakeNews`, `/analyzeImage`, `/analyzeAudio` stay working (adapter over the new pipeline) until the frontend migrates.
+## v2 verification pipeline (`verification/VerificationService`, ADR-3/4/7)
+
+```
+input ─► text | link → SafeUrlFetcher (UrlGuard every hop) | image → ImageOcrService | audio → VoiceToTextTool
+      ─► truncate (MAX_CONTENT_CHARS)
+      ─► LlmClient #1  ClaimExtraction   (≤3 claims, ≤2 queries each; no tools; nonce-delimited content)
+             no claims → 422
+      ─► SearchProvider (Tavily | Google legacy)  ≤4 queries, ≤4 results each, dedupe by URL, ≤10 evidence E1..En
+             all searches failed → 503 (never answer from memory)
+             no evidence → every claim INSUFFICIENT_EVIDENCE, skip LLM #2
+      ─► LlmClient #2  Assessment        (per-claim verdict + cited evidence IDs + explanation + limitations)
+      ─► validate: drop unknown IDs, downgrade unbacked verdicts, strength from distinct cited domains,
+                   overall = common verdict else MIXED (all computed server-side)
+      ─► VerificationStore.save (JSON in `verifications`, best-effort) ─► VerificationResult JSON
+```
+
+- `ai/LlmClient` is the provider seam; `SpringAiLlmClient` sends plain `SystemMessage`/`UserMessage` (no templating) and parses JSON with `BeanOutputConverter`; logs model/tokens/latency per step.
+- Provider/model: Spring AI OpenAI starter (`SPRING_AI_OPENAI_CHAT_MODEL`), `max-retries=1`, `timeout=60s`.
+- Prompts: `verification/VerificationPrompts`.
+
+## Legacy v1 (deprecated)
+`AiService` → one PromptTemplate, the model calls `WebSearchTool`/`DateTimeTool` itself, returns markdown; `FactCheckResponseParser` regex-extracts fields into `fact_check_results`.
+
+## Data model (Flyway)
+- `V1__init.sql` `fact_check_results` — v1 reports (text columns).
+- `V2__verifications.sql` `verifications(id uuid pk, created_at, input_type, overall_verdict, search_provider, duration_ms, result_json text)` + index on `created_at desc`.
+
+## Packages (`com.ai.agent.verifact`)
+`ai/` LLM seam · `verification/` v2 pipeline, DTOs, persistence, controller · `search/` providers + selection · `fetch/` SSRF-safe fetching · `common/` errors, request ID, rate limit · `config/` CORS, clock · `controller/`, `service/`, `tool/`, `model/`, `repository/` v1 + shared OCR/speech.
+
+## Frontend (`frontend/`)
+React 19 + Vite + TS, no router library. Home (check form, recent checks in localStorage) and report view `/r/{id}` (loads via GET). `public/_redirects` for SPA deep links. Talks only to v2.
