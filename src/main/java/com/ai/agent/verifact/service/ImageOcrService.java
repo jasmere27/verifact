@@ -16,14 +16,22 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ImageOcrService {
 
     private static final Logger log = LoggerFactory.getLogger(ImageOcrService.class);
 
-    /** Guards against decompression bombs: a small file can declare enormous dimensions. */
-    static final long MAX_PIXELS = 40_000_000L;
+    /**
+     * Guards against decompression bombs: a small file can declare enormous dimensions.
+     * 16 MP decodes to ~64 MB, which matters on a 512 MB instance.
+     */
+    static final long MAX_PIXELS = 16_000_000L;
+
+    /** Decoded images and Tesseract are memory-heavy; cap how many run at once. */
+    private final Semaphore ocrSlots = new Semaphore(2);
     static final String UNSUPPORTED_MESSAGE = "Unsupported image. Upload a JPEG, PNG, GIF, BMP, or TIFF file.";
 
     private final String tessdataPath;
@@ -34,8 +42,24 @@ public class ImageOcrService {
 
     /** Decodes the upload in memory (no temp files) and returns the text Tesseract finds in it. */
     public String extractText(byte[] imageBytes) {
-        BufferedImage image = decode(imageBytes);
+        boolean acquired;
+        try {
+            acquired = ocrSlots.tryAcquire(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            acquired = false;
+        }
+        if (!acquired) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "VeriFact is busy reading other images. Please try again.");
+        }
+        try {
+            return ocr(decode(imageBytes));
+        } finally {
+            ocrSlots.release();
+        }
+    }
 
+    private String ocr(BufferedImage image) {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath(tessdataPath);
         String text;

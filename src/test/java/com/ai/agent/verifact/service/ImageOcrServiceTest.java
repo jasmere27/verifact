@@ -39,7 +39,7 @@ class ImageOcrServiceTest {
 
     @Test
     void rejectsDecompressionBombsBeforeDecoding() throws IOException {
-        byte[] bomb = withDimensions(png(1, 1), 50_000, 50_000);
+        byte[] bomb = withDimensions(png(1, 1), 5_000, 4_000);
         assertThatThrownBy(() -> ImageOcrService.decode(bomb))
                 .isInstanceOfSatisfying(ApiException.class,
                         e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE));

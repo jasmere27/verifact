@@ -92,6 +92,30 @@ class RateLimitTest {
         assertThat(trusted.clientIp(request)).isEqualTo("7.7.7.7");
     }
 
+    @Test
+    void ipv6ClientsAreGroupedByPrefix() {
+        assertThat(RateLimitFilter.ipv6Prefix("2001:db8:1:2:aaaa::1"))
+                .isEqualTo(RateLimitFilter.ipv6Prefix("2001:db8:1:2:bbbb::9"))
+                .isNotEqualTo(RateLimitFilter.ipv6Prefix("2001:db8:1:3::1"));
+        assertThat(RateLimitFilter.ipv6Prefix("1.2.3.4")).isEqualTo("1.2.3.4");
+    }
+
+    @Test
+    void limiterMemoryIsBounded() {
+        MutableClock clock = new MutableClock();
+        FixedWindowRateLimiter limiter = new FixedWindowRateLimiter(10, Duration.ofDays(1), clock);
+        for (int i = 0; i < FixedWindowRateLimiter.MAX_KEYS + 5_000; i++) {
+            limiter.tryAcquire("k" + i);
+        }
+        assertThat(limiter.trackedKeys()).isLessThanOrEqualTo(FixedWindowRateLimiter.MAX_KEYS);
+        assertThat(limiter.tryAcquire("brand-new")).as("fails closed when full").isPositive();
+        assertThat(limiter.tryAcquire("k1")).as("known keys still work").isZero();
+
+        clock.advance(Duration.ofDays(1).plusMinutes(2));
+        assertThat(limiter.tryAcquire("after-expiry")).as("expired windows are cleaned up").isZero();
+        assertThat(limiter.trackedKeys()).isLessThan(10);
+    }
+
     private static MockHttpServletResponse call(RateLimitFilter filter, String path, String ip, String forwardedFor)
             throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", path);

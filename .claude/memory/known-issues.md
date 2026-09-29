@@ -22,6 +22,12 @@ for context; delete them once they stop being useful._
 12. Render `plan: starter` is paid; free tier (512 MB, sleeps after 15 min) is tight for JVM + Tesseract.
 13. Local dev environment: JDK 21 installed at `~/.local/jdks/` (not on PATH by default); no Docker, so the Docker image build is untested locally.
 
+14a. **Verify X-Forwarded-For on Render before relying on per-IP limits.** With `TRUST_FORWARDED_FOR=true` the right-most entry is used; if Render/Cloudflare puts its own hop there, all users share one bucket. Check real headers on first deploy (alternative: `server.forward-headers-strategy=native`).
+14b. **Search-outage detection is weak.** `AiService` relies on the model echoing `Web Search is not available`, while the prompt still says to "continue using internal knowledge" if search is down. Replace with a tool-set flag / backend-run search in Phase 1.
+14c. **No overall per-request deadline.** Model call ≤60 s × 2 attempts × several tool rounds. Bounded by Phase 1's fixed pipeline.
+14d. Google API key is sent as a query parameter (would appear if RestTemplate DEBUG logging were enabled). Consider the `X-goog-api-key` header once verified against the Custom Search API — or moot after the search provider is replaced.
+14e. Global daily cap (1000) can be exhausted by ~20 IPs → deliberate cost-over-availability tradeoff until accounts exist.
+
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.
@@ -38,4 +44,10 @@ for context; delete them once they stop being useful._
 - Temp files never deleted → in-memory decoding.
 - `System.out`/`printStackTrace` logging, API key in logged URLs → SLF4J, request IDs, no key in logs.
 - Committed `bin/` and IDE files → removed and ignored.
-- No working tests → 87 tests with fakes.
+- No working tests → 98 tests with fakes.
+- (review) Rate-limit bypass via `;params`/percent-encoded paths → filter matches the normalized path; regression tests prove variants route AND are counted.
+- (review) 429/413 responses lacked CORS headers → CORS moved to a servlet filter ahead of the rate limiter.
+- (review) Nested delimiter reconstruction → per-request random delimiter nonce; attacker URL removed from trusted prompt text (host only).
+- (review) Unbounded rate-limiter map / per-request scans → capped at 100k keys, cleanup at most once a minute, IPv6 grouped by /64.
+- (review) OCR memory exhaustion → 16 MP cap, at most 2 concurrent OCR jobs.
+- (review) Malformed redirect → 500; non-multipart upload → 500; requestId missing on Spring's own errors; health check tied to DB → all fixed.

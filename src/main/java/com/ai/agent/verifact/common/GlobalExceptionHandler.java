@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
@@ -33,6 +34,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(e.getStatus()).body(problem(e.getStatus(), e.getMessage()));
     }
 
+    /** e.g. a non-multipart POST to an upload endpoint; not handled by the base class. */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ProblemDetail> handleMultipart(MultipartException e) {
+        log.info("Rejected malformed upload: {}", e.getClass().getSimpleName());
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status)
+                .body(problem(status, "Please upload the file as multipart/form-data in a field named \"file\"."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpected(Exception e) {
         log.error("Unhandled exception", e);
@@ -44,10 +54,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleExceptionInternal(Exception ex, Object body, HttpHeaders headers,
                                                              HttpStatusCode statusCode, WebRequest request) {
-        if (body instanceof ProblemDetail problemDetail) {
+        // The base class builds the ProblemDetail inside super, so tag the result, not the argument.
+        ResponseEntity<Object> response = super.handleExceptionInternal(ex, body, headers, statusCode, request);
+        if (response != null && response.getBody() instanceof ProblemDetail problemDetail) {
             addRequestId(problemDetail);
         }
-        return super.handleExceptionInternal(ex, body, headers, statusCode, request);
+        return response;
     }
 
     public static ProblemDetail problem(HttpStatus status, String detail) {

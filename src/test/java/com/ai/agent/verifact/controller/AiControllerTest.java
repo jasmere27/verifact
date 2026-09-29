@@ -143,6 +143,19 @@ class AiControllerTest {
     }
 
     @Test
+    void nonMultipartUploadIs400NotServerError() throws Exception {
+        mockMvc.perform(post("/api/v1/analyzeImage").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void standardSpringErrorsCarryRequestId() throws Exception {
+        mockMvc.perform(post("/api/v1/isFakeNews").contentType(MediaType.APPLICATION_JSON).content("{not json"))
+                .andExpect(jsonPath("$.requestId").exists());
+    }
+
+    @Test
     void missingFilePartIs400() throws Exception {
         mockMvc.perform(multipart("/api/v1/analyzeAudio")).andExpect(status().isBadRequest());
     }

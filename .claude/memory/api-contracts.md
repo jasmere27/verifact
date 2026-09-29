@@ -5,8 +5,8 @@ _Last updated: 2026-09-30 (Phase 0a). Base path `/api/v1`. No authentication yet
 ## Conventions (all endpoints)
 - **Errors:** non-2xx status + `application/problem+json` (RFC 9457): `{type, title, status, detail, instance, requestId}`. `detail` is safe to show users. Never contains stack traces or internal exception text.
 - **Request ID:** every response has `X-Request-Id` (a well-formed incoming one is reused). Logged via MDC.
-- **Rate limits** (verification endpoints only): per IP 5/min and 50/day, global 1000/day (env-configurable). Exceeded → `429` + `Retry-After` seconds.
-- **CORS:** origins from `ALLOWED_ORIGIN`; methods GET/POST/OPTIONS; headers Content-Type, X-Request-Id; exposes X-Request-Id, Retry-After.
+- **Rate limits** (verification endpoints only, matched on the normalized path): per IP (IPv6 per /64) 5/min and 50/day, global 1000/day (env-configurable). Exceeded → `429` + `Retry-After` seconds.
+- **CORS:** origins from `ALLOWED_ORIGIN`; methods GET/POST/OPTIONS; headers Content-Type, X-Request-Id; exposes X-Request-Id, Retry-After. Implemented as a servlet filter so 429/413 responses also carry CORS headers.
 
 ## Verification endpoints (success contract unchanged since v1)
 
@@ -20,7 +20,7 @@ _Last updated: 2026-09-30 (Phase 0a). Base path `/api/v1`. No authentication yet
 ### `POST /api/v1/analyzeImage`
 - In: multipart `file`, ≤ 10 MB, JPEG/PNG/GIF/BMP/TIFF, ≤ 40 MP.
 - Out: `200 text/plain` report (OCR text is what gets checked).
-- Errors: `400` missing/empty file · `413` file or dimensions too large · `415` not a supported image · `422` no readable text · `503` OCR unavailable · plus the text-check errors.
+- Errors: `400` missing/empty file or non-multipart request · `413` file or dimensions too large · `415` not a supported image · `422` no readable text · `503` OCR unavailable · plus the text-check errors.
 - Caller: `frontend/src/api.ts#checkImage`.
 
 ### `POST /api/v1/analyzeAudio`
@@ -33,7 +33,7 @@ _Last updated: 2026-09-30 (Phase 0a). Base path `/api/v1`. No authentication yet
 `GET /api/v1/history?page=&size=` and `GET /api/v1/history/{id}` → `404 problem+json` ("History is not available yet.") unless `HISTORY_API_ENABLED=true`. When enabled: Spring Data `Page<FactCheckResult>` JSON / single `FactCheckResult`. Frontend `HistoryPanel` shows an "available once accounts exist" message on 404.
 
 ## Operational
-`GET /actuator/health` → `{"status":"UP"}`. Only `health` is exposed; details hidden. Used by `render.yaml`.
+`GET /actuator/health` → `{"status":"UP"}`. Only `health` is exposed; details hidden; DB is excluded (persistence is best-effort). Used by `render.yaml`.
 
 ## Breaking changes in Phase 0a (2026-09-30)
 - Errors that used to be `200 text/plain` messages are now non-2xx `problem+json`. The bundled frontend was updated. Any external script that treated every 200 as a report must now check the status.

@@ -15,8 +15,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Set;
@@ -44,6 +47,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final boolean trustForwardedFor;
     private final ObjectMapper objectMapper;
 
+    /** Decodes and strips ";params" like Spring MVC's handler matching does. */
+    private static final UrlPathHelper PATH_HELPER = new UrlPathHelper();
+
+    static {
+        PATH_HELPER.setUrlDecode(true);
+        PATH_HELPER.setRemoveSemicolonContent(true);
+    }
+
     public RateLimitFilter(@Value("${app.rate-limit.per-ip-per-minute:5}") int perIpPerMinute,
                            @Value("${app.rate-limit.per-ip-per-day:50}") int perIpPerDay,
                            @Value("${app.rate-limit.global-per-day:1000}") int globalPerDay,
@@ -60,7 +71,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return "OPTIONS".equalsIgnoreCase(request.getMethod())
-                || !LIMITED_PATHS.contains(request.getRequestURI());
+                || !LIMITED_PATHS.contains(normalizedPath(request));
+    }
+
+    /**
+     * The path as the controllers will see it. Matching the raw request URI would let variants
+     * such as {@code /api/v1/isFakeNews;x} or percent-encoded paths reach a handler uncounted.
+     */
+    static String normalizedPath(HttpServletRequest request) {
+        String path = PATH_HELPER.getPathWithinApplication(request);
+        path = path.replaceAll("/{2,}", "/").replace("/./", "/");
+        while (path.length() > 1 && path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path;
     }
 
     @Override
@@ -88,17 +112,39 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /**
      * Behind a reverse proxy (Render, etc.) the socket address is the proxy. The proxy appends
      * the address it saw to X-Forwarded-For, so the right-most entry is the one a client can't
-     * forge. Only honoured when explicitly enabled.
+     * forge. Only honoured when explicitly enabled. IPv6 clients are grouped by /64, since one
+     * subscriber typically controls a whole /64 and could otherwise rotate addresses.
      */
     String clientIp(HttpServletRequest request) {
+        String ip = request.getRemoteAddr();
         if (trustForwardedFor) {
             String forwardedFor = request.getHeader("X-Forwarded-For");
             if (forwardedFor != null && !forwardedFor.isBlank()) {
                 String[] parts = forwardedFor.split(",");
-                return parts[parts.length - 1].trim();
+                ip = parts[parts.length - 1].trim();
             }
         }
-        return request.getRemoteAddr();
+        return ipv6Prefix(ip);
+    }
+
+    static String ipv6Prefix(String ip) {
+        if (ip == null || !ip.contains(":")) {
+            return ip;
+        }
+        try {
+            // Only literal addresses reach here (they contain ':'), so no DNS lookup happens.
+            byte[] b = InetAddress.getByName(ip).getAddress();
+            if (b.length != 16) {
+                return ip;
+            }
+            StringBuilder prefix = new StringBuilder();
+            for (int i = 0; i < 8; i += 2) {
+                prefix.append(String.format("%02x%02x:", b[i], b[i + 1]));
+            }
+            return prefix.append(":/64").toString();
+        } catch (UnknownHostException e) {
+            return ip;
+        }
     }
 
     private void reject(HttpServletResponse response, long retryAfterSeconds, String message) throws IOException {

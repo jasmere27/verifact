@@ -69,7 +69,13 @@ public class SafeUrlFetcher {
                 if (location == null || location.isBlank()) {
                     throw new FetchFailedException("That link redirects somewhere VeriFact can't follow.");
                 }
-                current = urlGuard.validate(current.resolve(location).toString());
+                URI next;
+                try {
+                    next = current.resolve(location.trim());
+                } catch (IllegalArgumentException e) {
+                    throw new FetchFailedException("That link redirects somewhere VeriFact can't follow.");
+                }
+                current = urlGuard.validate(next.toString());
                 continue;
             }
             if (status != 200) {

@@ -41,6 +41,10 @@ class SafeUrlFetcherTest {
             exchange.getResponseHeaders().add("Location", "/page");
             respond(exchange, 301, "text/html", "");
         });
+        server.createContext("/bad-location", exchange -> {
+            exchange.getResponseHeaders().add("Location", "http://exa mple.com/%zz");
+            respond(exchange, 302, "text/html", "");
+        });
         server.createContext("/loop", exchange -> {
             exchange.getResponseHeaders().add("Location", "/loop");
             respond(exchange, 302, "text/html", "");
@@ -78,6 +82,11 @@ class SafeUrlFetcherTest {
     @Test
     void revalidatesRedirectTargets() {
         assertThatThrownBy(() -> fetcher.fetch(base + "/to-metadata")).isInstanceOf(UnsafeUrlException.class);
+    }
+
+    @Test
+    void malformedRedirectIsAFetchFailureNot500() {
+        assertThatThrownBy(() -> fetcher.fetch(base + "/bad-location")).isInstanceOf(FetchFailedException.class);
     }
 
     @Test
