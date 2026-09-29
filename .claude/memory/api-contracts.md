@@ -58,4 +58,13 @@ interface VerificationResult { id: string; createdAt: string; inputType: "TEXT"|
 ```
 Guarantees: every evidence ID referenced by a claim exists in `evidence`; SUPPORTED/PARTLY cite ≥1 supporting, CONTRADICTED cites ≥1 contradicting; evidence URLs are http(s); at most 3 claims and 10 evidence items. `publishedDate` format varies by provider.
 
+### Streaming (used by the frontend)
+`POST /api/v2/verifications/stream` (JSON `{"input"}`), `POST /api/v2/verifications/image/stream`, `POST /api/v2/verifications/audio/stream` (multipart `file`) → `text/event-stream`. Validation errors (400/413/415/429) are ordinary problem+json before the stream starts. Then events, each `data:` one JSON line:
+- `stage` `{"stage":"READING_INPUT"|"EXTRACTING_CLAIMS"|"SEARCHING"|"ASSESSING"}`
+- `claims` `{"claims":[...]}` · `sources` `{"count":n,"domains":[...≤8]}`
+- exactly one of `result` (VerificationResult) or `error` `{"status","detail","requestId"}`
+Runs on a virtual thread; 180 s emitter timeout; `X-Accel-Buffering: no`. Rate limited like the other POSTs.
+
+`Evidence.sourceType`: `FACT_CHECKER|GOVERNMENT|ACADEMIC|REFERENCE|NEWS|OTHER|SOCIAL` (declaration order = display priority; null on reports stored before 2026-09-30 → treat as OTHER). Evidence is sorted by it before numbering. SOCIAL is capped at 2 per check, never counts toward strength, and can't alone back a verdict.
+
 **v1 is deprecated** (still served, unchanged) — it uses the older model-driven prompt. Remove once no callers remain.

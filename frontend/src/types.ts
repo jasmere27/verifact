@@ -4,6 +4,7 @@ export type Verdict = "SUPPORTED" | "PARTLY_SUPPORTED" | "MISLEADING" | "CONTRAD
 export type OverallVerdict = Verdict | "MIXED";
 export type EvidenceStrength = "STRONG" | "MODERATE" | "LIMITED";
 export type InputType = "TEXT" | "URL" | "IMAGE" | "AUDIO";
+export type SourceType = "FACT_CHECKER" | "NEWS" | "REFERENCE" | "GOVERNMENT" | "ACADEMIC" | "SOCIAL" | "OTHER";
 
 export interface Evidence {
   id: string;
@@ -15,6 +16,8 @@ export interface Evidence {
   publishedDate: string | null;
   /** ISO instant. */
   retrievedAt: string;
+  /** Kind of publisher. Missing on reports stored before it existed; normalised to "OTHER" by the API client. */
+  sourceType: SourceType;
 }
 
 export interface ClaimAssessment {
@@ -45,4 +48,12 @@ export interface VerificationResult {
   limitations: string[];
   searchProvider: string;
   durationMs: number;
+}
+
+/** Pipeline stages reported by the streaming endpoints, in order (some may be skipped). */
+export type StageId = "READING_INPUT" | "EXTRACTING_CLAIMS" | "SEARCHING" | "ASSESSING";
+
+export interface SourcesFound {
+  count: number;
+  domains: string[];
 }

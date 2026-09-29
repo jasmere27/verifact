@@ -1,4 +1,5 @@
-import type { VerificationResult } from "./types";
+import { toSourceType } from "./sources";
+import type { SourcesFound, StageId, VerificationResult } from "./types";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(/\/+$/, "");
 
@@ -73,16 +74,23 @@ function normalize(raw: VerificationResult): VerificationResult {
       supportingEvidenceIds: asArray<string>(c.supportingEvidenceIds),
       contradictingEvidenceIds: asArray<string>(c.contradictingEvidenceIds),
     })),
-    evidence: asArray(raw.evidence),
+    evidence: asArray<VerificationResult["evidence"][number]>(raw.evidence).map((e) => ({
+      ...e,
+      sourceType: toSourceType(e?.sourceType),
+    })),
     limitations: asArray(raw.limitations),
   };
 }
 
+const TIMEOUT_MESSAGE = "The check took too long to complete. Please try again in a moment.";
+const OFFLINE_MESSAGE = "Couldn't reach VeriFact. Check your connection and try again.";
+
 /**
- * Fetch JSON with a timeout. If the caller's `signal` aborts, the AbortError is rethrown
- * unchanged so callers can ignore it; network failures and timeouts become ApiErrors.
+ * Run `work` with a 120 s overall timeout (covering the whole response, streamed or not).
+ * If the caller's `signal` aborts, the AbortError is rethrown unchanged so callers can ignore it;
+ * network failures and timeouts become ApiErrors.
  */
-async function requestResult(path: string, init: RequestInit, signal?: AbortSignal): Promise<VerificationResult> {
+async function withTimeout<T>(signal: AbortSignal | undefined, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
@@ -92,43 +100,194 @@ async function requestResult(path: string, init: RequestInit, signal?: AbortSign
   const onCallerAbort = () => controller.abort();
   if (signal?.aborted) controller.abort();
   signal?.addEventListener("abort", onCallerAbort);
-
   try {
-    let response: Response;
-    try {
-      response = await fetch(`${API_BASE_URL}${path}`, { ...init, signal: controller.signal });
-    } catch (err) {
-      if (isAbortError(err) && !timedOut) throw err;
-      if (timedOut) {
-        throw new ApiError("The check took too long to complete. Please try again in a moment.", 0);
-      }
-      throw new ApiError("Couldn't reach VeriFact. Check your connection and try again.", 0);
-    }
-    if (!response.ok) throw await toApiError(response);
-    return normalize((await response.json()) as VerificationResult);
+    return await work(controller.signal);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (timedOut) throw new ApiError(TIMEOUT_MESSAGE, 0);
+    if (isAbortError(err) || signal?.aborted) throw err;
+    throw new ApiError(OFFLINE_MESSAGE, 0);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onCallerAbort);
   }
 }
 
-export function verifyText(input: string, signal?: AbortSignal): Promise<VerificationResult> {
-  return requestResult(
-    "/api/v2/verifications",
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input }) },
+function requestResult(path: string, init: RequestInit, signal?: AbortSignal): Promise<VerificationResult> {
+  return withTimeout(signal, async (timeoutSignal) => {
+    const response = await fetch(`${API_BASE_URL}${path}`, { ...init, signal: timeoutSignal });
+    if (!response.ok) throw await toApiError(response);
+    return normalize((await response.json()) as VerificationResult);
+  });
+}
+
+export function getVerification(id: string, signal?: AbortSignal): Promise<VerificationResult> {
+  return requestResult(`/api/v2/verifications/${encodeURIComponent(id)}`, { method: "GET" }, signal);
+}
+
+/* ---------- Streaming checks (Server-Sent Events over a POST response) ---------- */
+
+export interface SseFrame {
+  event: string;
+  data: string;
+}
+
+/**
+ * Incremental SSE parser. Network chunks can split anywhere — mid-line, mid-frame, even mid
+ * UTF-8 character — so bytes are decoded in streaming mode and text is buffered until a blank
+ * line completes a frame. Handles LF, CRLF and CR line endings, comment lines, and multi-line data.
+ */
+export function createSseParser(onFrame: (frame: SseFrame) => void) {
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  function dispatch(raw: string) {
+    let event = "message";
+    const data: string[] = [];
+    for (const line of raw.split("\n")) {
+      if (!line || line.startsWith(":")) continue;
+      const colon = line.indexOf(":");
+      const field = colon === -1 ? line : line.slice(0, colon);
+      let value = colon === -1 ? "" : line.slice(colon + 1);
+      if (value.startsWith(" ")) value = value.slice(1);
+      if (field === "event") event = value;
+      else if (field === "data") data.push(value);
+    }
+    if (data.length) onFrame({ event, data: data.join("\n") });
+  }
+
+  function drain(final: boolean) {
+    // A trailing "\r" may be the first half of a "\r\n" split across chunks: hold it back until the next chunk.
+    const held = !final && buffer.endsWith("\r") ? "\r" : "";
+    if (held) buffer = buffer.slice(0, -1);
+    buffer = buffer.replace(/\r\n?/g, "\n");
+    let end: number;
+    while ((end = buffer.indexOf("\n\n")) !== -1) {
+      dispatch(buffer.slice(0, end));
+      buffer = buffer.slice(end + 2);
+    }
+    buffer += held;
+  }
+
+  return {
+    push(chunk: Uint8Array) {
+      buffer += decoder.decode(chunk, { stream: true });
+      drain(false);
+    },
+    end() {
+      buffer += decoder.decode();
+      drain(true);
+      if (buffer.trim()) dispatch(buffer);
+      buffer = "";
+    },
+  };
+}
+
+export interface StreamHandlers {
+  onStage?: (stage: StageId) => void;
+  onClaims?: (claims: string[]) => void;
+  onSources?: (sources: SourcesFound) => void;
+}
+
+const STAGES: readonly StageId[] = ["READING_INPUT", "EXTRACTING_CLAIMS", "SEARCHING", "ASSESSING"];
+
+function parseJson(data: string): Record<string, unknown> | null {
+  try {
+    const value: unknown = JSON.parse(data);
+    return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function streamResult(path: string, body: BodyInit, headers: HeadersInit, handlers: StreamHandlers, signal?: AbortSignal) {
+  return withTimeout(signal, async (timeoutSignal) => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: { Accept: "text/event-stream", ...headers },
+      body,
+      signal: timeoutSignal,
+    });
+    if (!response.ok) throw await toApiError(response);
+
+    const requestId = response.headers.get("X-Request-Id") ?? undefined;
+    // A proxy or old backend may answer with plain JSON; accept that too.
+    if (!response.headers.get("Content-Type")?.includes("text/event-stream")) {
+      return normalize((await response.json()) as VerificationResult);
+    }
+    if (!response.body) throw new ApiError(OFFLINE_MESSAGE, 0, requestId);
+
+    let outcome: { result: VerificationResult } | { error: ApiError } | null = null;
+    const parser = createSseParser(({ event, data }) => {
+      if (outcome) return;
+      const payload = parseJson(data);
+      if (!payload) return;
+      switch (event) {
+        case "stage":
+          if (STAGES.includes(payload.stage as StageId)) handlers.onStage?.(payload.stage as StageId);
+          break;
+        case "claims":
+          handlers.onClaims?.(asArray<unknown>(payload.claims).filter((c): c is string => typeof c === "string"));
+          break;
+        case "sources":
+          handlers.onSources?.({
+            count: typeof payload.count === "number" && payload.count >= 0 ? payload.count : 0,
+            domains: asArray<unknown>(payload.domains).filter((d): d is string => typeof d === "string"),
+          });
+          break;
+        case "result":
+          outcome = { result: normalize(payload as unknown as VerificationResult) };
+          break;
+        case "error": {
+          const status = typeof payload.status === "number" ? payload.status : 500;
+          const detail = typeof payload.detail === "string" && payload.detail.trim() ? payload.detail : undefined;
+          outcome = {
+            error: new ApiError(
+              detail ?? FALLBACK_MESSAGES[status] ?? "Something went wrong while checking. Please try again.",
+              status,
+              typeof payload.requestId === "string" ? payload.requestId : requestId,
+            ),
+          };
+          break;
+        }
+      }
+    });
+
+    const reader = response.body.getReader();
+    try {
+      while (!outcome) {
+        const { done, value } = await reader.read();
+        if (done) {
+          parser.end();
+          break;
+        }
+        parser.push(value);
+      }
+    } finally {
+      if (outcome) reader.cancel().catch(() => undefined);
+    }
+
+    const final = outcome as { result: VerificationResult } | { error: ApiError } | null;
+    if (!final) {
+      throw new ApiError("The check stopped before it finished. Please try again.", 0, requestId);
+    }
+    if ("error" in final) throw final.error;
+    return final.result;
+  });
+}
+
+export function verifyTextStream(input: string, handlers: StreamHandlers, signal?: AbortSignal) {
+  return streamResult(
+    "/api/v2/verifications/stream",
+    JSON.stringify({ input }),
+    { "Content-Type": "application/json" },
+    handlers,
     signal,
   );
 }
 
-function verifyFile(kind: "image" | "audio", file: File, signal?: AbortSignal): Promise<VerificationResult> {
+export function verifyFileStream(kind: "image" | "audio", file: File, handlers: StreamHandlers, signal?: AbortSignal) {
   const formData = new FormData();
   formData.append("file", file);
-  return requestResult(`/api/v2/verifications/${kind}`, { method: "POST", body: formData }, signal);
-}
-
-export const verifyImage = (file: File, signal?: AbortSignal) => verifyFile("image", file, signal);
-export const verifyAudio = (file: File, signal?: AbortSignal) => verifyFile("audio", file, signal);
-
-export function getVerification(id: string, signal?: AbortSignal): Promise<VerificationResult> {
-  return requestResult(`/api/v2/verifications/${encodeURIComponent(id)}`, { method: "GET" }, signal);
+  return streamResult(`/api/v2/verifications/${kind}/stream`, formData, {}, handlers, signal);
 }

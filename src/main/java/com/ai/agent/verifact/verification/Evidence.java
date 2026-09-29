@@ -7,6 +7,12 @@ import java.time.Instant;
  *
  * @param id            stable within one verification, e.g. "E1"
  * @param publishedDate as reported by the search provider, or null if unknown
+ * @param sourceType    derived from the URL; null on reports stored before it existed
  */
 public record Evidence(String id, String url, String domain, String title, String snippet,
-                       String publishedDate, Instant retrievedAt) {}
+                       String publishedDate, Instant retrievedAt, SourceType sourceType) {
+
+    boolean isSocial() {
+        return sourceType == SourceType.SOCIAL;
+    }
+}

@@ -53,6 +53,7 @@ final class VerificationPrompts {
             - Cite evidence by ID (e.g. "E2") in supportingEvidenceIds / contradictingEvidenceIds. Only use IDs that
               appear in the evidence list. Cite only evidence that actually bears on the claim.
             - Prefer primary and established sources; be wary of anonymous, satirical, or low-quality sites.
+              Evidence of type SOCIAL (social media, forums, user posts) is low-reliability: never base a verdict on it alone.
             - Consider dates: note when evidence predates the claim's events or may be outdated.
             - explanation: at most 2 plain-language sentences saying why, referring to what the sources say.
               Do not describe your reasoning process.
@@ -78,6 +79,7 @@ final class VerificationPrompts {
         out.append("\nEVIDENCE\n");
         for (Evidence e : evidence) {
             out.append(e.id()).append(" | ").append(e.domain())
+                    .append(" | type: ").append(e.sourceType() == null ? SourceType.OTHER : e.sourceType())
                     .append(" | published: ").append(e.publishedDate() == null ? "unknown" : e.publishedDate())
                     .append(" | ").append(e.title()).append('\n')
                     .append("   ").append(e.snippet()).append('\n');

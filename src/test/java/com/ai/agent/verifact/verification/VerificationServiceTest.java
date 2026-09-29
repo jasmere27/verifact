@@ -134,7 +134,8 @@ class VerificationServiceTest {
         assertThat(claim.evidenceStrength()).isEqualTo(EvidenceStrength.STRONG);
         assertThat(claim.supportingEvidenceIds()).containsExactly("E1", "E2", "E3");
         assertThat(result.evidence()).extracting(Evidence::domain)
-                .containsExactly("toureiffel.paris", "britannica.com", "bbc.co.uk");
+                .as("ranked by source type: reference, news, other")
+                .containsExactly("britannica.com", "bbc.co.uk", "toureiffel.paris");
         assertThat(result.evidence().get(0).publishedDate()).isEqualTo("2026-01-01");
         assertThat(result.createdAt()).isEqualTo(NOW);
         assertThat(result.searchProvider()).isEqualTo("fake");
@@ -438,5 +439,54 @@ class VerificationServiceTest {
 
         assertThat(evidence).anyMatch(e -> e.domain().startsWith("c"));
         assertThat(evidence.stream().filter(e -> e.domain().startsWith("a")).count()).isLessThanOrEqualTo(4);
+    }
+
+    // ---- source types and progress ----
+
+    @Test
+    void socialMediaAloneCannotDecideAVerdictOrAddStrength() {
+        oneClaimWithSources("https://www.facebook.com/post/1", "https://reddit.com/r/x/1");
+        llm.assessment = u -> new Assessment("s",
+                List.of(new ClaimVerdict("C1", "CONTRADICTED", List.of(), List.of("E1", "E2"), "Posts say so.")), List.of());
+        assertThat(service.verifyText("claim").claims().get(0).verdict()).isEqualTo(Verdict.INSUFFICIENT_EVIDENCE);
+
+        oneClaimWithSources("https://reuters.com/a", "https://facebook.com/b", "https://reddit.com/c");
+        llm.assessment = u -> new Assessment("s",
+                List.of(new ClaimVerdict("C1", "CONTRADICTED", List.of(), List.of("E1", "E2", "E3"), "x")), List.of());
+        ClaimAssessment c = service.verifyText("claim").claims().get(0);
+        assertThat(c.verdict()).isEqualTo(Verdict.CONTRADICTED);
+        assertThat(c.evidenceStrength()).as("only reuters counts").isEqualTo(EvidenceStrength.LIMITED);
+    }
+
+    @Test
+    void socialResultsAreCappedAndRankedLast() {
+        oneClaimWithSources("https://facebook.com/1", "https://tiktok.com/2", "https://x.com/3", "https://apnews.com/4");
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+
+        List<Evidence> evidence = service.verifyText("claim").evidence();
+
+        assertThat(evidence).extracting(Evidence::sourceType)
+                .containsExactly(SourceType.NEWS, SourceType.SOCIAL, SourceType.SOCIAL);
+        assertThat(evidence).extracting(Evidence::id).containsExactly("E1", "E2", "E3");
+        assertThat(llm.userMessages.get(1)).contains("type: SOCIAL").contains("type: NEWS");
+    }
+
+    @Test
+    void reportsProgressInOrder() {
+        List<String> events = new ArrayList<>();
+        VerificationProgress progress = new VerificationProgress() {
+            @Override public void stage(Stage stage) { events.add("stage:" + stage); }
+            @Override public void claims(List<String> claims) { events.add("claims:" + claims.size()); }
+            @Override public void sources(int count, List<String> domains) { events.add("sources:" + count + domains); }
+        };
+        when(fetcher.fetch("https://news.example/story"))
+                .thenReturn(new SafeUrlFetcher.FetchedPage("https://news.example/story", "T", "Body"));
+        oneClaimWithSources("https://a.example/1", "https://b.example/2");
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+
+        service.verifyText("https://news.example/story", progress);
+
+        assertThat(events).containsExactly("stage:READING_INPUT", "stage:EXTRACTING_CLAIMS", "claims:1",
+                "stage:SEARCHING", "sources:2[a.example, b.example]", "stage:ASSESSING");
     }
 }

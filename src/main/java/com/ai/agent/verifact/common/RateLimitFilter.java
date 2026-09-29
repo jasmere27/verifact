@@ -42,7 +42,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/v1/analyzeAudio",
             "/api/v2/verifications",
             "/api/v2/verifications/image",
-            "/api/v2/verifications/audio");
+            "/api/v2/verifications/audio",
+            "/api/v2/verifications/stream",
+            "/api/v2/verifications/image/stream",
+            "/api/v2/verifications/audio/stream");
 
     private final FixedWindowRateLimiter perIpMinute;
     private final FixedWindowRateLimiter perIpDay;

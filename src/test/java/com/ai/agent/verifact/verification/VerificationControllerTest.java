@@ -46,6 +46,8 @@ class VerificationControllerTest {
     @MockitoBean
     private VerificationService service;
     @MockitoBean
+    private VerificationStreamer streamer;
+    @MockitoBean
     private VerificationStore store;
     @MockitoBean
     private ImageOcrService imageOcrService;
@@ -58,7 +60,7 @@ class VerificationControllerTest {
                 List.of(new ClaimAssessment("C1", "claim", Verdict.CONTRADICTED, EvidenceStrength.MODERATE, "Why",
                         List.of(), List.of("E1"))),
                 List.of(new Evidence("E1", "https://a.example/1", "a.example", "Title", "Snippet", null,
-                        Instant.parse("2026-09-30T12:00:01Z"))),
+                        Instant.parse("2026-09-30T12:00:01Z"), SourceType.NEWS)),
                 List.of("Only two sources."), "tavily", 1234);
     }
 

@@ -29,6 +29,15 @@
   --v-insufficient: #545b66;
   --v-mixed: #6a4596;
 
+  /* Source letter avatars (text on these >= 4.5:1) */
+  --av-1: #1d4f8c;
+  --av-2: #1c6b3f;
+  --av-3: #6a4596;
+  --av-4: #8f5100;
+  --av-5: #0f6470;
+  --av-6: #7a3b52;
+  --on-av: #ffffff;
+
   --display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -74,6 +83,14 @@
     --v-contradicted: #f38b80;
     --v-insufficient: #aab1ba;
     --v-mixed: #bea2e6;
+
+    --av-1: #93bbed;
+    --av-2: #74cf98;
+    --av-3: #bea2e6;
+    --av-4: #eaa851;
+    --av-5: #7fd0d8;
+    --av-6: #e7a3bd;
+    --on-av: #0d1826;
 
     --shadow: none;
     color-scheme: dark;

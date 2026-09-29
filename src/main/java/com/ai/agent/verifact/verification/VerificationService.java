@@ -59,6 +59,7 @@ public class VerificationService {
     static final int MAX_EVIDENCE = 10;
     static final int MAX_SNIPPET_CHARS = 600;
     static final int CHECKED_TEXT_EXCERPT_CHARS = 1500;
+    static final int MAX_SOCIAL = 2;
 
     /** Search operators that could let content steer where evidence comes from (e.g. site:attacker.example). */
     private static final Pattern SEARCH_OPERATOR = Pattern.compile(
@@ -92,13 +93,18 @@ public class VerificationService {
 
     /** Text or a single link. */
     public VerificationResult verifyText(String input) {
+        return verifyText(input, VerificationProgress.NONE);
+    }
+
+    public VerificationResult verifyText(String input, VerificationProgress progress) {
         if (input == null || input.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please provide a claim, article text, or link to check.");
         }
         String trimmed = input.trim();
         if (!UrlGuard.looksLikeUrl(trimmed)) {
-            return run(InputType.TEXT, trimmed, trimmed, "text submitted by a user", null);
+            return run(InputType.TEXT, trimmed, trimmed, "text submitted by a user", null, progress);
         }
+        progress.stage(VerificationProgress.Stage.READING_INPUT);
         SafeUrlFetcher.FetchedPage page;
         try {
             page = safeUrlFetcher.fetch(trimmed);
@@ -109,17 +115,25 @@ public class VerificationService {
         }
         String host = URI.create(page.url()).getHost();
         return run(InputType.URL, trimmed, page.title() + "\n\n" + page.text(), "a web page from the site " + host,
-                page.url());
+                page.url(), progress);
     }
 
     public VerificationResult verifyImageText(String fileName, String ocrText) {
+        return verifyImageText(fileName, ocrText, VerificationProgress.NONE);
+    }
+
+    public VerificationResult verifyImageText(String fileName, String ocrText, VerificationProgress progress) {
         return run(InputType.IMAGE, displayName(fileName, "Uploaded image"), ocrText,
-                "text extracted by OCR from an image a user uploaded", null);
+                "text extracted by OCR from an image a user uploaded", null, progress);
     }
 
     public VerificationResult verifyAudioTranscript(String fileName, String transcript) {
+        return verifyAudioTranscript(fileName, transcript, VerificationProgress.NONE);
+    }
+
+    public VerificationResult verifyAudioTranscript(String fileName, String transcript, VerificationProgress progress) {
         return run(InputType.AUDIO, displayName(fileName, "Uploaded audio"), transcript,
-                "a transcript of audio a user uploaded", null);
+                "a transcript of audio a user uploaded", null, progress);
     }
 
     // ---------------------------------------------------------------- pipeline
@@ -129,13 +143,14 @@ public class VerificationService {
      *                  the evidence so an article can't corroborate itself
      */
     VerificationResult run(InputType inputType, String displayInput, String rawContent, String sourceDescription,
-                           String sourceUrl) {
+                           String sourceUrl, VerificationProgress progress) {
         long startedAt = System.nanoTime();
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, clock.getZone());
         String content = truncate(rawContent.trim(), maxContentChars);
 
         // 1. Claims and queries
+        progress.stage(VerificationProgress.Stage.EXTRACTING_CLAIMS);
         String nonce = nonce();
         ClaimExtraction extraction = llm.generate(
                 VerificationPrompts.withNonce(VerificationPrompts.EXTRACTION_SYSTEM, nonce),
@@ -149,8 +164,11 @@ public class VerificationService {
         }
 
         // 2. Evidence
-        List<Evidence> evidence = gatherEvidence(claims, now, sourceUrl);
         List<String> claimTexts = claims.stream().map(ExtractedClaim::claim).toList();
+        progress.claims(claimTexts);
+        progress.stage(VerificationProgress.Stage.SEARCHING);
+        List<Evidence> evidence = gatherEvidence(claims, now, sourceUrl);
+        progress.sources(evidence.size(), evidence.stream().map(Evidence::domain).distinct().limit(8).toList());
 
         // 3. Assessment (skipped when there is nothing to weigh)
         List<ClaimAssessment> assessments;
@@ -166,6 +184,7 @@ public class VerificationService {
             summary = "VeriFact couldn't find sources that address this, so it can't be confirmed or refuted.";
             limitations.add("The web search returned no relevant results.");
         } else {
+            progress.stage(VerificationProgress.Stage.ASSESSING);
             String assessmentNonce = nonce();
             Assessment assessment = llm.generate(
                     VerificationPrompts.withNonce(VerificationPrompts.ASSESSMENT_SYSTEM, assessmentNonce),
@@ -264,6 +283,7 @@ public class VerificationService {
 
         Map<String, Evidence> byUrl = new LinkedHashMap<>();
         int failures = 0;
+        int socialCount = 0;
         for (int qi = 0; qi < queries.size(); qi++) {
             String query = queries.get(qi);
             int claimIndex = queryClaim.get(qi);
@@ -288,9 +308,17 @@ public class VerificationService {
                 if (excludedSite != null && excludedSite.equals(registrableDomain(domain))) {
                     continue; // the checked page (or its own site) can't be evidence for itself
                 }
+                SourceType type = SourceType.classify(r.url(), domain, registrableDomain(domain));
+                if (type == SourceType.SOCIAL && socialCount >= MAX_SOCIAL) {
+                    continue; // user-generated content is kept to a minimum
+                }
+                if (type == SourceType.SOCIAL) {
+                    socialCount++;
+                }
                 String id = "E" + (byUrl.size() + 1);
                 byUrl.put(key, new Evidence(id, r.url(), domain, cleanText(r.title(), 300),
-                        cleanText(r.snippet(), MAX_SNIPPET_CHARS), emptyToNull(cleanText(r.publishedDate(), 40)), now));
+                        cleanText(r.snippet(), MAX_SNIPPET_CHARS), emptyToNull(cleanText(r.publishedDate(), 40)), now,
+                        type));
                 taken++;
                 perClaim[claimIndex]++;
             }
@@ -300,7 +328,21 @@ public class VerificationService {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                     "Web search is unavailable right now, so VeriFact can't gather evidence. Please try again later.");
         }
-        return new ArrayList<>(byUrl.values());
+        return rankAndNumber(new ArrayList<>(byUrl.values()));
+    }
+
+    /** Orders evidence by source type (fact-checkers first, social last) and renumbers E1..En. */
+    static List<Evidence> rankAndNumber(List<Evidence> evidence) {
+        List<Evidence> sorted = new ArrayList<>(evidence);
+        sorted.sort(java.util.Comparator.comparingInt(
+                e -> e.sourceType() == null ? SourceType.OTHER.ordinal() : e.sourceType().ordinal()));
+        List<Evidence> out = new ArrayList<>();
+        for (int i = 0; i < sorted.size(); i++) {
+            Evidence e = sorted.get(i);
+            out.add(new Evidence("E" + (i + 1), e.url(), e.domain(), e.title(), e.snippet(), e.publishedDate(),
+                    e.retrievedAt(), e.sourceType()));
+        }
+        return out;
     }
 
     /**
@@ -337,11 +379,12 @@ public class VerificationService {
             Verdict verdict = Verdict.parse(v.verdict());
             String explanation = cleanText(v.explanation(), 500);
 
+            // Social media / forum posts can be cited, but never be the only basis for a verdict.
             boolean backed = switch (verdict) {
                 // MISLEADING = accurate facts, false impression: needs a source for the facts and an explanation.
-                case SUPPORTED, PARTLY_SUPPORTED -> !supporting.isEmpty();
-                case MISLEADING -> !supporting.isEmpty() && !explanation.isBlank();
-                case CONTRADICTED -> !contradicting.isEmpty();
+                case SUPPORTED, PARTLY_SUPPORTED -> hasNonSocial(supporting, evidenceById);
+                case MISLEADING -> hasNonSocial(supporting, evidenceById) && !explanation.isBlank();
+                case CONTRADICTED -> hasNonSocial(contradicting, evidenceById);
                 case INSUFFICIENT_EVIDENCE -> true;
             };
             if (!backed) {
@@ -362,6 +405,10 @@ public class VerificationService {
                     List.copyOf(supporting), List.copyOf(contradicting)));
         }
         return new Validation(out, anyDowngraded);
+    }
+
+    private static boolean hasNonSocial(List<String> ids, Map<String, Evidence> evidenceById) {
+        return ids.stream().anyMatch(id -> !evidenceById.get(id).isSocial());
     }
 
     static boolean isDisputed(Verdict verdict, List<String> supporting, List<String> contradicting) {
@@ -393,7 +440,10 @@ public class VerificationService {
         // sites, but news.bbc.co.uk and www.bbc.co.uk are one).
         Set<String> domains = new LinkedHashSet<>();
         for (String id : direction) {
-            domains.add(registrableDomain(evidenceById.get(id).domain()));
+            Evidence e = evidenceById.get(id);
+            if (!e.isSocial()) { // user-generated posts don't count as independent sources
+                domains.add(registrableDomain(e.domain()));
+            }
         }
         EvidenceStrength strength = domains.size() >= 3 ? EvidenceStrength.STRONG
                 : domains.size() == 2 ? EvidenceStrength.MODERATE

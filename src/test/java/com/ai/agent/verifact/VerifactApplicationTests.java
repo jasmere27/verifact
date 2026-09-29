@@ -40,7 +40,8 @@ class VerifactApplicationTests {
                         com.ai.agent.verifact.verification.EvidenceStrength.MODERATE, "Why",
                         java.util.List.of("E1"), java.util.List.of())),
                 java.util.List.of(new com.ai.agent.verifact.verification.Evidence("E1", "https://a.example/1",
-                        "a.example", "Title", "Snippet", null, java.time.Instant.parse("2026-09-30T12:00:01Z"))),
+                        "a.example", "Title", "Snippet", null, java.time.Instant.parse("2026-09-30T12:00:01Z"),
+                        com.ai.agent.verifact.verification.SourceType.NEWS)),
                 java.util.List.of("Limitation"), "tavily", 42);
 
         verificationStore.save(result);

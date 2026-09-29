@@ -4,7 +4,9 @@ import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.service.ImageOcrService;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -28,15 +31,18 @@ public class VerificationController {
     public record VerifyRequest(String input) {}
 
     private final VerificationService verificationService;
+    private final VerificationStreamer streamer;
     private final VerificationStore store;
     private final ImageOcrService imageOcrService;
     private final VoiceToTextTool voiceToText;
     private final int maxInputChars;
 
-    public VerificationController(VerificationService verificationService, VerificationStore store,
+    public VerificationController(VerificationService verificationService, VerificationStreamer streamer,
+                                  VerificationStore store,
                                   ImageOcrService imageOcrService, VoiceToTextTool voiceToText,
                                   @Value("${app.input.max-chars:10000}") int maxInputChars) {
         this.verificationService = verificationService;
+        this.streamer = streamer;
         this.store = store;
         this.imageOcrService = imageOcrService;
         this.voiceToText = voiceToText;
@@ -45,6 +51,42 @@ public class VerificationController {
 
     @PostMapping
     public VerificationResult verify(@RequestBody(required = false) VerifyRequest request) {
+        return verificationService.verifyText(validInput(request));
+    }
+
+    // Streaming variants: validation errors are ordinary problem+json responses; once the stream
+    // starts, progress, the result, or an error arrive as Server-Sent Events.
+
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter verifyStream(@RequestBody(required = false) VerifyRequest request, HttpServletResponse response) {
+        String input = validInput(request);
+        noProxyBuffering(response);
+        return streamer.start(progress -> verificationService.verifyText(input, progress));
+    }
+
+    @PostMapping(value = "/image/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter verifyImageStream(@RequestParam("file") MultipartFile file, HttpServletResponse response) {
+        byte[] bytes = read(file, "No image uploaded.");
+        String name = file.getOriginalFilename();
+        noProxyBuffering(response);
+        return streamer.start(progress -> {
+            progress.stage(VerificationProgress.Stage.READING_INPUT);
+            return verificationService.verifyImageText(name, imageOcrService.extractText(bytes), progress);
+        });
+    }
+
+    @PostMapping(value = "/audio/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter verifyAudioStream(@RequestParam("file") MultipartFile file, HttpServletResponse response) {
+        byte[] bytes = read(file, "No audio file uploaded.");
+        String name = file.getOriginalFilename();
+        noProxyBuffering(response);
+        return streamer.start(progress -> {
+            progress.stage(VerificationProgress.Stage.READING_INPUT);
+            return verificationService.verifyAudioTranscript(name, voiceToText.transcribe(bytes), progress);
+        });
+    }
+
+    private String validInput(VerifyRequest request) {
         String input = request == null ? null : request.input();
         if (input == null || input.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please provide a claim, article text, or link to check.");
@@ -53,7 +95,13 @@ public class VerificationController {
             throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE,
                     "That text is too long. Please submit at most " + maxInputChars + " characters.");
         }
-        return verificationService.verifyText(input);
+        return input;
+    }
+
+    /** Asks reverse proxies not to buffer the event stream, so progress arrives as it happens. */
+    private static void noProxyBuffering(HttpServletResponse response) {
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
     }
 
     @PostMapping("/image")

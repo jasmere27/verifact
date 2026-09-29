@@ -35,6 +35,13 @@ const FILE_RULES = {
 
 const LINK_ONLY = /^https?:\/\/\S+$/i;
 
+const EXAMPLES = [
+  "Drinking hot water kills the coronavirus",
+  "The Great Wall of China is visible from space",
+  "José Rizal was executed in 1896",
+  "Humans only use 10% of their brains",
+];
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -125,6 +132,13 @@ export default function CheckForm({ onSubmit }: Props) {
     onSubmit({ mode, file });
   }
 
+  function tryExample(example: string) {
+    setMode("text");
+    setText(example);
+    setProblem(null);
+    onSubmit({ mode: "text", text: example });
+  }
+
   const trimmedLength = text.trim().length;
   const isLink = mode === "text" && LINK_ONLY.test(text.trim());
   const describedBy = [hintId, problem ? problemId : null].filter(Boolean).join(" ");
@@ -162,7 +176,7 @@ export default function CheckForm({ onSubmit }: Props) {
             <textarea
               id={`${baseId}-text`}
               className="text-input"
-              placeholder="Paste a claim, an article, or a single link…"
+              placeholder="Paste a post, a claim, or a link…"
               value={text}
               rows={6}
               aria-describedby={describedBy}
@@ -238,6 +252,21 @@ export default function CheckForm({ onSubmit }: Props) {
           Check the evidence
         </button>
         <span className="form-note">Usually takes 10–40 seconds.</span>
+      </div>
+
+      <div className="examples">
+        <p className="examples-label" id={`${baseId}-examples`}>
+          Or try an example
+        </p>
+        <ul className="example-list" aria-labelledby={`${baseId}-examples`}>
+          {EXAMPLES.map((example) => (
+            <li key={example}>
+              <button type="button" className="example-chip" onClick={() => tryExample(example)}>
+                {example}
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     </form>
   );

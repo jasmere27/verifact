@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, verifyAudio, verifyImage, verifyText } from "./api";
+import { ApiError, verifyFileStream, verifyTextStream } from "./api";
+import type { StreamHandlers } from "./api";
 import CheckForm from "./components/CheckForm";
 import type { Submission } from "./components/CheckForm";
 import CheckProgress from "./components/CheckProgress";
@@ -9,13 +10,13 @@ import ReportPage from "./components/ReportPage";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
-import type { VerificationResult } from "./types";
+import type { SourcesFound, StageId, VerificationResult } from "./types";
 import { verdictMeta } from "./verdicts";
 import "./App.css";
 
 type CheckState =
   | { status: "idle" }
-  | { status: "loading"; submission: Submission }
+  | { status: "loading"; submission: Submission; stage?: StageId; claims?: string[]; sources?: SourcesFound }
   | { status: "error"; message: string; requestId?: string };
 
 function errorMessage(err: unknown): { message: string; requestId?: string } {
@@ -73,13 +74,21 @@ function App() {
     controllerRef.current = controller;
     setCheck({ status: "loading", submission });
     setAnnouncement("Checking the evidence. This usually takes 10 to 40 seconds.");
+    // Live updates from the stream; ignored once this check is cancelled or superseded.
+    const update = (patch: { stage?: StageId; claims?: string[]; sources?: SourcesFound }) => {
+      if (controller.signal.aborted) return;
+      setCheck((prev) => (prev.status === "loading" ? { ...prev, ...patch } : prev));
+    };
+    const handlers: StreamHandlers = {
+      onStage: (stage) => update({ stage }),
+      onClaims: (claims) => update({ claims }),
+      onSources: (sources) => update({ sources }),
+    };
     try {
       const result =
         submission.mode === "text"
-          ? await verifyText(submission.text, controller.signal)
-          : submission.mode === "image"
-            ? await verifyImage(submission.file, controller.signal)
-            : await verifyAudio(submission.file, controller.signal);
+          ? await verifyTextStream(submission.text, handlers, controller.signal)
+          : await verifyFileStream(submission.mode, submission.file, handlers, controller.signal);
       if (controller.signal.aborted) return;
       controllerRef.current = null;
       cacheResult(result);
@@ -106,7 +115,7 @@ function App() {
   const loading = check.status === "loading";
 
   return (
-    <div className="app">
+    <div className={route.name === "report" ? "app app--report" : "app"}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -127,12 +136,24 @@ function App() {
         {route.name === "home" && (
           <>
             <section className="intro" aria-labelledby="page-heading">
-              <h1 id="page-heading">Check a claim against the evidence</h1>
+              <h1 id="page-heading">Saw something viral? Check it first.</h1>
               <p className="lede">
-                Paste a claim, an article or a link — or upload a screenshot or a short voice clip. VeriFact picks out
-                the specific factual claims, searches the web for reporting on each, and shows you which sources support
-                or contradict them, and what remains uncertain.
+                Paste a post, a link or a screenshot and see what fact-checkers, news and reference sources say.
               </p>
+              <ol className="how-steps" aria-label="How it works">
+                <li>
+                  <span className="how-num" aria-hidden="true">1</span>
+                  <span>Paste a post or link</span>
+                </li>
+                <li>
+                  <span className="how-num" aria-hidden="true">2</span>
+                  <span>We search the web</span>
+                </li>
+                <li>
+                  <span className="how-num" aria-hidden="true">3</span>
+                  <span>See the evidence</span>
+                </li>
+              </ol>
             </section>
 
             {check.status === "error" && (
@@ -143,7 +164,15 @@ function App() {
               </div>
             )}
 
-            {loading && <CheckProgress submission={check.submission} onCancel={cancelCheck} />}
+            {loading && (
+              <CheckProgress
+                submission={check.submission}
+                stage={check.stage}
+                claims={check.claims}
+                sources={check.sources}
+                onCancel={cancelCheck}
+              />
+            )}
 
             <div className="card form-card" hidden={loading}>
               <CheckForm onSubmit={runCheck} />
@@ -181,7 +210,7 @@ function App() {
         <p>
           <strong>VeriFact</strong> — Verify Truth, Fight the False.
         </p>
-        <p>An aid for checking claims against published sources, not a final authority.</p>
+        <p>An aid for checking claims against published sources — not a final authority.</p>
       </footer>
 
       <div className="visually-hidden" aria-live="polite" aria-atomic="true">
