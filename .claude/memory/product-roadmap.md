@@ -17,7 +17,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☑ New taxonomy + evidence strength (ADR-4)
 - ◐ Evidence model persisted — full report as JSON (ADR-7); normalised tables deferred
 - ☐ Result page redesign: checked → assessment → why → supporting/contradicting evidence → sources/dates → limitations
-- ◐ Eval set (20 labeled claims, opt-in live runner) + token/latency logging — not yet run live
+- ☑ Eval set (20 labeled claims, opt-in live runner) + token/latency logging — live run 20/20 on 2026-09-30
 
 ## Phase 2 — Better verification
 - ☐ Source credibility signals (source type, known publisher, date recency) — explainable, not a secret score

@@ -53,3 +53,7 @@ Only record decisions with real tradeoffs.
 ## ADR-8 — Deployment topology
 **Accepted** · 2026-09-30
 - Cloudflare Pages (frontend, `_redirects` SPA fallback) → Render Docker web service (`starter`, $7/mo; `free` sleeps) → Supabase Postgres via the **Session pooler** (IPv4; direct connections are IPv6-only, and Render has no IPv6 egress) + OpenAI + Tavily. Guide: `docs/DEPLOYMENT.md`.
+
+## ADR-9 — Default model: Spring AI's OpenAI default (gpt-5-mini)
+**Accepted** · 2026-09-30
+- Live eval with the default `gpt-5-mini-2025-08-07`: 20/20, ~2 calls and ~3k prompt + ~1–2k completion tokens per check. Good enough to keep; no need for a larger model now. Override with `SPRING_AI_OPENAI_CHAT_MODEL` and re-run `VerificationEvalIT` before switching.

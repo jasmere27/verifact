@@ -7,7 +7,7 @@ for context; delete them once they stop being useful._
 1. **Production search still needs a Tavily key.** Code supports Tavily (ADR-5), but until `TAVILY_API_KEY` is set, `auto` falls back to Google Custom Search, which stops working on 2027-01-01. Tavily integration has only been tested against its documented contract (mocked), not a live call.
 
 ## High
-2. **Live eval not yet run.** The v2 pipeline is verified with fakes (138 tests) and an eval set exists (`VerificationEvalIT`, 20 labeled claims), but it has never been run against the real model + Tavily. Run it once keys exist; tune prompts if accuracy < 80%.
+2. **Eval set is small.** Live run 2026-09-30 (gpt-5-mini + Tavily): **20/20**, including the prompt-injection case; ~15–30 s per check, ~600 + ~2,200 prompt tokens per check. 20 mostly well-known claims can't catch subtle failures: grow it with real user claims (recent news, local/Filipino topics, partly-true and misleading cases).
 3. **v1 endpoints (deprecated) keep the old behaviour:** model-driven search, free-form markdown regex-parsed, and a prompt biased toward confident verdicts ("trusted source → real 100%", "use internal knowledge"). v2 fixes all of this; remove v1 once unused.
 4. **Evidence is search snippets only.** v2 judges from titles/snippets, not full articles, so nuanced claims may land on INSUFFICIENT_EVIDENCE or be judged on thin excerpts. Possible next step: safe-fetch the top 2–3 cited pages for longer excerpts (cost/latency tradeoff).
 6. **Audio path needs Google credentials** that no deploy config provides → `503` in practice. Also LINEAR16/en-US only.
