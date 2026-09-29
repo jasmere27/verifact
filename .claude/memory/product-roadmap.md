@@ -1,13 +1,15 @@
 # Product Roadmap
 
-_Last updated: 2026-09-29. Status: ☐ not started · ◐ in progress · ☑ done._
+_Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ done._
 
 ## Phase 0 — Foundation (make it safe to put online)
-- ☐ Merge `feature/supabase-db-and-deploy` into `main` (after review)
-- ☐ Remove committed build/IDE artifacts; fix `.gitignore`
-- ☐ Upgrade Spring Boot 4.x + Spring AI 2.0 GA; add a real test suite with deterministic AI/search fakes
-- ☐ SSRF-safe fetcher; rate limiting; input/upload limits; ProblemDetail errors; timeouts; request IDs; cheap health check
-- ☐ Make `/history` non-public (disable or scope) until accounts exist
+- ☑ Merge `feature/supabase-db-and-deploy` into `main` (local fast-forward 2026-09-29; not pushed)
+- ☑ Remove committed build/IDE artifacts; fix `.gitignore`
+- ☐ Upgrade Spring Boot 4.x + Spring AI 2.0 GA (ADR-6) — next
+- ☑ Real test suite with deterministic AI/search fakes (87 tests)
+- ☑ SSRF-safe fetcher; rate limiting; input/upload limits; ProblemDetail errors; timeouts; request IDs; cheap health check
+- ☑ Make `/history` non-public (disabled by default) until accounts exist
+- ☐ Decide data retention for stored submissions
 
 ## Phase 1 — Core verification (the product)
 - ☐ Backend-controlled pipeline (ADR-3) with structured output

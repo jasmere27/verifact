@@ -1,6 +1,6 @@
 # Project Context
 
-_Last updated: 2026-09-29_
+_Last updated: 2026-09-30_
 
 ## What VeriFact is
 AI-assisted claim verification: a user submits text, a URL, an image, or audio; VeriFact
@@ -11,9 +11,10 @@ real, maintainable, eventually monetizable product run by one developer.
 ## Repository
 - GitHub: `jasmere27/verifact`. Local: `verifactRelive/verifact/` (the parent folder is not a repo).
 - **Branches:**
-  - `main` — backend only (Spring Boot). Last commit `7560c14`.
-  - `origin/feature/supabase-db-and-deploy` — 3 commits ahead of `main`, fast-forwardable. Adds Supabase persistence (JPA + Flyway), `/history` endpoints, configurable CORS/Tesseract, Tesseract in Docker, `render.yaml`, and the React/Vite frontend in `frontend/`. **This is the most current code.** Not yet merged or checked out locally.
-- No local JDK in the WSL environment as of 2026-09-29 (`java` not found). Node 24 is available.
+  - `main` — local `main` was fast-forwarded to `feature/supabase-db-and-deploy` on 2026-09-29 (backend + `frontend/` + Supabase + deploy config). **Not pushed**; `origin/main` is still at `7560c14`.
+  - `phase-0a-hardening` — branched from local `main`: agent system, repo cleanup, Phase 0a hardening. Not pushed.
+- **Toolchain:** JDK 21 (Temurin) at `~/.local/jdks/jdk-21*` — not on PATH; use `export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH` before `./mvnw`. Node 24 available. No Docker.
+- **Claude Code:** start sessions from the `verifact/` directory so `.claude/agents/` register as agent types. From a parent folder they don't load; fall back to a general-purpose agent told to follow the agent file.
 
 ## Stack (on feature branch)
 - Backend: Java 17, Spring Boot 3.4.5, Spring AI 1.0.0-M8 (OpenAI starter), Maven wrapper, Jsoup, Tess4j, Google Cloud Speech, Spring Data JPA, Flyway, PostgreSQL driver.

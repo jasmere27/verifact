@@ -1,38 +1,41 @@
 # Known Issues
 
-_Last updated: 2026-09-29 (initial investigation). Paths are relative to repo root.
-"(F)" = only on `feature/supabase-db-and-deploy`._
+_Last updated: 2026-09-30 (after Phase 0a). Ranked. Resolved items are listed at the bottom
+for context; delete them once they stop being useful._
 
 ## Critical
-1. **SSRF.** `tool/UriContentTool.java` fetches any URL (user-supplied, and also callable by the LLM as a tool) with Jsoup, following redirects, with no scheme/host/IP checks. Can reach localhost, private networks, cloud metadata (169.254.169.254).
-2. **Prompt injection → tool use.** Fetched page text and user text are interpolated directly into the prompt (`service/AiService.java` `{input}`) while the model holds fetch/search tools. A hostile page can steer tool calls (incl. the SSRF above) and the verdict.
-3. **Fabricated citations.** `tool/GoogleSearchTool.java` returns only snippets (no URL/title/date), yet the prompt demands "at least two credible sources (HTML links)". Cited links are model-generated, not retrieved.
-4. **Unbounded cost / abuse.** No auth, no rate limiting, no cap on tool-call loops, 50 MB uploads. Anyone with the URL can spend the OpenAI and Google quota.
-5. **(F) Health check triggers a full verification.** `render.yaml` `healthCheckPath: /api/v1/isFakeNews?news=ping` → LLM call + search + DB row on every probe.
-6. **Google Custom Search JSON API is discontinued on 2027-01-01** and closed to new customers — new developers cannot get keys; production breaks in ~3 months.
+1. **Google Custom Search JSON API is discontinued 2027-01-01** and closed to new customers. New developers cannot get keys; production breaks in ~3 months. → Phase 1 `SearchProvider` (ADR-5).
 
 ## High
-7. **Prompt biases toward confident, knowledge-based verdicts.** "Trusted source → real, 100%", "use internal knowledge if search unavailable", "do not classify as unverified unless absolutely no evidence", fixed confidence rules (mixed = 50%). Confidence numbers are not grounded in anything measurable.
-8. **(F) History is public.** `/history` exposes every submission from every user; IDs are sequential.
-9. **Error text is fact-checked and persisted.** OCR/speech failures return strings like "Speech recognition failed: …" which flow into `isFakeNews` as if they were claims.
-10. **Errors returned as HTTP 200** with raw `e.getMessage()` (leaks internals, breaks clients).
-11. **Outdated, unsupported framework versions.** Spring Boot 3.4.5 (OSS support ended) and Spring AI 1.0.0-M8 (pre-GA milestone). Current: Spring Boot 4.1.x, Spring AI 2.0.x GA (June 2026).
-12. **Unstructured LLM output**, regex-parsed in both backend (`FactCheckResponseParser`) and frontend (`parseResponse.ts`).
-13. **Audio path likely non-functional in deployment.** Google Speech needs GCP service-account credentials that aren't configured anywhere; only LINEAR16 WAV, en-US; sync API limit ~1 min.
+2. **Model-driven, unstructured verification.** The LLM decides when to search (unbounded tool loop, capped only by Spring AI internals) and returns free-form markdown that is regex-parsed in `FactCheckResponseParser` and `frontend/src/parseResponse.ts`. → Phase 1 pipeline (ADR-3).
+3. **Prompt biases toward confident, knowledge-based verdicts.** "Trusted source → real, 100%", "use internal knowledge if search unavailable", "don't classify unverified unless absolutely no evidence", fixed confidence rules. Left unchanged in Phase 0a deliberately: verdict logic changes need the eval set first (ai-verification playbook).
+4. **Citations are constrained, not enforced.** Search now returns URLs and the prompt forbids citing others, but nothing validates the model's citations server-side. → Phase 1 citation validator.
+5. **Outdated framework versions.** Spring Boot 3.4.5 (OSS support ended), Spring AI 1.0.0-M8 (pre-GA). Current: Boot 4.1.x, Spring AI 2.0.x. → ADR-6, next step.
+6. **Audio path needs Google credentials** that no deploy config provides → `503` in practice. Also LINEAR16/en-US only.
+7. **Stored submissions have no retention policy.** Every check (including user text) is persisted to `fact_check_results` indefinitely; no deletion path. Decide retention before public launch.
 
 ## Medium
-14. No timeouts on `RestTemplate` or the LLM call.
-15. Temp files from `analyzeImage` are never deleted; no content-type/magic-byte checks.
-16. `System.out.println` logging of every query and page fetch; `printStackTrace`.
-17. Tests: only `contextLoads`, which needs real env vars (and a DB on (F)) → effectively no test suite. No JDK in the dev environment.
-18. `isUrl` and `getCurrentDateTime` exposed as LLM tools (wasted tokens; date should be injected).
-19. Prompt promises "evaluate visual context and manipulation" for images, but only OCR text is sent — the model never sees the image.
-20. "Consistency within same session" instruction — there is no session.
-21. (F) Render `plan: starter` is paid; JVM + Tesseract on a 512 MB free instance is likely to be tight.
+8. **DNS rebinding** window between `UrlGuard` resolution and Jsoup's own connect-time resolution. Fix needs an HTTP client with a pluggable resolver or connecting by IP.
+9. Rate limits are in-memory: reset on restart, per instance. Fine for one instance.
+10. Images: OCR only; the model never sees the image (prompt now says so honestly).
+11. `/history` JSON is Spring's `PageImpl` serialization (unstable per Spring Data); revisit when history returns with accounts.
+12. Render `plan: starter` is paid; free tier (512 MB, sleeps after 15 min) is tight for JVM + Tesseract.
+13. Local dev environment: JDK 21 installed at `~/.local/jdks/` (not on PATH by default); no Docker, so the Docker image build is untested locally.
 
 ## Low / hygiene
-22. Committed build artifacts and IDE files: `bin/` (compiled classes, incl. stale `MixedNewsAnalyzerTool`), `.classpath`, `.project`, `.settings/`; empty `New Text Document.txt`; template `HELP.md`.
-23. README/CLAUDE.md partly stale (e.g., says VoiceToTextTool is a placeholder; README claims MIT license but no LICENSE file).
-24. Every response includes "Cybersecurity Tips" — capstone artifact; product value unclear.
-25. CORS `allowedMethods("*")`, `allowedHeaders("*")`.
-26. (F) Frontend: result shown as raw markdown in `<pre>`; TRUE/FALSE needle gauge reinforces binary framing and false precision; dark mode only.
+14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
+15. README claims MIT license but there is no LICENSE file.
+16. Frontend: result shown as raw markdown in `<pre>`; TRUE/FALSE needle gauge implies binary truth and false precision; dark mode only. → Phase 1 result page redesign.
+
+## Resolved in Phase 0a (2026-09-30)
+- SSRF via user URLs and LLM-callable fetch tool → `SafeUrlFetcher`/`UrlGuard`; fetch tool removed from the model.
+- Prompt injection via undelimited content → delimited untrusted-content block, delimiter stripping, truncation.
+- No rate limiting / unbounded cost → per-IP and global limits; Spring AI retries 2; timeouts.
+- Health check triggered a paid verification → `/actuator/health`.
+- Public history exposing all submissions → disabled by default.
+- OCR/speech error strings fact-checked and persisted → typed errors (415/422/503).
+- Errors as HTTP 200 with internal messages → problem+json, safe messages.
+- Temp files never deleted → in-memory decoding.
+- `System.out`/`printStackTrace` logging, API key in logged URLs → SLF4J, request IDs, no key in logs.
+- Committed `bin/` and IDE files → removed and ignored.
+- No working tests → 87 tests with fakes.

@@ -13,7 +13,7 @@ The main session acts as orchestrator for a team of specialist subagents. Protoc
 - Playbooks: `.claude/playbooks/` (feature development, bug fix, AI verification, release)
 - Project memory (keep current; don't fill with temporary details): `.claude/memory/` — start with `project-context.md` and `known-issues.md`
 
-**Branch note:** the newest code (frontend, Supabase persistence, deploy config) is on `feature/supabase-db-and-deploy`, not `main`. Check which branch you are on before reasoning about the code. The sections below describe `main`.
+**Current state:** see `.claude/memory/architecture.md` (kept up to date) — it supersedes the older description below where they differ. The JDK is at `~/.local/jdks/`; see `.claude/memory/project-context.md` for toolchain setup.
 
 ## Project Overview
 

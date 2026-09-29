@@ -1,39 +1,42 @@
 # Architecture
 
-_Last updated: 2026-09-29. Describes code as it exists; the target is at the bottom._
+_Last updated: 2026-09-30. Describes code as it exists; the target is at the bottom._
 
-## Current (feature/supabase-db-and-deploy ⊇ main)
+## Current (after Phase 0a)
 
 ```
 React SPA (frontend/, Cloudflare Pages)
-   │  fetch, plain-text responses
+   │  fetch; 200 text/plain reports, problem+json errors
+   ▼
+RequestIdFilter → RateLimitFilter (verification paths) → CORS
    ▼
 AiController  /api/v1/*                      (controller/AiController.java)
    ├─ isFakeNews (GET ?news= | POST {news})
-   ├─ analyzeImage (multipart) → ImageOcrService (Tesseract) → AiService
+   ├─ analyzeImage (multipart) → ImageOcrService (in-memory decode + size checks, Tesseract) → AiService
    ├─ analyzeAudio (multipart) → VoiceToTextTool (Google Speech, LINEAR16/en-US) → AiService
-   └─ history, history/{id} (feature branch) → FactCheckResultRepository
+HistoryController /api/v1/history* → 404 unless HISTORY_API_ENABLED
+GlobalExceptionHandler → problem+json for ApiException, MVC errors, and a generic 500
    ▼
 AiService.isFakeNews(input)                  (service/AiService.java)
-   ├─ if input is URL: UriContentTool.fetchContentFromUrl (Jsoup, no SSRF guard)
-   ├─ one big PromptTemplate, user content interpolated inline
-   ├─ ChatClient.prompt().tools(dateTimeTool, uriContentTool, googleSearchTool).call()
-   │     the MODEL decides when to search / fetch URLs (unbounded tool loop)
-   ├─ returns free-form markdown string
-   └─ (feature) FactCheckResponseParser regex-extracts classification/confidence/sources → DB
+   ├─ if input is a single http(s) token: SafeUrlFetcher (UrlGuard on every hop, size/time caps)
+   ├─ content sanitized (delimiters stripped, truncated) and placed in an untrusted-content block
+   ├─ ChatClient.prompt().tools(dateTimeTool, googleSearchTool).call()
+   │     the MODEL still decides when to search (no fetch tool any more)
+   ├─ returns free-form markdown string; 502 on provider failure, 503 if search was down
+   └─ FactCheckResponseParser regex-extracts classification/confidence/sources → DB (failure is logged, not fatal)
 ```
 
-- **Agentic, model-driven retrieval.** The LLM calls `searchWeb`, `fetchContentFromUrl`, `isUrl`, `getCurrentDateTime` as Spring AI `@Tool`s.
-- **Search results carry only snippets** (no URL/title/date), so the model cannot cite real sources.
+- **Model-driven search.** The LLM calls `searchWeb` and `getCurrentDateTime` as Spring AI `@Tool`s. URL fetching is backend-only.
+- **Search results** are `title | url | snippet` lines; the prompt forbids citing other URLs (not yet validated server-side).
 - **Output is unstructured text**; both the backend parser and the frontend (`parseResponse.ts`) regex-scrape `**Classification:**` and `**Confidence Score:**`.
 - Verdicts: `real | fake | mixed | unverified` + a prompt-dictated confidence number.
-- No auth, no users, no rate limiting, no request IDs, `System.out` logging.
+- No auth or users. In-memory rate limits; SLF4J logging with request IDs; `/actuator/health`.
 
 ### Data model (feature branch, `V1__init.sql`)
 `fact_check_results(id bigserial, input_type, original_input text, classification, confidence_score, sources text, cybersecurity_tips text, full_response text, created_at timestamptz)` + index on `created_at desc`.
 
 ### Packages
-`config/` (RestTemplate, CORS) · `controller/` · `service/` · `tool/` · (feature) `model/`, `repository/`.
+`common/` (errors, request ID, rate limit) · `config/` (RestTemplate timeouts, CORS) · `controller/` · `fetch/` (UrlGuard, SafeUrlFetcher) · `model/` · `repository/` · `service/` · `tool/`.
 
 ## Target (proposed, pending approval; see decisions.md)
 

@@ -190,15 +190,22 @@ curl -X POST http://localhost:8080/api/v1/analyzeAudio \
   -F "file=@/path/to/audio.wav"
 ```
 
-### 4. Fact-Check History
+### 4. Fact-Check History (disabled by default)
 
-**Endpoint**: `GET /api/v1/history?page=0&size=20`
+**Endpoints**: `GET /api/v1/history?page=0&size=20`, `GET /api/v1/history/{id}`
 
-Returns a paginated list of past checks (most recent first), each with its input type, classification, confidence score, and full response.
+There are no user accounts yet, so these would expose every visitor's submissions to everyone. They return `404` unless `HISTORY_API_ENABLED=true`, which is intended for local development only.
 
-**Endpoint**: `GET /api/v1/history/{id}`
+### Limits and errors
 
-Returns a single past check by id (404 if not found).
+- Text input: at most 10,000 characters (`MAX_INPUT_CHARS`). Uploads: at most 10 MB. Images: JPEG, PNG, GIF, BMP, or TIFF. Audio: LINEAR16 WAV, English, under about one minute.
+- Links are fetched only if they use http/https on standard ports and resolve to public addresses (no localhost, private networks, or cloud metadata). Redirects are re-checked.
+- Rate limits on the three verification endpoints: 5 per minute and 50 per day per IP, and 1,000 per day in total (all configurable, see `.env.example`). Exceeding them returns `429` with `Retry-After`.
+- Successful checks return `200 text/plain`. Errors return a non-2xx status with an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `application/problem+json` body whose `detail` is safe to show users, plus a `requestId` (also sent as the `X-Request-Id` header) for matching server logs.
+
+### Health check
+
+`GET /actuator/health` returns `{"status":"UP"}`. It makes no AI or search calls; use it for platform health checks.
 
 ## How It Works
 
@@ -208,10 +215,11 @@ Verifact uses an **agentic AI pattern** where the AI model is equipped with tool
 
 1. **User Input**: Accept text, URL, image, or audio
 2. **Content Extraction**: Extract text from images (OCR) or audio (speech-to-text)
-3. **Tool-Augmented Analysis**: The AI model uses various tools:
+3. **Tool-Augmented Analysis**: The AI model can call two tools:
    - `DateTimeTool`: Get current date/time for temporal context
-   - `GoogleSearchTool`: Search the web for verification
-   - `UriContentTool`: Extract content from URLs
+   - `GoogleSearchTool`: Search the web; results include title, URL, and snippet, and only those URLs may be cited
+
+   Links submitted by users are fetched by the backend (`SafeUrlFetcher`), never by the model. All submitted and fetched content is passed to the model as clearly delimited, untrusted data.
 4. **Fact-Checking**: Analyze against credible sources
 5. **Response**: Return verdict with accuracy score and sources
 
@@ -236,8 +244,17 @@ The system prioritizes content from:
 # Run specific test class
 ./mvnw test -Dtest=VerifactApplicationTests
 
-# Run tests with coverage
-./mvnw clean test jacoco:report
+```
+
+Tests need no API keys, database, or network: the AI model and search are faked, and an in-memory H2 database stands in for Postgres (`src/test/resources/application-test.properties`). Tesseract is not required either; OCR itself is not exercised by tests.
+
+Frontend checks:
+
+```bash
+cd frontend
+npm ci
+npm run build   # type check + production build
+npm run lint
 ```
 
 ### Building for Production
@@ -294,23 +311,9 @@ verifact/
 
 ## Configuration
 
-### Application Properties
+### Environment variables
 
-The application can be configured via `src/main/resources/application.properties`:
-
-```properties
-spring.application.name=verifact
-spring.ai.openai.api-key=${OPEN_AI_API_KEY}
-google.api.key=${GOOGLE_API_KEY}
-google.cse.id=${GOOGLE_SEARCH_ENGINE}
-server.port=8080
-
-spring.datasource.url=${SUPABASE_DB_URL}
-spring.datasource.username=${SUPABASE_DB_USER}
-spring.datasource.password=${SUPABASE_DB_PASSWORD}
-app.allowed-origin=${ALLOWED_ORIGIN:http://localhost:3000}
-tesseract.datapath=${TESSDATA_PATH:/usr/share/tesseract-ocr/5/tessdata}
-```
+All configuration comes from environment variables; `.env.example` lists every variable with safe placeholders and defaults. The mapping to Spring properties is in `src/main/resources/application.properties`.
 
 ### Tesseract OCR Configuration
 
@@ -323,7 +326,8 @@ Cloudflare Pages/Workers cannot run this JVM application directly, so the backen
 ### Backend → Render
 
 1. Push this repo to GitHub and create a new **Blueprint** on [Render](https://render.com) pointing at it — it picks up `render.yaml` and the existing `Dockerfile` automatically.
-2. In the Render dashboard, set the env vars declared in `render.yaml` (`OPEN_AI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_SEARCH_ENGINE`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `ALLOWED_ORIGIN`) with your real values — none of these are committed to the repo.
+2. In the Render dashboard, set the env vars declared in `render.yaml` (`OPEN_AI_API_KEY`, `GOOGLE_API_KEY`, `GOOGLE_SEARCH_ENGINE`, `SUPABASE_DB_URL`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `ALLOWED_ORIGIN`) with your real values — none of these are committed to the repo. `TRUST_FORWARDED_FOR=true` is set by the blueprint so rate limits see real client IPs; the health check uses `/actuator/health`.
+   `render.yaml` uses the paid `starter` plan (the free plan sleeps after 15 minutes idle and has 512 MB RAM, which is tight for the JVM plus Tesseract). Change `plan` if you prefer.
 3. Deploy. Render builds the Docker image and exposes the service on its own `https://<service>.onrender.com` URL.
 
 ### Frontend → Cloudflare Pages
@@ -335,7 +339,13 @@ Cloudflare Pages/Workers cannot run this JVM application directly, so the backen
 
 ## Known Limitations
 
-- **VoiceToTextTool**: Currently returns placeholder text. Integration with Google Cloud Speech or OpenAI Whisper is needed for actual audio transcription.
+- **Google Custom Search JSON API is discontinued on 2027-01-01** and closed to new customers. A replacement search provider is planned.
+- **Audio** uses Google Cloud Speech, which needs Google Application Default Credentials (`GOOGLE_APPLICATION_CREDENTIALS`); without them the audio endpoint returns `503`.
+- **Images** are converted to text with OCR; the model never sees the image itself.
+- Verdicts (`real`/`fake`/`mixed`/`unverified`) and confidence scores come from the model's report. A structured, evidence-cited verdict model is planned.
+- Rate limits are in-memory, so they reset on restart and apply per backend instance.
+
+See `.claude/memory/known-issues.md` for the full, ranked list.
 
 ## Security Considerations
 
@@ -343,6 +353,8 @@ Cloudflare Pages/Workers cannot run this JVM application directly, so the backen
 - The `.env` file is excluded via `.gitignore`
 - Rotate API keys immediately if accidentally exposed
 - Use environment variables for sensitive configuration
+- Submitted text and fetched web pages are treated as untrusted input: server-side fetches are SSRF-guarded, and content is delimited in the prompt with instructions to ignore embedded commands
+- Error responses never include stack traces or internal exception messages
 
 ## Contributing
 
