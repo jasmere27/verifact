@@ -5,7 +5,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 ## Phase 0 — Foundation (make it safe to put online)
 - ☑ Merge `feature/supabase-db-and-deploy` into `main` (local fast-forward 2026-09-29; not pushed)
 - ☑ Remove committed build/IDE artifacts; fix `.gitignore`
-- ☐ Upgrade Spring Boot 4.x + Spring AI 2.0 GA (ADR-6) — next
+- ☑ Upgrade to Spring Boot 4.1.1 + Spring AI 2.0.1 + Java 21 (ADR-6)
 - ☑ Real test suite with deterministic AI/search fakes (98 tests)
 - ☑ SSRF-safe fetcher; rate limiting; input/upload limits; ProblemDetail errors; timeouts; request IDs; cheap health check
 - ☑ Make `/history` non-public (disabled by default) until accounts exist

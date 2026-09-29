@@ -17,12 +17,12 @@ The main session acts as orchestrator for a team of specialist subagents. Protoc
 
 ## Project Overview
 
-Verifact is a Spring Boot 3.4.5 AI-powered fact-checking application that uses Spring AI (OpenAI integration) to verify news content from multiple input formats: text, URLs, images, and audio. The application employs an agentic architecture where tools are provided to the AI model for web searching, content extraction, and date/time awareness.
+Verifact is a Spring Boot 4.1 AI-powered fact-checking application that uses Spring AI (OpenAI integration) to verify news content from multiple input formats: text, URLs, images, and audio. The application employs an agentic architecture where tools are provided to the AI model for web searching, content extraction, and date/time awareness.
 
 ## Technology Stack
 
-- **Java 17** with Spring Boot 3.4.5
-- **Spring AI 1.0.0-M8** for OpenAI model integration
+- **Java 21** with Spring Boot 4.1
+- **Spring AI 2.0** for OpenAI model integration
 - **Maven** for dependency management and build
 - **Tesseract OCR** (Tess4j 5.4.0) for image text extraction
 - **Jsoup** for HTML parsing and web scraping

@@ -1,6 +1,6 @@
 package com.ai.agent.verifact.common;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,7 +45,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final FixedWindowRateLimiter perIpDay;
     private final FixedWindowRateLimiter globalDay;
     private final boolean trustForwardedFor;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     /** Decodes and strips ";params" like Spring MVC's handler matching does. */
     private static final UrlPathHelper PATH_HELPER = new UrlPathHelper();
@@ -59,13 +59,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
                            @Value("${app.rate-limit.per-ip-per-day:50}") int perIpPerDay,
                            @Value("${app.rate-limit.global-per-day:1000}") int globalPerDay,
                            @Value("${app.rate-limit.trust-forwarded-for:false}") boolean trustForwardedFor,
-                           ObjectMapper objectMapper) {
+                           JsonMapper jsonMapper) {
         Clock clock = Clock.systemUTC();
         this.perIpMinute = new FixedWindowRateLimiter(perIpPerMinute, Duration.ofMinutes(1), clock);
         this.perIpDay = new FixedWindowRateLimiter(perIpPerDay, Duration.ofDays(1), clock);
         this.globalDay = new FixedWindowRateLimiter(globalPerDay, Duration.ofDays(1), clock);
         this.trustForwardedFor = trustForwardedFor;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     @Override
@@ -152,6 +152,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        objectMapper.writeValue(response.getOutputStream(), problem);
+        jsonMapper.writeValue(response.getOutputStream(), problem);
     }
 }

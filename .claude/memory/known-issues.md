@@ -10,7 +10,6 @@ for context; delete them once they stop being useful._
 2. **Model-driven, unstructured verification.** The LLM decides when to search (unbounded tool loop, capped only by Spring AI internals) and returns free-form markdown that is regex-parsed in `FactCheckResponseParser` and `frontend/src/parseResponse.ts`. → Phase 1 pipeline (ADR-3).
 3. **Prompt biases toward confident, knowledge-based verdicts.** "Trusted source → real, 100%", "use internal knowledge if search unavailable", "don't classify unverified unless absolutely no evidence", fixed confidence rules. Left unchanged in Phase 0a deliberately: verdict logic changes need the eval set first (ai-verification playbook).
 4. **Citations are constrained, not enforced.** Search now returns URLs and the prompt forbids citing others, but nothing validates the model's citations server-side. → Phase 1 citation validator.
-5. **Outdated framework versions.** Spring Boot 3.4.5 (OSS support ended), Spring AI 1.0.0-M8 (pre-GA). Current: Boot 4.1.x, Spring AI 2.0.x. → ADR-6, next step.
 6. **Audio path needs Google credentials** that no deploy config provides → `503` in practice. Also LINEAR16/en-US only.
 7. **Stored submissions have no retention policy.** Every check (including user text) is persisted to `fact_check_results` indefinitely; no deletion path. Decide retention before public launch.
 
@@ -24,7 +23,7 @@ for context; delete them once they stop being useful._
 
 14a. **Verify X-Forwarded-For on Render before relying on per-IP limits.** With `TRUST_FORWARDED_FOR=true` the right-most entry is used; if Render/Cloudflare puts its own hop there, all users share one bucket. Check real headers on first deploy (alternative: `server.forward-headers-strategy=native`).
 14b. **Search-outage detection is weak.** `AiService` relies on the model echoing `Web Search is not available`, while the prompt still says to "continue using internal knowledge" if search is down. Replace with a tool-set flag / backend-run search in Phase 1.
-14c. **No overall per-request deadline.** Model call ≤60 s × 2 attempts × several tool rounds. Bounded by Phase 1's fixed pipeline.
+14c. **No overall per-request deadline.** Model call ≤60 s × 2 attempts (max-retries=1) × several tool rounds. Bounded by Phase 1's fixed pipeline.
 14d. Google API key is sent as a query parameter (would appear if RestTemplate DEBUG logging were enabled). Consider the `X-goog-api-key` header once verified against the Custom Search API — or moot after the search provider is replaced.
 14e. Global daily cap (1000) can be exhausted by ~20 IPs → deliberate cost-over-availability tradeoff until accounts exist.
 
@@ -45,6 +44,7 @@ for context; delete them once they stop being useful._
 - `System.out`/`printStackTrace` logging, API key in logged URLs → SLF4J, request IDs, no key in logs.
 - Committed `bin/` and IDE files → removed and ignored.
 - No working tests → 98 tests with fakes.
+- Outdated/unsupported Spring Boot 3.4.5 + Spring AI 1.0.0-M8 → Boot 4.1.1, Spring AI 2.0.1, Java 21 (ADR-6).
 - (review) Rate-limit bypass via `;params`/percent-encoded paths → filter matches the normalized path; regression tests prove variants route AND are counted.
 - (review) 429/413 responses lacked CORS headers → CORS moved to a servlet filter ahead of the rate limiter.
 - (review) Nested delimiter reconstruction → per-request random delimiter nonce; attacker URL removed from trusted prompt text (host only).

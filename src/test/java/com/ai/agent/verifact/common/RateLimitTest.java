@@ -1,6 +1,6 @@
 package com.ai.agent.verifact.common;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -43,7 +43,7 @@ class RateLimitTest {
 
     @Test
     void filterReturns429ProblemAfterPerIpLimit() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(2, 100, 100, false, new ObjectMapper());
+        RateLimitFilter filter = new RateLimitFilter(2, 100, 100, false, new JsonMapper());
 
         assertThat(call(filter, "/api/v1/isFakeNews", "1.1.1.1", null).getStatus()).isEqualTo(200);
         assertThat(call(filter, "/api/v1/isFakeNews", "1.1.1.1", null).getStatus()).isEqualTo(200);
@@ -59,7 +59,7 @@ class RateLimitTest {
 
     @Test
     void globalLimitCapsAllClients() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(100, 100, 2, false, new ObjectMapper());
+        RateLimitFilter filter = new RateLimitFilter(100, 100, 2, false, new JsonMapper());
         call(filter, "/api/v1/analyzeImage", "1.1.1.1", null);
         call(filter, "/api/v1/analyzeAudio", "2.2.2.2", null);
         MockHttpServletResponse limited = call(filter, "/api/v1/isFakeNews", "3.3.3.3", null);
@@ -69,7 +69,7 @@ class RateLimitTest {
 
     @Test
     void unlimitedPathsAreNotCounted() throws Exception {
-        RateLimitFilter filter = new RateLimitFilter(1, 1, 1, false, new ObjectMapper());
+        RateLimitFilter filter = new RateLimitFilter(1, 1, 1, false, new JsonMapper());
         for (int i = 0; i < 5; i++) {
             assertThat(call(filter, "/actuator/health", "1.1.1.1", null).getStatus()).isEqualTo(200);
         }
@@ -77,7 +77,7 @@ class RateLimitTest {
 
     @Test
     void forwardedForIsIgnoredUnlessTrusted() throws Exception {
-        RateLimitFilter untrusted = new RateLimitFilter(1, 100, 100, false, new ObjectMapper());
+        RateLimitFilter untrusted = new RateLimitFilter(1, 100, 100, false, new JsonMapper());
         call(untrusted, "/api/v1/isFakeNews", "9.9.9.9", "1.1.1.1");
         // A spoofed header must not give the same socket address a fresh quota.
         assertThat(call(untrusted, "/api/v1/isFakeNews", "9.9.9.9", "5.5.5.5").getStatus()).isEqualTo(429);
@@ -85,7 +85,7 @@ class RateLimitTest {
 
     @Test
     void trustedForwardedForUsesRightMostEntry() {
-        RateLimitFilter trusted = new RateLimitFilter(1, 100, 100, true, new ObjectMapper());
+        RateLimitFilter trusted = new RateLimitFilter(1, 100, 100, true, new JsonMapper());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/isFakeNews");
         request.setRemoteAddr("10.0.0.5");
         request.addHeader("X-Forwarded-For", "6.6.6.6, 7.7.7.7");

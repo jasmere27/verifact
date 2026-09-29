@@ -1,7 +1,7 @@
 package com.ai.agent.verifact.tool;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
@@ -20,14 +20,14 @@ public class GoogleSearchTool {
     private final String apiKey;
     private final String searchEngineId;
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     public GoogleSearchTool(RestTemplate restTemplate,
-                            ObjectMapper objectMapper,
+                            JsonMapper jsonMapper,
                             @Value("${google.api.key}") String apiKey,
                             @Value("${google.cse.id}") String searchEngineId) {
         this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
         this.apiKey = apiKey;
         this.searchEngineId = searchEngineId;
     }
@@ -46,7 +46,7 @@ public class GoogleSearchTool {
 
         try {
             final String response = restTemplate.getForObject(url, String.class);
-            return formatResults(objectMapper.readTree(response));
+            return formatResults(jsonMapper.readTree(response));
         } catch (RestClientResponseException e) {
             // Never log the exception message or URL: the request URL carries the API key.
             log.warn("Web search failed with HTTP {}", e.getStatusCode().value());

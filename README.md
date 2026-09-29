@@ -15,9 +15,9 @@ Verifact is a Spring Boot application (with a companion React frontend in `front
 
 ## Technology Stack
 
-- **Java 17**
-- **Spring Boot 3.4.5**
-- **Spring AI 1.0.0-M8** (OpenAI integration)
+- **Java 21**
+- **Spring Boot 4.1**
+- **Spring AI 2.0** (OpenAI integration)
 - **Maven** for build management
 - **Tesseract OCR** for image text extraction
 - **Jsoup** for HTML parsing
@@ -38,7 +38,7 @@ Verifact is a Spring Boot application (with a companion React frontend in `front
   - Google Search Engine ID
 
 ### For Local Development (Optional)
-- Java 17 or higher
+- Java 21 or higher
 - Maven 3.6+
 - Tesseract OCR (for image analysis features)
 - Node.js 18+ (only if working on `frontend/`)
@@ -95,7 +95,7 @@ chmod +x build.sh
 # or explicitly:
 ./build.sh docker
 
-# Build with Maven and run (requires Java 17+ installed)
+# Build with Maven and run (requires Java 21+ installed)
 ./build.sh maven
 
 # Build both Maven and Docker, then run
@@ -265,7 +265,7 @@ npm run lint
 # Build Docker image (no Java installation needed)
 ./build.sh docker
 
-# Build with Maven (requires Java 17+ installed locally)
+# Build with Maven (requires Java 21+ installed locally)
 ./build.sh maven
 
 # Build both

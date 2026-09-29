@@ -1,6 +1,6 @@
 package com.ai.agent.verifact.tool;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
@@ -14,7 +14,7 @@ import static org.mockito.Mockito.when;
 class GoogleSearchToolTest {
 
     private final RestTemplate restTemplate = mock(RestTemplate.class);
-    private final GoogleSearchTool tool = new GoogleSearchTool(restTemplate, new ObjectMapper(), "key", "cx");
+    private final GoogleSearchTool tool = new GoogleSearchTool(restTemplate, new JsonMapper(), "key", "cx");
 
     @Test
     void returnsTitleUrlAndSnippetSoCitationsCanBeReal() {

@@ -34,5 +34,6 @@ Only record decisions with real tradeoffs.
 - Decision: introduce `SearchProvider` interface; `research-agent` selects the replacement (candidates: Brave Search API, Tavily, Exa, Serper, self-hosted SearXNG) on cost, result quality, returned metadata (URL, title, date), and ToS for this use.
 
 ## ADR-6 — Upgrade to Spring Boot 4.x + Spring AI 2.0 GA
-**Proposed** · 2026-09-29
+**Accepted — done 2026-09-30** (Boot 4.1.1, Spring AI 2.0.1, Java 21) · proposed 2026-09-29
+- Notes for future work: Boot 4 is modular (use `spring-boot-starter-webmvc`, `-restclient`, `-flyway`, `-webmvc-test`); Jackson 3 (`tools.jackson.*`, inject `JsonMapper`); test slices live in `org.springframework.boot.webmvc.test.autoconfigure`. Spring AI 2.0's OpenAI client is the official openai-java SDK, so AI timeouts/retries are `spring.ai.openai.chat.timeout` / `spring.ai.openai.max-retries`, not `spring.ai.retry.*` or `spring.http.clients.*`.
 - Codebase is small (~15 classes), so migrating now is cheap; staying on an unsupported Boot 3.4 + a pre-GA Spring AI milestone blocks structured output/provider improvements. Do it as its own step before the pipeline rewrite. Consider Java 21.
