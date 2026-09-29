@@ -3,6 +3,8 @@ services:
     name: verifact-backend
     runtime: docker
     dockerfilePath: ./Dockerfile
+    # Closest Render region to the Supabase database (ap-southeast-2, Sydney). Set at creation only.
+    region: singapore
     # starter ($7/mo) stays awake. "free" works but sleeps after 15 idle minutes (~1 min cold start)
     # and has 512 MB RAM, which is tight for the JVM plus OCR.
     plan: starter
