@@ -61,6 +61,19 @@ class SpringAiLlmClientTest {
     }
 
     @Test
+    void toleratesProseAroundTheJson() {
+        SpringAiLlmClient client = clientReplying("Here is the result:\n{\"claims\":[{\"claim\":\"X\",\"searchQueries\":[\"x\"]}]}\nHope this helps!");
+        assertThat(client.generate("s", "u", ClaimExtraction.class).claims()).hasSize(1);
+    }
+
+    @Test
+    void schemaTellsTheModelTheAllowedVerdicts() {
+        SpringAiLlmClient client = clientReplying("{\"summary\":\"s\",\"claims\":[],\"limitations\":[]}");
+        client.generate("s", "u", com.ai.agent.verifact.verification.ModelOutputs.Assessment.class);
+        assertThat(lastPrompt.get().getInstructions().get(0).getText()).contains("INSUFFICIENT_EVIDENCE");
+    }
+
+    @Test
     void unparseableOutputIs502() {
         SpringAiLlmClient client = clientReplying("Sorry, I can't help with that.");
         assertThatThrownBy(() -> client.generate("s", "u", ClaimExtraction.class))

@@ -1,5 +1,7 @@
 package com.ai.agent.verifact.verification;
 
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+
 import java.util.List;
 
 /**
@@ -20,6 +22,11 @@ public final class ModelOutputs {
     /** Step 2: evidence-based assessment of the extracted claims. */
     public record Assessment(String summary, List<ClaimVerdict> claims, List<String> limitations) {}
 
-    public record ClaimVerdict(String claimId, String verdict, List<String> supportingEvidenceIds,
-                               List<String> contradictingEvidenceIds, String explanation) {}
+    public record ClaimVerdict(
+            @JsonPropertyDescription("The claim's ID exactly as given, e.g. C1") String claimId,
+            @JsonPropertyDescription("Exactly one of: SUPPORTED, PARTLY_SUPPORTED, MISLEADING, CONTRADICTED, INSUFFICIENT_EVIDENCE")
+            String verdict,
+            @JsonPropertyDescription("IDs of evidence items that support the claim, e.g. [\"E1\"]") List<String> supportingEvidenceIds,
+            @JsonPropertyDescription("IDs of evidence items that contradict the claim") List<String> contradictingEvidenceIds,
+            @JsonPropertyDescription("At most two plain-language sentences") String explanation) {}
 }

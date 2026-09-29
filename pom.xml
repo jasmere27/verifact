@@ -97,6 +97,13 @@
             <version>1.23.2</version>
         </dependency>
         
+        <!-- Guava: public-suffix-aware registrable domains for counting independent sources -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.6.0-jre</version>
+        </dependency>
+
         <!-- Google Cloud Speech (audio transcription) -->
         <dependency>
             <groupId>com.google.cloud</groupId>

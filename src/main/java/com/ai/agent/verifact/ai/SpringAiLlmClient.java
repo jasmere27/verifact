@@ -57,15 +57,32 @@ public class SpringAiLlmClient implements LlmClient {
             throw new ApiException(HttpStatus.BAD_GATEWAY, "The analysis service returned an empty result. Please try again.");
         }
         try {
-            T value = converter.convert(text);
-            if (value == null) {
-                throw new IllegalStateException("null conversion");
-            }
-            return value;
+            return parse(converter, text);
         } catch (RuntimeException e) {
             throw new ApiException(HttpStatus.BAD_GATEWAY,
                     "The analysis service returned an unreadable result. Please try again.", e);
         }
+    }
+
+    /** Parses as-is first; if the model wrapped the JSON in prose, retries on the outermost {...}. */
+    static <T> T parse(BeanOutputConverter<T> converter, String text) {
+        try {
+            return requireNonNull(converter.convert(text));
+        } catch (RuntimeException first) {
+            int start = text.indexOf('{');
+            int end = text.lastIndexOf('}');
+            if (start < 0 || end <= start) {
+                throw first;
+            }
+            return requireNonNull(converter.convert(text.substring(start, end + 1)));
+        }
+    }
+
+    private static <T> T requireNonNull(T value) {
+        if (value == null) {
+            throw new IllegalStateException("Model output converted to null");
+        }
+        return value;
     }
 
     private void logUsage(ChatResponse response, Class<?> type, long durationMs) {

@@ -14,6 +14,7 @@ import com.ai.agent.verifact.verification.ModelOutputs.Assessment;
 import com.ai.agent.verifact.verification.ModelOutputs.ClaimExtraction;
 import com.ai.agent.verifact.verification.ModelOutputs.ClaimVerdict;
 import com.ai.agent.verifact.verification.ModelOutputs.ExtractedClaim;
+import com.google.common.net.InternetDomainName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +33,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The verification pipeline (ADR-3). The backend controls every step and the model gets no tools:
@@ -56,6 +59,16 @@ public class VerificationService {
     static final int MAX_EVIDENCE = 10;
     static final int MAX_SNIPPET_CHARS = 600;
     static final int CHECKED_TEXT_EXCERPT_CHARS = 1500;
+
+    /** Search operators that could let content steer where evidence comes from (e.g. site:attacker.example). */
+    private static final Pattern SEARCH_OPERATOR = Pattern.compile(
+            "(?i)\\b(?:site|inurl|allinurl|intitle|allintitle|intext|allintext|filetype|ext|related|cache|link|info|source|before|after|daterange):\\S*");
+    private static final Pattern EXCLUSION_TERM = Pattern.compile("(^|\\s)-\\S+");
+    private static final Pattern EVIDENCE_REF = Pattern.compile("\\bE\\d+\\b");
+    private static final String NOT_ESTABLISHED = "The sources found don't clearly establish this claim either way.";
+
+    /** Result of checking the model's assessment against the evidence rules. */
+    record Validation(List<ClaimAssessment> claims, boolean anyDowngraded) {}
 
     private final LlmClient llm;
     private final SearchProvider searchProvider;
@@ -84,7 +97,7 @@ public class VerificationService {
         }
         String trimmed = input.trim();
         if (!UrlGuard.looksLikeUrl(trimmed)) {
-            return run(InputType.TEXT, trimmed, trimmed, "text submitted by a user");
+            return run(InputType.TEXT, trimmed, trimmed, "text submitted by a user", null);
         }
         SafeUrlFetcher.FetchedPage page;
         try {
@@ -95,22 +108,28 @@ public class VerificationService {
             throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage(), e);
         }
         String host = URI.create(page.url()).getHost();
-        return run(InputType.URL, trimmed, page.title() + "\n\n" + page.text(), "a web page from the site " + host);
+        return run(InputType.URL, trimmed, page.title() + "\n\n" + page.text(), "a web page from the site " + host,
+                page.url());
     }
 
     public VerificationResult verifyImageText(String fileName, String ocrText) {
         return run(InputType.IMAGE, displayName(fileName, "Uploaded image"), ocrText,
-                "text extracted by OCR from an image a user uploaded");
+                "text extracted by OCR from an image a user uploaded", null);
     }
 
     public VerificationResult verifyAudioTranscript(String fileName, String transcript) {
         return run(InputType.AUDIO, displayName(fileName, "Uploaded audio"), transcript,
-                "a transcript of audio a user uploaded");
+                "a transcript of audio a user uploaded", null);
     }
 
     // ---------------------------------------------------------------- pipeline
 
-    VerificationResult run(InputType inputType, String displayInput, String rawContent, String sourceDescription) {
+    /**
+     * @param sourceUrl for link input, the page that was checked; it and its site are excluded from
+     *                  the evidence so an article can't corroborate itself
+     */
+    VerificationResult run(InputType inputType, String displayInput, String rawContent, String sourceDescription,
+                           String sourceUrl) {
         long startedAt = System.nanoTime();
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, clock.getZone());
@@ -130,7 +149,7 @@ public class VerificationService {
         }
 
         // 2. Evidence
-        List<Evidence> evidence = gatherEvidence(claims, now);
+        List<Evidence> evidence = gatherEvidence(claims, now, sourceUrl);
         List<String> claimTexts = claims.stream().map(ExtractedClaim::claim).toList();
 
         // 3. Assessment (skipped when there is nothing to weigh)
@@ -152,9 +171,16 @@ public class VerificationService {
                     VerificationPrompts.withNonce(VerificationPrompts.ASSESSMENT_SYSTEM, assessmentNonce),
                     VerificationPrompts.assessmentUser(assessmentNonce, claimTexts, evidence, today),
                     Assessment.class);
-            assessments = validate(claimTexts, assessment, evidence, limitations);
+            Validation validation = validate(claimTexts, assessment, evidence, limitations);
+            assessments = validation.claims();
             summary = cleanText(assessment.summary(), 400);
-            if (summary.isBlank()) {
+            boolean allInsufficient = assessments.stream().allMatch(a -> a.verdict() == Verdict.INSUFFICIENT_EVIDENCE);
+            if (allInsufficient) {
+                // Never ship a model-written conclusion the evidence didn't back.
+                summary = "The sources found don't clearly confirm or refute this.";
+            } else if (validation.anyDowngraded()) {
+                summary = "Some claims couldn't be established from the sources found. See each claim below.";
+            } else if (summary.isBlank()) {
                 summary = "See the individual claims below.";
             }
             if (assessment.limitations() != null) {
@@ -192,7 +218,7 @@ public class VerificationService {
             List<String> queries = new ArrayList<>();
             if (c.searchQueries() != null) {
                 c.searchQueries().stream()
-                        .map(q -> cleanText(q, 200))
+                        .map(VerificationService::cleanQuery)
                         .filter(q -> !q.isBlank())
                         .limit(2)
                         .forEach(queries::add);
@@ -208,20 +234,39 @@ public class VerificationService {
         return claims;
     }
 
-    /** Runs each claim's first query, then second queries, within the search budget. */
-    private List<Evidence> gatherEvidence(List<ExtractedClaim> claims, Instant now) {
+    /** Plain keywords only: search operators and exclusion terms are removed. */
+    static String cleanQuery(String query) {
+        String q = cleanText(query, 200);
+        q = SEARCH_OPERATOR.matcher(q).replaceAll(" ");
+        q = EXCLUSION_TERM.matcher(q).replaceAll(" ");
+        return q.replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Runs each claim's first query, then second queries, within the search budget. Each claim gets
+     * a fair share of evidence slots, and the checked page's own site is excluded.
+     */
+    private List<Evidence> gatherEvidence(List<ExtractedClaim> claims, Instant now, String sourceUrl) {
         List<String> queries = new ArrayList<>();
+        List<Integer> queryClaim = new ArrayList<>();
         for (int round = 0; round < 2; round++) {
-            for (ExtractedClaim claim : claims) {
+            for (int i = 0; i < claims.size(); i++) {
+                ExtractedClaim claim = claims.get(i);
                 if (claim.searchQueries().size() > round && queries.size() < MAX_SEARCHES) {
                     queries.add(claim.searchQueries().get(round));
+                    queryClaim.add(i);
                 }
             }
         }
+        int perClaimCap = (MAX_EVIDENCE + claims.size() - 1) / claims.size();
+        int[] perClaim = new int[claims.size()];
+        String excludedSite = sourceUrl == null ? null : registrableDomain(domain(sourceUrl));
 
         Map<String, Evidence> byUrl = new LinkedHashMap<>();
         int failures = 0;
-        for (String query : queries) {
+        for (int qi = 0; qi < queries.size(); qi++) {
+            String query = queries.get(qi);
+            int claimIndex = queryClaim.get(qi);
             List<SearchResult> results;
             try {
                 results = searchProvider.search(query);
@@ -232,7 +277,7 @@ public class VerificationService {
             }
             int taken = 0;
             for (SearchResult r : results) {
-                if (byUrl.size() >= MAX_EVIDENCE || taken >= RESULTS_PER_SEARCH) {
+                if (byUrl.size() >= MAX_EVIDENCE || taken >= RESULTS_PER_SEARCH || perClaim[claimIndex] >= perClaimCap) {
                     break;
                 }
                 String key = normalizeUrl(r.url());
@@ -240,10 +285,14 @@ public class VerificationService {
                 if (key == null || domain == null || byUrl.containsKey(key)) {
                     continue;
                 }
+                if (excludedSite != null && excludedSite.equals(registrableDomain(domain))) {
+                    continue; // the checked page (or its own site) can't be evidence for itself
+                }
                 String id = "E" + (byUrl.size() + 1);
                 byUrl.put(key, new Evidence(id, r.url(), domain, cleanText(r.title(), 300),
                         cleanText(r.snippet(), MAX_SNIPPET_CHARS), emptyToNull(cleanText(r.publishedDate(), 40)), now));
                 taken++;
+                perClaim[claimIndex]++;
             }
         }
         if (failures == queries.size()) {
@@ -258,8 +307,9 @@ public class VerificationService {
      * Enforces the evidence rules on the model's answer: unknown citations are dropped, verdicts
      * without matching citations are downgraded, and strength is computed from cited domains.
      */
-    List<ClaimAssessment> validate(List<String> claimTexts, Assessment assessment, List<Evidence> evidence,
-                                   List<String> limitations) {
+    Validation validate(List<String> claimTexts, Assessment assessment, List<Evidence> evidence,
+                        List<String> limitations) {
+        boolean anyDowngraded = false;
         Map<String, Evidence> evidenceById = new LinkedHashMap<>();
         evidence.forEach(e -> evidenceById.put(e.id(), e));
 
@@ -288,53 +338,67 @@ public class VerificationService {
             String explanation = cleanText(v.explanation(), 500);
 
             boolean backed = switch (verdict) {
+                // MISLEADING = accurate facts, false impression: needs a source for the facts and an explanation.
                 case SUPPORTED, PARTLY_SUPPORTED -> !supporting.isEmpty();
+                case MISLEADING -> !supporting.isEmpty() && !explanation.isBlank();
                 case CONTRADICTED -> !contradicting.isEmpty();
-                case MISLEADING -> !supporting.isEmpty() || !contradicting.isEmpty();
                 case INSUFFICIENT_EVIDENCE -> true;
             };
             if (!backed) {
                 verdict = Verdict.INSUFFICIENT_EVIDENCE;
-                explanation = "The sources found don't clearly establish this claim either way.";
+                explanation = NOT_ESTABLISHED;
+                anyDowngraded = true;
             }
-            if (explanation.isBlank()) {
-                explanation = "See the cited sources.";
+            if (explanation.isBlank() || refersToUnknownEvidence(explanation, evidenceById)) {
+                explanation = verdict == Verdict.INSUFFICIENT_EVIDENCE ? NOT_ESTABLISHED : "See the cited sources.";
             }
 
             EvidenceStrength strength = strength(verdict, supporting, contradicting, evidenceById);
-            boolean disputed = (verdict == Verdict.SUPPORTED && !contradicting.isEmpty())
-                    || (verdict == Verdict.CONTRADICTED && !supporting.isEmpty());
+            boolean disputed = isDisputed(verdict, supporting, contradicting);
             if (disputed) {
                 limitations.add("Sources disagree about claim " + claimId + ".");
             }
             out.add(new ClaimAssessment(claimId, claimTexts.get(i), verdict, strength, explanation,
                     List.copyOf(supporting), List.copyOf(contradicting)));
         }
-        return out;
+        return new Validation(out, anyDowngraded);
+    }
+
+    static boolean isDisputed(Verdict verdict, List<String> supporting, List<String> contradicting) {
+        return switch (verdict) {
+            case SUPPORTED, PARTLY_SUPPORTED, MISLEADING -> !contradicting.isEmpty();
+            case CONTRADICTED -> !supporting.isEmpty();
+            case INSUFFICIENT_EVIDENCE -> false;
+        };
+    }
+
+    private static boolean refersToUnknownEvidence(String explanation, Map<String, Evidence> evidenceById) {
+        Matcher m = EVIDENCE_REF.matcher(explanation);
+        while (m.find()) {
+            if (!evidenceById.containsKey(m.group())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static EvidenceStrength strength(Verdict verdict, List<String> supporting, List<String> contradicting,
                                      Map<String, Evidence> evidenceById) {
         List<String> direction = switch (verdict) {
-            case SUPPORTED, PARTLY_SUPPORTED -> supporting;
+            case SUPPORTED, PARTLY_SUPPORTED, MISLEADING -> supporting;
             case CONTRADICTED -> contradicting;
-            case MISLEADING -> {
-                List<String> both = new ArrayList<>(supporting);
-                both.addAll(contradicting);
-                yield both;
-            }
             case INSUFFICIENT_EVIDENCE -> List.of();
         };
+        // Independent sources = distinct registrable domains (a.blogspot.com and b.blogspot.com are separate
+        // sites, but news.bbc.co.uk and www.bbc.co.uk are one).
         Set<String> domains = new LinkedHashSet<>();
         for (String id : direction) {
-            domains.add(evidenceById.get(id).domain());
+            domains.add(registrableDomain(evidenceById.get(id).domain()));
         }
         EvidenceStrength strength = domains.size() >= 3 ? EvidenceStrength.STRONG
                 : domains.size() == 2 ? EvidenceStrength.MODERATE
                 : EvidenceStrength.LIMITED;
-        boolean disputed = (verdict == Verdict.SUPPORTED && !contradicting.isEmpty())
-                || (verdict == Verdict.CONTRADICTED && !supporting.isEmpty());
-        if (disputed && strength == EvidenceStrength.STRONG) {
+        if (isDisputed(verdict, supporting, contradicting) && strength == EvidenceStrength.STRONG) {
             strength = EvidenceStrength.MODERATE;
         }
         return strength;
@@ -370,6 +434,25 @@ public class VerificationService {
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    /**
+     * The site that owns a host, per the public suffix list: news.bbc.co.uk → bbc.co.uk. Hosts on
+     * shared-hosting suffixes (e.g. blogspot.com) stay distinct per site. IPs and unknowns pass through.
+     */
+    static String registrableDomain(String host) {
+        if (host == null) {
+            return null;
+        }
+        try {
+            InternetDomainName name = InternetDomainName.from(host);
+            if (name.isUnderPublicSuffix()) {
+                return name.topPrivateDomain().toString();
+            }
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            // IP literal or invalid name: fall through
+        }
+        return host;
     }
 
     static String normalizeUrl(String url) {

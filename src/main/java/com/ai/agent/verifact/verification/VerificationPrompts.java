@@ -24,8 +24,12 @@ final class VerificationPrompts {
             - Extract at most 3 distinct, specific, checkable factual claims that are central to the content.
             - Skip opinions, predictions, questions, jokes, and vague statements.
             - Rewrite each claim so it stands alone: resolve pronouns, include who/what/when/where if stated.
+            - State each claim the way the content presents it. If the content refutes, debunks, or doubts a
+              statement, extract the content's own position (e.g. an article debunking "X causes Y" yields
+              "X does not cause Y"), not the statement it argues against.
             - Keep the claim's original language.
-            - For each claim give 1 or 2 short web search queries that would find evidence for or against it.
+            - For each claim give 1 or 2 short, neutral web search queries (plain keywords, no search operators)
+              that would find evidence for or against it.
             - If the content contains no checkable factual claim, return an empty "claims" list.
             - Do not judge whether claims are true.
             """;

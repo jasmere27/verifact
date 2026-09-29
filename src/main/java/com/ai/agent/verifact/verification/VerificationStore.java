@@ -38,8 +38,15 @@ public class VerificationStore {
         }
     }
 
+    /** Empty if unknown, or if a stored report can no longer be read (e.g. after a format change). */
     public Optional<VerificationResult> find(UUID id) {
-        return repository.findById(id)
-                .map(record -> jsonMapper.readValue(record.getResultJson(), VerificationResult.class));
+        return repository.findById(id).flatMap(record -> {
+            try {
+                return Optional.of(jsonMapper.readValue(record.getResultJson(), VerificationResult.class));
+            } catch (RuntimeException e) {
+                log.error("Stored verification {} could not be read", id, e);
+                return Optional.empty();
+            }
+        });
     }
 }

@@ -351,4 +351,92 @@ class VerificationServiceTest {
         assertThat(llm.userMessages.get(0)).contains("text extracted by OCR");
         assertThat(service.verifyAudioTranscript(null, "spoken").input()).isEqualTo("Uploaded audio");
     }
+
+    // ---- review regressions ----
+
+    @Test
+    void aCheckedPageCannotBeEvidenceForItself() {
+        when(fetcher.fetch("https://blog.example.com/post"))
+                .thenReturn(new SafeUrlFetcher.FetchedPage("https://blog.example.com/post", "T", "Body"));
+        llm.extraction = u -> claims("claim");
+        search.answer = q -> List.of(hit("https://blog.example.com/post"), hit("https://www.example.com/other"),
+                hit("https://independent.example/a"));
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+
+        assertThat(service.verifyText("https://blog.example.com/post").evidence())
+                .extracting(Evidence::url).containsExactly("https://independent.example/a");
+    }
+
+    @Test
+    void subdomainsOfOneSiteCountAsOneSourceButSharedHostsDoNot() {
+        oneClaimWithSources("https://news.bbc.co.uk/1", "https://www.bbc.co.uk/2", "https://bbc.co.uk/3");
+        llm.assessment = u -> new Assessment("s",
+                List.of(new ClaimVerdict("C1", "SUPPORTED", List.of("E1", "E2", "E3"), List.of(), "x")), List.of());
+        assertThat(service.verifyText("claim").claims().get(0).evidenceStrength()).isEqualTo(EvidenceStrength.LIMITED);
+
+        assertThat(VerificationService.registrableDomain("a.blogspot.com"))
+                .isNotEqualTo(VerificationService.registrableDomain("b.blogspot.com"));
+        assertThat(VerificationService.registrableDomain("news.bbc.co.uk")).isEqualTo("bbc.co.uk");
+    }
+
+    @Test
+    void searchOperatorsInGeneratedQueriesAreStripped() {
+        assertThat(VerificationService.cleanQuery("site:evil.example moon landing -nasa inurl:proof 1969"))
+                .isEqualTo("moon landing 1969");
+        llm.extraction = u -> new ClaimExtraction(List.of(new ExtractedClaim("claim", List.of("site:evil.example"))));
+        search.answer = q -> List.of();
+        service.verifyText("content");
+        assertThat(search.queries).containsExactly("claim");
+    }
+
+    @Test
+    void modelSummaryIsReplacedWhenNothingWasEstablished() {
+        oneClaimWithSources("https://a.example/1");
+        llm.assessment = u -> new Assessment("This is definitely true.",
+                List.of(new ClaimVerdict("C1", "SUPPORTED", List.of(), List.of(), "x")), List.of());
+
+        VerificationResult result = service.verifyText("claim");
+
+        assertThat(result.overallVerdict()).isEqualTo(OverallVerdict.INSUFFICIENT_EVIDENCE);
+        assertThat(result.summary()).doesNotContain("definitely true");
+    }
+
+    @Test
+    void misleadingNeedsSupportingFactsAndIsCappedWhenDisputed() {
+        oneClaimWithSources("https://a.example/1", "https://b.example/2", "https://c.example/3", "https://d.example/4");
+        llm.assessment = u -> new Assessment("s",
+                List.of(new ClaimVerdict("C1", "MISLEADING", List.of(), List.of("E1", "E2", "E3"), "Hedge.")), List.of());
+        assertThat(service.verifyText("claim").claims().get(0).verdict()).isEqualTo(Verdict.INSUFFICIENT_EVIDENCE);
+
+        llm.assessment = u -> new Assessment("s",
+                List.of(new ClaimVerdict("C1", "MISLEADING", List.of("E1", "E2", "E3"), List.of("E4"), "Context missing.")),
+                List.of());
+        VerificationResult r = service.verifyText("claim");
+        assertThat(r.claims().get(0).verdict()).isEqualTo(Verdict.MISLEADING);
+        assertThat(r.claims().get(0).evidenceStrength()).isEqualTo(EvidenceStrength.MODERATE);
+        assertThat(r.limitations()).contains("Sources disagree about claim C1.");
+    }
+
+    @Test
+    void explanationsCitingNonexistentEvidenceAreReplaced() {
+        oneClaimWithSources("https://a.example/1");
+        llm.assessment = u -> new Assessment("s",
+                List.of(new ClaimVerdict("C1", "SUPPORTED", List.of("E1"), List.of(), "As E1 and E7 show, it's true.")),
+                List.of());
+        assertThat(service.verifyText("claim").claims().get(0).explanation()).doesNotContain("E7");
+    }
+
+    @Test
+    void everyClaimGetsAFairShareOfEvidence() {
+        llm.extraction = u -> claims("a", "b", "c");
+        search.answer = q -> List.of(hit("https://" + q.charAt(0) + "1.example/x"), hit("https://" + q.charAt(0) + "2.example/x"),
+                hit("https://" + q.charAt(0) + "3.example/x"), hit("https://" + q.charAt(0) + "4.example/x"),
+                hit("https://" + q.charAt(0) + "5.example/x"));
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+
+        List<Evidence> evidence = service.verifyText("content").evidence();
+
+        assertThat(evidence).anyMatch(e -> e.domain().startsWith("c"));
+        assertThat(evidence.stream().filter(e -> e.domain().startsWith("a")).count()).isLessThanOrEqualTo(4);
+    }
 }
