@@ -18,7 +18,7 @@ _Last updated: 2026-09-30 (Phase 0a). Base path `/api/v1`. No authentication yet
 - Callers: `frontend/src/api.ts#checkText` (POST JSON).
 
 ### `POST /api/v1/analyzeImage`
-- In: multipart `file`, ≤ 10 MB, JPEG/PNG/GIF/BMP/TIFF, ≤ 40 MP.
+- In: multipart `file`, ≤ 10 MB, JPEG/PNG/GIF/BMP/TIFF, ≤ 16 MP; at most 2 OCR jobs at once (else 503).
 - Out: `200 text/plain` report (OCR text is what gets checked).
 - Errors: `400` missing/empty file or non-multipart request · `413` file or dimensions too large · `415` not a supported image · `422` no readable text · `503` OCR unavailable · plus the text-check errors.
 - Caller: `frontend/src/api.ts#checkImage`.
