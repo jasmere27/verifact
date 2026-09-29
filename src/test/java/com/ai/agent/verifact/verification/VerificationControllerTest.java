@@ -66,7 +66,7 @@ class VerificationControllerTest {
 
     @Test
     void returnsTheStructuredContract() throws Exception {
-        when(service.verifyText("claim")).thenReturn(sample());
+        when(service.verifyText("claim", VerificationProgress.NONE, false)).thenReturn(sample());
 
         mockMvc.perform(post("/api/v2/verifications").contentType(MediaType.APPLICATION_JSON).content("{\"input\":\"claim\"}"))
                 .andExpect(status().isOk())
@@ -92,7 +92,7 @@ class VerificationControllerTest {
                 .andExpect(status().isPayloadTooLarge());
         mockMvc.perform(post("/api/v2/verifications").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
-        verify(service, never()).verifyText(anyString());
+        verify(service, never()).verifyText(anyString(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 
     @Test

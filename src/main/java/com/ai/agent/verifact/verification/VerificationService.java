@@ -22,7 +22,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.HexFormat;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -77,16 +82,19 @@ public class VerificationService {
     private final VerificationStore store;
     private final Clock clock;
     private final int maxContentChars;
+    private final Duration reuseWindow;
 
     public VerificationService(LlmClient llm, SearchProvider searchProvider, SafeUrlFetcher safeUrlFetcher,
                                VerificationStore store, Clock clock,
-                               @Value("${app.ai.max-content-chars:20000}") int maxContentChars) {
+                               @Value("${app.ai.max-content-chars:20000}") int maxContentChars,
+                               @Value("${app.reuse.ttl-hours:24}") long reuseTtlHours) {
         this.llm = llm;
         this.searchProvider = searchProvider;
         this.safeUrlFetcher = safeUrlFetcher;
         this.store = store;
         this.clock = clock;
         this.maxContentChars = maxContentChars;
+        this.reuseWindow = Duration.ofHours(reuseTtlHours);
     }
 
     // ---------------------------------------------------------------- entry points
@@ -97,12 +105,30 @@ public class VerificationService {
     }
 
     public VerificationResult verifyText(String input, VerificationProgress progress) {
+        return verifyText(input, progress, false);
+    }
+
+    /**
+     * @param refresh true to always run a new check; otherwise a report for the same text or link
+     *                from the last {@code app.reuse.ttl-hours} is returned instantly (free, and
+     *                consistent for everyone checking the same viral claim)
+     */
+    public VerificationResult verifyText(String input, VerificationProgress progress, boolean refresh) {
         if (input == null || input.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please provide a claim, article text, or link to check.");
         }
         String trimmed = input.trim();
-        if (!UrlGuard.looksLikeUrl(trimmed)) {
-            return run(InputType.TEXT, trimmed, trimmed, "text submitted by a user", null, progress);
+        boolean isLink = UrlGuard.looksLikeUrl(trimmed);
+        String inputHash = inputHash(trimmed, isLink);
+        if (!refresh && inputHash != null) {
+            var recent = store.findRecent(inputHash, clock.instant().minus(reuseWindow));
+            if (recent.isPresent()) {
+                log.info("Reusing report id={} for a repeated input", recent.get().id());
+                return recent.get();
+            }
+        }
+        if (!isLink) {
+            return run(InputType.TEXT, trimmed, trimmed, "text submitted by a user", null, progress, inputHash);
         }
         progress.stage(VerificationProgress.Stage.READING_INPUT);
         SafeUrlFetcher.FetchedPage page;
@@ -115,7 +141,7 @@ public class VerificationService {
         }
         String host = URI.create(page.url()).getHost();
         return run(InputType.URL, trimmed, page.title() + "\n\n" + page.text(), "a web page from the site " + host,
-                page.url(), progress);
+                page.url(), progress, inputHash);
     }
 
     public VerificationResult verifyImageText(String fileName, String ocrText) {
@@ -124,7 +150,7 @@ public class VerificationService {
 
     public VerificationResult verifyImageText(String fileName, String ocrText, VerificationProgress progress) {
         return run(InputType.IMAGE, displayName(fileName, "Uploaded image"), ocrText,
-                "text extracted by OCR from an image a user uploaded", null, progress);
+                "text extracted by OCR from an image a user uploaded", null, progress, null);
     }
 
     public VerificationResult verifyAudioTranscript(String fileName, String transcript) {
@@ -133,7 +159,7 @@ public class VerificationService {
 
     public VerificationResult verifyAudioTranscript(String fileName, String transcript, VerificationProgress progress) {
         return run(InputType.AUDIO, displayName(fileName, "Uploaded audio"), transcript,
-                "a transcript of audio a user uploaded", null, progress);
+                "a transcript of audio a user uploaded", null, progress, null);
     }
 
     // ---------------------------------------------------------------- pipeline
@@ -143,7 +169,7 @@ public class VerificationService {
      *                  the evidence so an article can't corroborate itself
      */
     VerificationResult run(InputType inputType, String displayInput, String rawContent, String sourceDescription,
-                           String sourceUrl, VerificationProgress progress) {
+                           String sourceUrl, VerificationProgress progress, String inputHash) {
         long startedAt = System.nanoTime();
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, clock.getZone());
@@ -220,7 +246,7 @@ public class VerificationService {
 
         log.info("Verification done id={} inputType={} claims={} evidence={} overall={} durationMs={}",
                 result.id(), inputType, assessments.size(), evidence.size(), overall, durationMs);
-        store.save(result);
+        store.save(result, inputHash);
         return result;
     }
 
@@ -503,6 +529,35 @@ public class VerificationService {
             // IP literal or invalid name: fall through
         }
         return host;
+    }
+
+    /**
+     * Identity of an input for reuse: SHA-256 over the normalised link, or over the text in lower
+     * case with whitespace collapsed and surrounding quotes/end punctuation removed. So
+     * "The earth is flat." and "the  earth is flat" share a report.
+     */
+    static String inputHash(String input, boolean isLink) {
+        String key;
+        if (isLink) {
+            String url = normalizeUrl(input);
+            if (url == null) {
+                return null;
+            }
+            key = "url:" + url;
+        } else {
+            String text = input.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ").trim()
+                    .replaceAll("^[\"'“”‘’\\s]+|[\"'“”‘’.!?\\s]+$", "");
+            if (text.isEmpty()) {
+                return null;
+            }
+            key = "text:" + text;
+        }
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     static String normalizeUrl(String url) {

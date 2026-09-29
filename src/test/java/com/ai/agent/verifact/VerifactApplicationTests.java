@@ -69,4 +69,52 @@ class VerifactApplicationTests {
     void onlyHealthIsExposedFromActuator() throws Exception {
         mockMvc.perform(get("/actuator/env")).andExpect(status().isNotFound());
     }
+
+    @Autowired
+    private com.ai.agent.verifact.feedback.VerificationFeedbackRepository feedbackRepository;
+
+    @Test
+    void recentReportsAreFoundByInputHashWithinTheWindow() {
+        var result = new com.ai.agent.verifact.verification.VerificationResult(
+                java.util.UUID.randomUUID(), java.time.Instant.parse("2026-09-30T12:00:00Z"),
+                com.ai.agent.verifact.model.InputType.TEXT, "claim", "claim",
+                com.ai.agent.verifact.verification.OverallVerdict.SUPPORTED, "s", java.util.List.of(),
+                java.util.List.of(), java.util.List.of(), "fake", 1);
+        String hash = "a".repeat(64);
+        verificationStore.save(result, hash);
+
+        org.assertj.core.api.Assertions.assertThat(
+                verificationStore.findRecent(hash, java.time.Instant.parse("2026-09-30T00:00:00Z"))).contains(result);
+        org.assertj.core.api.Assertions.assertThat(
+                verificationStore.findRecent(hash, java.time.Instant.parse("2026-09-30T13:00:00Z"))).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(
+                verificationStore.findRecent("b".repeat(64), java.time.Instant.EPOCH)).isEmpty();
+    }
+
+    @Test
+    void feedbackIsStoredForExistingReportsOnly() throws Exception {
+        var id = java.util.UUID.randomUUID();
+        verificationStore.save(new com.ai.agent.verifact.verification.VerificationResult(
+                id, java.time.Instant.now(), com.ai.agent.verifact.model.InputType.TEXT, "c", "c",
+                com.ai.agent.verifact.verification.OverallVerdict.CONTRADICTED, "s", java.util.List.of(),
+                java.util.List.of(), java.util.List.of(), "fake", 1));
+        long before = feedbackRepository.count();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v2/verifications/" + id + "/feedback")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"helpful\":false,\"reason\":\"wrong_verdict\",\"comment\":\"  It is true  \"}"))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v2/verifications/" + java.util.UUID.randomUUID() + "/feedback")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"helpful\":true}"))
+                .andExpect(status().isNotFound());
+
+        org.assertj.core.api.Assertions.assertThat(feedbackRepository.count()).isEqualTo(before + 1);
+        var saved = feedbackRepository.findAll().stream().filter(f -> f.getVerificationId().equals(id)).findFirst().orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(saved.isHelpful()).isFalse();
+        org.assertj.core.api.Assertions.assertThat(saved.getReason())
+                .isEqualTo(com.ai.agent.verifact.feedback.FeedbackReason.WRONG_VERDICT);
+        org.assertj.core.api.Assertions.assertThat(saved.getComment()).isEqualTo("It is true");
+    }
 }

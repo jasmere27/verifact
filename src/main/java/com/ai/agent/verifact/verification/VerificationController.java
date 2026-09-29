@@ -28,7 +28,13 @@ import java.util.UUID;
 @RequestMapping("/api/v2/verifications")
 public class VerificationController {
 
-    public record VerifyRequest(String input) {}
+    /** @param refresh true to skip reusing a recent report for the same input */
+    public record VerifyRequest(String input, Boolean refresh) {
+
+        boolean forceRefresh() {
+            return Boolean.TRUE.equals(refresh);
+        }
+    }
 
     private final VerificationService verificationService;
     private final VerificationStreamer streamer;
@@ -51,7 +57,7 @@ public class VerificationController {
 
     @PostMapping
     public VerificationResult verify(@RequestBody(required = false) VerifyRequest request) {
-        return verificationService.verifyText(validInput(request));
+        return verificationService.verifyText(validInput(request), VerificationProgress.NONE, request.forceRefresh());
     }
 
     // Streaming variants: validation errors are ordinary problem+json responses; once the stream
@@ -61,7 +67,8 @@ public class VerificationController {
     public SseEmitter verifyStream(@RequestBody(required = false) VerifyRequest request, HttpServletResponse response) {
         String input = validInput(request);
         noProxyBuffering(response);
-        return streamer.start(progress -> verificationService.verifyText(input, progress));
+        boolean refresh = request.forceRefresh();
+        return streamer.start(progress -> verificationService.verifyText(input, progress, refresh));
     }
 
     @PostMapping(value = "/image/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

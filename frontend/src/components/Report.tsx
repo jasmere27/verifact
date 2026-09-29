@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
-import { formatDate, formatDateTime, formatDuration, formatPublishedDate, plural, safeHttpUrl } from "../format";
+import { formatDate, formatDateTime, formatDuration, formatPublishedDate, formatRelative, plural, safeHttpUrl } from "../format";
 import { buildReply, heroStrength, reportUrl } from "../share";
 import { avatarLetter, avatarSlot, byTypePriority, domainOf, isSocial, sourceTypeMeta, toSourceType } from "../sources";
 import type { ClaimAssessment, Evidence, VerificationResult } from "../types";
 import { INPUT_TYPE_LABEL, strengthMeta, verdictMeta } from "../verdicts";
+import FeedbackPrompt from "./FeedbackPrompt";
 import Link from "./Link";
 import VerdictBadge from "./VerdictBadge";
 import VerdictIcon from "./VerdictIcon";
@@ -279,7 +280,30 @@ function Collapsible({ summary, children }: { summary: string; children: ReactNo
 
 /* ---------- Report ---------- */
 
-export default function Report({ result }: { result: VerificationResult }) {
+export interface ReuseInfo {
+  /** When the user submitted (ms), used for "checked 3 hours ago". */
+  submittedAt: number;
+  /** Present only for text/link inputs, which can be re-run. */
+  onRecheck?: () => void;
+}
+
+function ReuseBanner({ createdAt, reuse }: { createdAt: string; reuse: ReuseInfo }) {
+  return (
+    <aside className="reuse-banner" aria-label="Earlier check">
+      <p>
+        This was checked <time dateTime={createdAt}>{formatRelative(createdAt, reuse.submittedAt)}</time>. Showing that
+        report.
+      </p>
+      {reuse.onRecheck && (
+        <button type="button" className="button button--secondary button--small" onClick={reuse.onRecheck}>
+          Check again now
+        </button>
+      )}
+    </aside>
+  );
+}
+
+export default function Report({ result, reuse }: { result: VerificationResult; reuse?: ReuseInfo }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const wide = useWideScreen();
   const actions = useReportActions(result);
@@ -300,6 +324,7 @@ export default function Report({ result }: { result: VerificationResult }) {
 
   return (
     <article className="report" aria-labelledby="report-heading">
+      {reuse && <ReuseBanner createdAt={result.createdAt} reuse={reuse} />}
       <header className={`hero tone-${overall.tone}`}>
         <p className="hero-kicker">
           Verdict · {inputType} · <time dateTime={result.createdAt}>{formatDate(result.createdAt)}</time>
@@ -405,6 +430,8 @@ export default function Report({ result }: { result: VerificationResult }) {
           VeriFact is an aid, not a final authority. Read the sources and weigh them yourself.
         </p>
       </section>
+
+      <FeedbackPrompt reportId={result.id} />
 
       <section className="report-section" aria-labelledby="details-heading">
         <h2 id="details-heading">Details</h2>

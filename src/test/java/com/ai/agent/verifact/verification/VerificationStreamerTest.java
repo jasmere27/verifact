@@ -70,7 +70,7 @@ class VerificationStreamerTest {
 
     @Test
     void streamsProgressThenTheResult() throws Exception {
-        when(service.verifyText(eq("claim"), any())).thenAnswer(inv -> {
+        when(service.verifyText(eq("claim"), any(), eq(false))).thenAnswer(inv -> {
             VerificationProgress p = inv.getArgument(1);
             p.stage(VerificationProgress.Stage.EXTRACTING_CLAIMS);
             p.claims(List.of("claim"));
@@ -91,7 +91,7 @@ class VerificationStreamerTest {
 
     @Test
     void pipelineErrorsBecomeASafeErrorEvent() throws Exception {
-        when(service.verifyText(eq("claim"), any()))
+        when(service.verifyText(eq("claim"), any(), eq(false)))
                 .thenThrow(new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "No checkable claim."));
 
         assertThat(stream("{\"input\":\"claim\"}"))
@@ -101,7 +101,7 @@ class VerificationStreamerTest {
 
     @Test
     void unexpectedFailuresDoNotLeakDetails() throws Exception {
-        when(service.verifyText(eq("claim"), any())).thenThrow(new IllegalStateException("db password=hunter2"));
+        when(service.verifyText(eq("claim"), any(), eq(false))).thenThrow(new IllegalStateException("db password=hunter2"));
 
         assertThat(stream("{\"input\":\"claim\"}"))
                 .contains("event:error").contains("\"status\":500").doesNotContain("hunter2");
@@ -112,6 +112,6 @@ class VerificationStreamerTest {
         mockMvc.perform(post("/api/v2/verifications/stream").contentType(MediaType.APPLICATION_JSON).content("{\"input\":\" \"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(request().asyncNotStarted());
-        verify(service, never()).verifyText(any(), any());
+        verify(service, never()).verifyText(any(), any(), org.mockito.ArgumentMatchers.anyBoolean());
     }
 }

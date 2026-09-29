@@ -47,6 +47,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/v2/verifications/image/stream",
             "/api/v2/verifications/audio/stream");
 
+    /** Feedback is cheap but spammable; limited separately so it never uses up check quota. */
+    static final java.util.regex.Pattern FEEDBACK_PATH =
+            java.util.regex.Pattern.compile("^/api/v2/verifications/[^/]+/feedback$");
+
+    private final FixedWindowRateLimiter feedbackPerIpMinute;
     private final FixedWindowRateLimiter perIpMinute;
     private final FixedWindowRateLimiter perIpDay;
     private final FixedWindowRateLimiter globalDay;
@@ -61,12 +66,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
         PATH_HELPER.setRemoveSemicolonContent(true);
     }
 
+    public RateLimitFilter(int perIpPerMinute, int perIpPerDay, int globalPerDay, boolean trustForwardedFor,
+                           JsonMapper jsonMapper) {
+        this(perIpPerMinute, perIpPerDay, globalPerDay, trustForwardedFor, 10, jsonMapper);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public RateLimitFilter(@Value("${app.rate-limit.per-ip-per-minute:5}") int perIpPerMinute,
                            @Value("${app.rate-limit.per-ip-per-day:50}") int perIpPerDay,
                            @Value("${app.rate-limit.global-per-day:1000}") int globalPerDay,
                            @Value("${app.rate-limit.trust-forwarded-for:false}") boolean trustForwardedFor,
+                           @Value("${app.rate-limit.feedback-per-ip-per-minute:10}") int feedbackPerIpPerMinute,
                            JsonMapper jsonMapper) {
         Clock clock = Clock.systemUTC();
+        this.feedbackPerIpMinute = new FixedWindowRateLimiter(feedbackPerIpPerMinute, Duration.ofMinutes(1), clock);
         this.perIpMinute = new FixedWindowRateLimiter(perIpPerMinute, Duration.ofMinutes(1), clock);
         this.perIpDay = new FixedWindowRateLimiter(perIpPerDay, Duration.ofDays(1), clock);
         this.globalDay = new FixedWindowRateLimiter(globalPerDay, Duration.ofDays(1), clock);
@@ -76,8 +89,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return "OPTIONS".equalsIgnoreCase(request.getMethod())
-                || !LIMITED_PATHS.contains(normalizedPath(request));
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        String path = normalizedPath(request);
+        return !LIMITED_PATHS.contains(path) && !FEEDBACK_PATH.matcher(path).matches();
     }
 
     /**
@@ -97,6 +113,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String clientIp = clientIp(request);
+
+        if (FEEDBACK_PATH.matcher(normalizedPath(request)).matches()) {
+            long wait = feedbackPerIpMinute.tryAcquire(clientIp);
+            if (wait > 0) {
+                reject(response, wait, "You're sending feedback too quickly. Please wait a moment.");
+                return;
+            }
+            chain.doFilter(request, response);
+            return;
+        }
 
         long retryAfter = perIpMinute.tryAcquire(clientIp);
         if (retryAfter == 0) {

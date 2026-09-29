@@ -57,3 +57,7 @@ Only record decisions with real tradeoffs.
 ## ADR-9 — Default model: Spring AI's OpenAI default (gpt-5-mini)
 **Accepted** · 2026-09-30
 - Live eval with the default `gpt-5-mini-2025-08-07`: 20/20, ~2 calls and ~3k prompt + ~1–2k completion tokens per check. Good enough to keep; no need for a larger model now. Override with `SPRING_AI_OPENAI_CHAT_MODEL` and re-run `VerificationEvalIT` before switching.
+
+## ADR-10 — Reuse identical checks for 24 hours
+**Accepted** · 2026-09-30
+- Viral claims get checked by many people; re-running costs 2 LLM calls + 4 searches and can give inconsistent verdicts. Same normalised text/link within 24 h returns the stored report (instant, free, consistent). Users can force a fresh check ("Check again now" → `refresh: true`). Uploads aren't reused (OCR/transcripts vary). Tradeoff: fast-moving news may show a report up to a day old — the report shows its check time.

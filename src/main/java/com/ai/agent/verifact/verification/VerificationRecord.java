@@ -37,11 +37,15 @@ public class VerificationRecord {
     @Column(name = "result_json", nullable = false, columnDefinition = "text")
     private String resultJson;
 
+    /** SHA-256 of the normalised input; null when the report must never be reused. */
+    @Column(name = "input_hash", length = 64)
+    private String inputHash;
+
     protected VerificationRecord() {
     }
 
     public VerificationRecord(UUID id, OffsetDateTime createdAt, String inputType, String overallVerdict,
-                              String searchProvider, long durationMs, String resultJson) {
+                              String searchProvider, long durationMs, String resultJson, String inputHash) {
         this.id = id;
         this.createdAt = createdAt;
         this.inputType = inputType;
@@ -49,6 +53,7 @@ public class VerificationRecord {
         this.searchProvider = searchProvider;
         this.durationMs = durationMs;
         this.resultJson = resultJson;
+        this.inputHash = inputHash;
     }
 
     public UUID getId() {

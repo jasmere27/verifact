@@ -7,6 +7,7 @@ import CheckProgress from "./components/CheckProgress";
 import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
+import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
@@ -18,6 +19,15 @@ type CheckState =
   | { status: "idle" }
   | { status: "loading"; submission: Submission; stage?: StageId; claims?: string[]; sources?: SourcesFound }
   | { status: "error"; message: string; requestId?: string };
+
+/** A result created this long before the user submitted was reused by the server, not freshly checked. */
+const REUSE_THRESHOLD_MS = 2 * 60_000;
+
+/** Set when a fresh submission landed on a stored report; lives only in memory, never in the URL. */
+interface ReusedReport {
+  id: string;
+  submittedAt: number;
+}
 
 function errorMessage(err: unknown): { message: string; requestId?: string } {
   if (err instanceof ApiError) {
@@ -34,6 +44,7 @@ function App() {
   const [results, setResults] = useState<Record<string, VerificationResult>>({});
   const [recent, setRecent] = useState<RecentCheck[]>(() => loadRecent());
   const [announcement, setAnnouncement] = useState("");
+  const [reused, setReused] = useState<ReusedReport | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +57,7 @@ function App() {
   if (route.name !== lastRouteName) {
     setLastRouteName(route.name);
     if (route.name !== "home" && check.status !== "idle") setCheck({ status: "idle" });
+    if (route.name === "home" && reused) setReused(null);
   }
   useEffect(() => {
     if (route.name === "home") return;
@@ -68,7 +80,8 @@ function App() {
     if (check.status === "error") errorRef.current?.focus();
   }, [check]);
 
-  async function runCheck(submission: Submission) {
+  async function runCheck(submission: Submission, refresh = false) {
+    const submittedAt = Date.now();
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -87,14 +100,22 @@ function App() {
     try {
       const result =
         submission.mode === "text"
-          ? await verifyTextStream(submission.text, handlers, controller.signal)
+          ? await verifyTextStream(submission.text, handlers, controller.signal, refresh)
           : await verifyFileStream(submission.mode, submission.file, handlers, controller.signal);
       if (controller.signal.aborted) return;
       controllerRef.current = null;
       cacheResult(result);
       setRecent(rememberCheck(result));
       setCheck({ status: "idle" });
-      setAnnouncement(`Report ready. Overall: ${verdictMeta(result.overallVerdict).label}.`);
+      const createdAt = Date.parse(result.createdAt);
+      const wasReused = !Number.isNaN(createdAt) && createdAt < submittedAt - REUSE_THRESHOLD_MS;
+      setReused(wasReused ? { id: result.id, submittedAt } : null);
+      const label = verdictMeta(result.overallVerdict).label;
+      setAnnouncement(
+        wasReused
+          ? `This was already checked ${formatRelative(result.createdAt, submittedAt)}. Showing that report. Overall: ${label}.`
+          : `Report ready. Overall: ${label}.`,
+      );
       navigate(reportPath(result.id));
     } catch (err) {
       if (controller.signal.aborted) return;
@@ -103,6 +124,12 @@ function App() {
       setCheck({ status: "error", message, requestId });
       setAnnouncement("");
     }
+  }
+
+  /** "Check again now" on a reused report: run the same text or link again, bypassing reuse. */
+  function recheck(input: string) {
+    navigate("/");
+    void runCheck({ mode: "text", text: input }, true);
   }
 
   function cancelCheck() {
@@ -175,7 +202,7 @@ function App() {
             )}
 
             <div className="card form-card" hidden={loading}>
-              <CheckForm onSubmit={runCheck} />
+              <CheckForm onSubmit={(submission) => void runCheck(submission)} />
             </div>
 
             {!loading && (
@@ -192,7 +219,14 @@ function App() {
         )}
 
         {route.name === "report" && (
-          <ReportPage key={route.id} id={route.id} cached={results[route.id]} onLoaded={cacheResult} />
+          <ReportPage
+            key={route.id}
+            id={route.id}
+            cached={results[route.id]}
+            onLoaded={cacheResult}
+            reusedAt={reused?.id === route.id ? reused.submittedAt : undefined}
+            onRecheck={recheck}
+          />
         )}
 
         {route.name === "notFound" && (

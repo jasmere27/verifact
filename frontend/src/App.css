@@ -190,6 +190,12 @@
   background: var(--surface-2);
 }
 
+.button--small {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+}
+
 .text-button {
   background: none;
   border: none;
@@ -499,6 +505,17 @@
 .progress {
   display: grid;
   gap: 20px;
+  /* Held back briefly so an instant (reused) answer doesn't flash the progress card. */
+  animation: progress-in 180ms ease-out 350ms both;
+}
+
+@keyframes progress-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .progress h2 {
@@ -684,6 +701,9 @@
   }
   .spinner {
     animation: none !important;
+  }
+  .progress {
+    animation-duration: 1ms;
   }
 }
 
@@ -1346,6 +1366,99 @@ div.state-card {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Reused report: a calm note above the verdict. */
+.reuse-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+/* Feedback */
+.feedback-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.feedback-question {
+  font-weight: 500;
+}
+
+.feedback-buttons,
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feedback-form {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+}
+
+.feedback-reasons {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.feedback-reasons legend {
+  font-weight: 500;
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.feedback-reason {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.feedback-reason input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+  flex: none;
+}
+
+.feedback-comment {
+  display: grid;
+  gap: 6px;
+}
+
+.feedback-comment label {
+  font-weight: 500;
+}
+
+.feedback-textarea {
+  min-height: 84px;
+}
+
+.feedback-comment .counter {
+  justify-self: end;
+}
+
+.feedback-done {
+  font-weight: 500;
+  color: var(--text-2);
 }
 
 /* ---------- Wider screens ---------- */

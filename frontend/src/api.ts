@@ -276,10 +276,11 @@ async function streamResult(path: string, body: BodyInit, headers: HeadersInit, 
   });
 }
 
-export function verifyTextStream(input: string, handlers: StreamHandlers, signal?: AbortSignal) {
+/** `refresh: true` asks the server to run a new check instead of reusing a recent report for the same input. */
+export function verifyTextStream(input: string, handlers: StreamHandlers, signal?: AbortSignal, refresh = false) {
   return streamResult(
     "/api/v2/verifications/stream",
-    JSON.stringify({ input }),
+    JSON.stringify(refresh ? { input, refresh: true } : { input }),
     { "Content-Type": "application/json" },
     handlers,
     signal,
@@ -290,4 +291,28 @@ export function verifyFileStream(kind: "image" | "audio", file: File, handlers: 
   const formData = new FormData();
   formData.append("file", file);
   return streamResult(`/api/v2/verifications/${kind}/stream`, formData, {}, handlers, signal);
+}
+
+/* ---------- Feedback ---------- */
+
+export type FeedbackReason = "WRONG_VERDICT" | "BAD_SOURCES" | "MISSED_CLAIM" | "OTHER";
+
+export interface FeedbackBody {
+  helpful: boolean;
+  reason: FeedbackReason | null;
+  /** At most 500 characters. */
+  comment: string | null;
+}
+
+/** `POST /api/v2/verifications/{id}/feedback` → 204. Errors (400/404/429) are problem+json. */
+export function sendFeedback(id: string, body: FeedbackBody, signal?: AbortSignal): Promise<void> {
+  return withTimeout(signal, async (timeoutSignal) => {
+    const response = await fetch(`${API_BASE_URL}/api/v2/verifications/${encodeURIComponent(id)}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: timeoutSignal,
+    });
+    if (!response.ok) throw await toApiError(response);
+  });
 }

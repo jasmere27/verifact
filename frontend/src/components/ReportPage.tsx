@@ -15,9 +15,13 @@ interface Props {
   /** Result already in memory (just checked, or opened earlier this session). */
   cached?: VerificationResult;
   onLoaded: (result: VerificationResult) => void;
+  /** When this page was reached by a submission the server answered with a stored report: the submit time (ms). */
+  reusedAt?: number;
+  /** Re-run a text/link input as a fresh check. */
+  onRecheck: (input: string) => void;
 }
 
-export default function ReportPage({ id, cached, onLoaded }: Props) {
+export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck }: Props) {
   const [state, setState] = useState<State>(cached ? { status: "ready", result: cached } : { status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -37,7 +41,20 @@ export default function ReportPage({ id, cached, onLoaded }: Props) {
     return () => controller.abort();
   }, [id, attempt, cached, onLoaded]);
 
-  if (state.status === "ready") return <Report result={state.result} />;
+  if (state.status === "ready") {
+    const { result } = state;
+    const canRecheck = result.inputType === "TEXT" || result.inputType === "URL";
+    return (
+      <Report
+        result={result}
+        reuse={
+          reusedAt === undefined
+            ? undefined
+            : { submittedAt: reusedAt, onRecheck: canRecheck && result.input.trim() ? () => onRecheck(result.input) : undefined }
+        }
+      />
+    );
+  }
 
   if (state.status === "loading") {
     return (

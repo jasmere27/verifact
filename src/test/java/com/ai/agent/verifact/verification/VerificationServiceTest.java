@@ -93,7 +93,7 @@ class VerificationServiceTest {
         search = new FakeSearch();
         fetcher = mock(SafeUrlFetcher.class);
         store = mock(VerificationStore.class);
-        service = new VerificationService(llm, search, fetcher, store, Clock.fixed(NOW, ZoneOffset.UTC), 20_000);
+        service = new VerificationService(llm, search, fetcher, store, Clock.fixed(NOW, ZoneOffset.UTC), 20_000, 24);
     }
 
     private static SearchResult hit(String url) {
@@ -141,7 +141,7 @@ class VerificationServiceTest {
         assertThat(result.searchProvider()).isEqualTo("fake");
         assertThat(result.inputType()).isEqualTo(InputType.TEXT);
         assertThat(llm.calls()).isEqualTo(2);
-        verify(store).save(result);
+        verify(store).save(org.mockito.ArgumentMatchers.eq(result), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -225,7 +225,7 @@ class VerificationServiceTest {
                 .isInstanceOfSatisfying(ApiException.class,
                         e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
         assertThat(search.queries).isEmpty();
-        verify(store, never()).save(any());
+        verify(store, never()).save(any(), any());
     }
 
     @Test
@@ -488,5 +488,60 @@ class VerificationServiceTest {
 
         assertThat(events).containsExactly("stage:READING_INPUT", "stage:EXTRACTING_CLAIMS", "claims:1",
                 "stage:SEARCHING", "sources:2[a.example, b.example]", "stage:ASSESSING");
+    }
+
+    // ---- reuse of recent reports ----
+
+    @Test
+    void repeatedInputReusesARecentReportWithoutAnyWork() {
+        oneClaimWithSources("https://a.example/1");
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+        VerificationResult first = service.verifyText("The earth is flat.");
+        org.mockito.ArgumentCaptor<String> hash = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(store).save(org.mockito.ArgumentMatchers.eq(first), hash.capture());
+        when(store.findRecent(org.mockito.ArgumentMatchers.eq(hash.getValue()), any()))
+                .thenReturn(java.util.Optional.of(first));
+        int callsBefore = llm.calls();
+
+        VerificationResult again = service.verifyText("  the  EARTH is flat  ");
+
+        assertThat(again).isSameAs(first);
+        assertThat(llm.calls()).isEqualTo(callsBefore);
+        // Both spellings looked up the same hash (once per call).
+        verify(store, org.mockito.Mockito.times(2)).findRecent(org.mockito.ArgumentMatchers.eq(hash.getValue()),
+                org.mockito.ArgumentMatchers.eq(NOW.minus(java.time.Duration.ofHours(24))));
+    }
+
+    @Test
+    void refreshAlwaysRunsAFreshCheck() {
+        oneClaimWithSources("https://a.example/1");
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+        VerificationResult earlier = service.verifyText("claim");
+        when(store.findRecent(any(), any())).thenReturn(java.util.Optional.of(earlier));
+        int callsBefore = llm.calls();
+
+        service.verifyText("claim", VerificationProgress.NONE, true);
+
+        assertThat(llm.calls()).isGreaterThan(callsBefore);
+    }
+
+    @Test
+    void inputHashNormalisesTextAndLinksButKeepsThemDistinct() {
+        String a = VerificationService.inputHash("The Earth is flat.", false);
+        assertThat(VerificationService.inputHash("\"the   earth is FLAT\"", false)).isEqualTo(a);
+        assertThat(VerificationService.inputHash("The Earth is round.", false)).isNotEqualTo(a);
+        assertThat(VerificationService.inputHash("https://www.bbc.com/news/x/", true))
+                .isEqualTo(VerificationService.inputHash("https://bbc.com/news/x", true));
+        assertThat(VerificationService.inputHash("...", false)).isNull();
+        assertThat(a).hasSize(64);
+    }
+
+    @Test
+    void uploadsAreNeverReused() {
+        oneClaimWithSources("https://a.example/1");
+        llm.assessment = u -> new Assessment("s", List.of(), List.of());
+        service.verifyImageText("x.png", "OCR text");
+        verify(store).save(any(), org.mockito.ArgumentMatchers.isNull());
+        verify(store, never()).findRecent(any(), any());
     }
 }

@@ -28,6 +28,9 @@ for context; delete them once they stop being useful._
 14d. Legacy Google provider sends its API key as a query parameter (would appear with HTTP DEBUG logging). Moot once Google is unused.
 14e. Global daily cap (1000) can be exhausted by ~20 IPs → deliberate cost-over-availability tradeoff until accounts exist.
 
+14f. Feedback has no admin view yet — query `verification_feedback` in Supabase. Worth a tiny internal page once volume grows; 👎 reports with comments are the best source of new eval cases.
+14g. Link previews depend on the backend answering within 4 s; on the free plan a sleeping backend means the first share of a link may show the generic preview (crawlers cache it).
+
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.

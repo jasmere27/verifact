@@ -48,3 +48,18 @@ export function safeHttpUrl(url: string): string | null {
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }
+
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+
+/** ISO instant → "3 hours ago" relative to `now` (ms); falls back to the absolute date. */
+export function formatRelative(iso: string, now: number): string {
+  const time = Date.parse(iso);
+  if (Number.isNaN(time)) return iso;
+  const seconds = Math.round((time - now) / 1000);
+  const abs = Math.abs(seconds);
+  if (abs < 60) return relative.format(seconds, "second");
+  if (abs < 3600) return relative.format(Math.round(seconds / 60), "minute");
+  if (abs < 86_400) return relative.format(Math.round(seconds / 3600), "hour");
+  if (abs < 30 * 86_400) return relative.format(Math.round(seconds / 86_400), "day");
+  return formatDate(iso);
+}

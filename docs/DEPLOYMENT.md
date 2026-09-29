@@ -4,7 +4,7 @@
 
 | Part | Where | How to redeploy |
 |---|---|---|
-| Frontend | https://verifact-blf.pages.dev (Cloudflare Pages project `verifact`, direct upload, not Git-connected) | `cd frontend && VITE_API_BASE_URL=https://verifact-backend-5mux.onrender.com npm run build && npx wrangler pages deploy dist --project-name verifact --branch main` |
+| Frontend | https://verifact-blf.pages.dev (Cloudflare Pages project `verifact`, direct upload incl. `functions/` for link previews, not Git-connected) | `cd frontend && VITE_API_BASE_URL=https://verifact-backend-5mux.onrender.com npm run build && npx wrangler pages deploy dist --project-name verifact --branch main` |
 | Backend | https://verifact-backend-5mux.onrender.com (Render `verifact-backend`, `srv-dad6lhrncjis7387if1g`, free plan, Singapore) | automatic on every push to `main` (or `render deploys create srv-dad6lhrncjis7387if1g`) |
 | Database | Supabase project `yappnvazdkscgqzipdxd` (ap-southeast-2), Session pooler | migrations run on backend start |
 
