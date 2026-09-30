@@ -155,14 +155,15 @@ function App() {
             <span>VeriFact</span>
           </Link>
           <div className="header-end">
-            <nav className="site-nav" aria-label="Products">
-              <Link href="/" aria-current={route.name === "legal" ? undefined : "page"}>
-                Fact check
-              </Link>
-              <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
-                LegalFact
-              </Link>
-            </nav>
+            {/* LegalFact stays unlisted (reachable at /legal) until its wording has had attorney review. */}
+            {route.name === "legal" && (
+              <nav className="site-nav" aria-label="Products">
+                <Link href="/">Fact check</Link>
+                <Link href="/legal" aria-current="page">
+                  LegalFact
+                </Link>
+              </nav>
+            )}
             <ThemeToggle />
           </div>
         </div>
