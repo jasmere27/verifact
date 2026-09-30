@@ -100,3 +100,18 @@ interface CaseIntelligence { createdAt: string; practiceAreas: PracticeArea[];
 ```
 Guarantees: every `userQuote` occurs in the description; dates are as written in it (else null); `IDENTIFIED` jurisdiction has a `basisQuote` from it; every `sourceId` is in `sources`; sources are on the official allow-list (`legal/LegalSources`); `whatItSays`/`relevance` contain no number absent from that source and no advice wording (else null); `notice` always present.
 
+## ResearchFact — citation check (added 2026-09-30, ADR-13)
+- `POST /api/v2/research/check` JSON `{"text": "..."}` (30–10,000 chars) → `ResearchCheck`; `/check/stream` → SSE (`stage`, `claims`, `sources`, `result`/`error`). Nothing stored. Rate limited with the others. Typical 30–90 s.
+- Errors: `400` too short · `413` too long · `422` no citations found · `429` · `502` AI failure.
+```ts
+type ReferenceStatus = "VERIFIED"|"FOUND_WITH_DIFFERENCES"|"RETRACTED"|"NOT_FOUND"|"LOOKUP_FAILED";
+type Support = "SUPPORTED"|"PARTIALLY_SUPPORTED"|"OVERSTATED"|"CONTRADICTED"|"NOT_ADDRESSED_IN_ABSTRACT"|"NO_ABSTRACT"|"CITATION_PROBLEM"|"NEEDS_REVIEW";
+interface WorkSummary { doi: string|null; url: string|null; title: string|null; authors: string[]; year: number|null; venue: string|null; publisher: string|null; citedByCount: number|null; notices: string[]; hasAbstract: boolean; }
+interface ResearchCheck { createdAt: string;
+  references: { id: string; textAsWritten: string; status: ReferenceStatus; differences: string[]; work: WorkSummary|null }[];
+  claims: { id: string; quote: string; claim: string; referenceIds: string[]; support: Support; evidenceFrom: string|null; evidenceQuote: string|null; note: string|null;
+            conflicting: { work: WorkSummary; quote: string; note: string|null }[] }[];
+  referenceCounts: Record<ReferenceStatus, number>; supportCounts: Record<Support, number>; limitations: string[]; notice: string; durationMs: number; }
+```
+Guarantees: `evidenceQuote` and conflict quotes are verbatim from the named work's abstract (≤300 chars); statuses other than the five model verdicts are set by code only.
+

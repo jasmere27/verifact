@@ -33,6 +33,10 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
 
     static final String CROSSREF = "https://api.crossref.org";
     static final String OPENALEX = "https://api.openalex.org";
+    static final String DATACITE = "https://api.datacite.org";
+    static final String PUBMED_EFETCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
+    private static final java.util.regex.Pattern ABSTRACT_TEXT = java.util.regex.Pattern.compile(
+            "<AbstractText[^>]*>(.*?)</AbstractText>", java.util.regex.Pattern.DOTALL);
 
     private final RestClient http;
     private final JsonMapper jsonMapper;
@@ -56,7 +60,11 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
         JsonNode crossref = get(URI.create(CROSSREF + "/works/" + encodeDoi(doi) + (contactEmail.isEmpty() ? ""
                 : "?mailto=" + java.net.URLEncoder.encode(contactEmail, java.nio.charset.StandardCharsets.UTF_8))), true);
         if (crossref == null) {
-            // Not a Crossref DOI (e.g. DataCite: arXiv, Zenodo, datasets). OpenAlex indexes both.
+            // Not a Crossref DOI: DataCite registers arXiv, Zenodo and dataset DOIs (with abstracts).
+            JsonNode datacite = get(URI.create(DATACITE + "/dois/" + encodeDoi(doi)), true);
+            if (datacite != null) {
+                return Optional.of(fromDataCite(datacite.path("data").path("attributes")));
+            }
             UriComponentsBuilder b = UriComponentsBuilder.fromUriString(OPENALEX + "/works/doi:" + doi.toLowerCase(java.util.Locale.ROOT))
                     .queryParam("select", "doi,display_name,authorships,publication_year,primary_location,cited_by_count,is_retracted,abstract_inverted_index");
             if (!openAlexKey.isEmpty()) {
@@ -113,7 +121,7 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
         }
         try {
             UriComponentsBuilder b = UriComponentsBuilder.fromUriString(OPENALEX + "/works/doi:" + work.doi())
-                    .queryParam("select", "is_retracted,abstract_inverted_index,cited_by_count,primary_location");
+                    .queryParam("select", "is_retracted,abstract_inverted_index,cited_by_count,primary_location,ids");
             if (!openAlexKey.isEmpty()) {
                 b.queryParam("api_key", openAlexKey);
             }
@@ -121,13 +129,72 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
             if (w == null) {
                 return work;
             }
-            return work.withIndexData(w.path("is_retracted").asBoolean(false), abstractFrom(w.path("abstract_inverted_index")),
+            String abs = abstractFrom(w.path("abstract_inverted_index"));
+            String pmid = w.path("ids").path("pmid").asString("").replaceAll("\\D", "");
+            if (abs == null && work.abstractText() == null && !pmid.isEmpty()) {
+                abs = pubmedAbstract(pmid); // OpenAlex withholds many publishers' abstracts; PubMed often has them
+            }
+            return work.withIndexData(w.path("is_retracted").asBoolean(false), abs,
                     w.path("cited_by_count").isNumber() ? w.path("cited_by_count").asInt() : null,
                     emptyToNull(w.path("primary_location").path("source").path("display_name").asString("")));
         } catch (ScholarlyIndexUnavailableException e) {
             log.warn("OpenAlex lookup failed: {}", e.getMessage());
             return work; // Crossref already confirmed the work exists
         }
+    }
+
+    /** PubMed abstract for a PMID, or null. Failures here never fail the check. */
+    private String pubmedAbstract(String pmid) {
+        try {
+            URI uri = UriComponentsBuilder.fromUriString(PUBMED_EFETCH).queryParam("db", "pubmed").queryParam("id", pmid)
+                    .queryParam("rettype", "abstract").queryParam("retmode", "xml").build().toUri();
+            String xml = http.get().uri(uri).retrieve().body(String.class);
+            return abstractFromPubmedXml(xml);
+        } catch (RuntimeException e) {
+            log.warn("PubMed abstract lookup failed: {}", e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    static String abstractFromPubmedXml(String xml) {
+        if (xml == null) {
+            return null;
+        }
+        java.util.regex.Matcher m = ABSTRACT_TEXT.matcher(xml);
+        List<String> parts = new ArrayList<>();
+        while (m.find()) {
+            parts.add(m.group(1).replaceAll("<[^>]+>", "").replace("&lt;", "<").replace("&gt;", ">")
+                    .replace("&quot;", "\"").replace("&#39;", "'").replace("&amp;", "&").strip());
+        }
+        String text = String.join(" ", parts).replaceAll("\\s+", " ").strip();
+        return text.isEmpty() ? null : text;
+    }
+
+    ScholarlyWork fromDataCite(JsonNode a) {
+        List<String> authors = new ArrayList<>();
+        for (JsonNode c : a.path("creators")) {
+            String name = c.path("name").asString("");
+            if (name.contains(",")) { // "Vaswani, Ashish" → "Ashish Vaswani"
+                String[] p = name.split(",", 2);
+                name = (p[1].strip() + " " + p[0].strip()).strip();
+            }
+            if (!name.isEmpty()) {
+                authors.add(name);
+            }
+        }
+        String abs = null;
+        for (JsonNode d : a.path("descriptions")) {
+            if ("Abstract".equalsIgnoreCase(d.path("descriptionType").asString(""))) {
+                abs = d.path("description").asString("").replaceAll("\\s+", " ").strip();
+            }
+        }
+        JsonNode publisher = a.path("publisher");
+        String pub = publisher.isObject() ? publisher.path("name").asString("") : publisher.asString("");
+        return new ScholarlyWork(emptyToNull(a.path("doi").asString("").toLowerCase(java.util.Locale.ROOT)),
+                emptyToNull(a.path("titles").path(0).path("title").asString("")), authors,
+                a.path("publicationYear").isNumber() ? a.path("publicationYear").asInt()
+                        : a.path("publicationYear").asString("").matches("\\d{4}") ? Integer.parseInt(a.path("publicationYear").asString()) : null,
+                emptyToNull(pub), emptyToNull(pub), null, false, List.of(), abs == null || abs.isEmpty() ? null : abs);
     }
 
     ScholarlyWork fromCrossref(JsonNode m) {

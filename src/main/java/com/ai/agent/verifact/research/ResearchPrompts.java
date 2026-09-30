@@ -38,8 +38,10 @@ final class ResearchPrompts {
             FOR EACH CLAIM
             - support (from the cited works' abstracts only):
               SUPPORTED: an abstract states what the claim says.
-              PARTIALLY_SUPPORTED: an abstract supports part of it, or the claim is stronger or broader than the
-                abstract (e.g. "proves" vs "is associated with", all people vs a specific group).
+              PARTIALLY_SUPPORTED: the claim has several parts and an abstract supports some of them.
+              OVERSTATED: an abstract reports something related but weaker or narrower than the claim: association
+                vs causation, "improved" vs "solved", a subgroup vs everyone, a possibility vs a certainty. Quote the
+                words that show the weaker finding.
               CONTRADICTED: an abstract states the opposite or a clearly different finding.
               NOT_ADDRESSED_IN_ABSTRACT: the abstracts don't address it (the full paper still might). Use this
                 whenever unsure.

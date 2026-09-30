@@ -27,7 +27,12 @@ public record ResearchCheck(Instant createdAt, List<CheckedReference> references
     }
 
     public enum Support {
-        SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT,
+        SUPPORTED,
+        /** The claim has several parts and the abstract supports only some. */
+        PARTIALLY_SUPPORTED,
+        /** The abstract reports something related but weaker or narrower than the claim. */
+        OVERSTATED,
+        CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT,
         /** The cited work was found but no index has its abstract. */
         NO_ABSTRACT,
         /** The cited reference wasn't found (or the lookup failed), so support can't be checked. */

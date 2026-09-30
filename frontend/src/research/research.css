@@ -1,0 +1,220 @@
+/* ResearchFact. Shares VeriFact's tokens; an editorial, reference-manager feel. */
+
+.research {
+  display: grid;
+  gap: 24px;
+}
+
+.research-brand {
+  margin-bottom: 10px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.research-brand-name {
+  font-weight: 600;
+  color: var(--accent-2, var(--accent));
+}
+
+.research-points {
+  margin-top: 14px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 16px;
+  font-size: 0.92rem;
+  color: var(--text-2);
+}
+
+.research-points li::before {
+  content: "✓ ";
+  color: var(--accent-2, var(--accent));
+  font-weight: 700;
+}
+
+.research-form {
+  display: grid;
+  gap: 10px;
+}
+
+.research-label {
+  font-weight: 600;
+}
+
+.research-input {
+  min-height: 240px;
+  font-size: 0.95rem;
+}
+
+.research-hero {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent-2, var(--accent));
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.research-hero h1 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(1.6rem, 1.25rem + 1.4vw, 2.2rem);
+  line-height: 1.15;
+}
+
+.research-hero h1:focus {
+  outline: none;
+}
+
+.research-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 24px;
+}
+
+.research-stats dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.research-disclaimer {
+  padding: 10px 14px;
+  border-left: 4px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+.research-actions {
+  margin-top: 0;
+}
+
+.research-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.research-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--research-tone);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+  break-inside: avoid;
+}
+
+.research-card.tone-good { --research-tone: var(--v-supported); }
+.research-card.tone-warn { --research-tone: var(--v-misleading); }
+.research-card.tone-bad { --research-tone: var(--v-contradicted); }
+.research-card.tone-muted { --research-tone: var(--line-strong); }
+
+.research-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.research-pill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+
+.research-pill--good { color: var(--v-supported); }
+.research-pill--warn { color: var(--v-misleading); }
+.research-pill--bad { color: var(--v-contradicted); }
+.research-pill--muted { color: var(--muted); }
+
+.research-as-written {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--text-2);
+  word-break: break-word;
+}
+
+.research-work {
+  display: grid;
+  gap: 2px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.research-notice {
+  font-weight: 600;
+  color: var(--v-contradicted);
+  font-size: 0.9rem;
+}
+
+.research-differences {
+  padding-left: 1.2em;
+  font-size: 0.9rem;
+  color: var(--v-misleading);
+}
+
+.research-claim {
+  font-family: var(--display);
+  font-size: 1.08rem;
+  line-height: 1.45;
+}
+
+.research-evidence,
+.research-conflicts {
+  display: grid;
+  gap: 4px;
+}
+
+.research-evidence-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.research-quote {
+  padding-left: 12px;
+  border-left: 2px solid var(--line-strong);
+  font-family: var(--display);
+  color: var(--text-2);
+}
+
+.research-conflict {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 480px) {
+  .research-hero,
+  .research-card {
+    padding: 16px;
+  }
+}
+
+@media print {
+  .research-actions {
+    display: none !important;
+  }
+  .research-hero {
+    box-shadow: none;
+  }
+}

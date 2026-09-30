@@ -16,6 +16,9 @@ _Last updated: 2026-09-30. We have **no pricing**. Nothing below is validated fo
 | CoCounsel | ~$104–639/user/mo | MARKET CLAIM |
 | Harvey | ~$1–2k/seat/mo, seat minimums | MARKET CLAIM (reported) |
 | Legal content editing (agency) | $75/page edit, $175/new page | FACT, paperstreet.com |
+| scite | Free tier; Basic ~$20/mo, Pro ~$50/mo (annual); Enterprise custom | FACT (third-party list prices; scite.ai/pricing) |
+| Elicit | Free, Pro $49/mo, Scale $169/mo | FACT, elicit.com/pricing |
+| Zotero retraction alerts | free | FACT |
 
 ## Our cost basis
 AI + search cost per fact check / LegalFact case: **UNKNOWN in $** (token counts in `revenue-strategy.md`). Measure before setting prices.

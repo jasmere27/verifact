@@ -223,7 +223,7 @@ public class ResearchCheckService {
             if (doi != null) {
                 work = index.byDoi(doi).orElse(null);
                 if (work == null) {
-                    return new Resolved(ReferenceStatus.NOT_FOUND, List.of("The DOI " + doi + " isn't registered with Crossref."), null);
+                    return new Resolved(ReferenceStatus.NOT_FOUND, List.of("The DOI " + doi + " isn't registered with Crossref or DataCite."), null);
                 }
             } else {
                 for (ScholarlyWork candidate : index.byReference(r.text(), 3)) {
@@ -443,7 +443,7 @@ public class ResearchCheckService {
         try {
             Support v = Support.valueOf(s.trim().toUpperCase(Locale.ROOT).replaceAll("[\\s-]+", "_"));
             return switch (v) {
-                case SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT -> v;
+                case SUPPORTED, PARTIALLY_SUPPORTED, OVERSTATED, CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT -> v;
                 default -> Support.NEEDS_REVIEW; // the model doesn't get to set code-decided statuses
             };
         } catch (IllegalArgumentException e) {

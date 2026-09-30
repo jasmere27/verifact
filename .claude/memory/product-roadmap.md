@@ -42,6 +42,11 @@ Revenue $0, no validated demand yet. Order of work (P = priority):
 - ☑ P2 LegalFact nav: "Back to Fact check" link (deployed 2026-09-30, PR #3).
 - Deferred until validated demand: accounts/teams, billing, public API, SSO, dashboards, consumer legal routing.
 
+## ResearchFact (ADR-13, researchfact.md)
+- ☑ R1: citation-check MVP (existence/match, retraction, claim support from abstracts with verbatim quotes, conflicting research), `/research` (2026-09-30)
+- ☐ E5: validate with journal editors (see experiments.md) before any pricing
+- ☐ Reference-parsing accuracy on a labelled set (200 real + 50 fabricated refs)
+
 ## LegalFact vertical (planned 2026-09-30 — see legalfact.md, ADR-12)
 - ☐ L0: design sign-off, 10–15 hypothetical case eval set (vague, contradictory, multi-state, non-US, injection)
 - ◐ L1: Case Intelligence MVP (US, employment tuned; allow-listed official sources; not stored) — deployed 2026-09-30 **unlisted** at https://verifact-blf.pages.dev/legal (PR #2); needs attorney wording review before linking it publicly

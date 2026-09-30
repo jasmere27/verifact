@@ -63,6 +63,7 @@ class CrossrefOpenAlexIndexTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         CrossrefOpenAlexIndex index = new CrossrefOpenAlexIndex(builder, jsonMapper, "", "");
         server.expect(requestTo("https://api.crossref.org/works/10.9999/fake.123")).andRespond(withStatus(HttpStatus.NOT_FOUND));
+        server.expect(requestTo("https://api.datacite.org/dois/10.9999/fake.123")).andRespond(withStatus(HttpStatus.NOT_FOUND));
         server.expect(requestTo(org.hamcrest.Matchers.startsWith("https://api.openalex.org/works/doi:10.9999/fake.123")))
                 .andRespond(withStatus(HttpStatus.NOT_FOUND));
         server.expect(requestTo("https://api.crossref.org/works/10.1000/xyz")).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
@@ -108,20 +109,30 @@ class CrossrefOpenAlexIndexTest {
     }
 
     @Test
-    void doisOutsideCrossrefAreFoundThroughOpenAlex() {
+    void doisOutsideCrossrefAreFoundThroughDataCiteWithTheirAbstract() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         CrossrefOpenAlexIndex index = new CrossrefOpenAlexIndex(builder, jsonMapper, "", "");
         server.expect(requestTo("https://api.crossref.org/works/10.48550/arXiv.1706.03762")).andRespond(withStatus(HttpStatus.NOT_FOUND));
-        server.expect(requestTo(org.hamcrest.Matchers.startsWith("https://api.openalex.org/works/doi:10.48550/arxiv.1706.03762")))
-                .andRespond(withSuccess("""
-                        {"doi":"https://doi.org/10.48550/arxiv.1706.03762","display_name":"Attention Is All You Need","publication_year":2017,
-                         "authorships":[{"author":{"display_name":"Ashish Vaswani"}}],"is_retracted":false,
-                         "abstract_inverted_index":{"The":[0],"dominant":[1]}}""", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://api.datacite.org/dois/10.48550/arXiv.1706.03762")).andRespond(withSuccess("""
+                {"data":{"attributes":{"doi":"10.48550/arxiv.1706.03762","titles":[{"title":"Attention Is All You Need"}],
+                 "creators":[{"name":"Vaswani, Ashish"}],"publicationYear":2017,"publisher":"arXiv",
+                 "descriptions":[{"description":"The dominant sequence transduction models.","descriptionType":"Abstract"},
+                                 {"description":"15 pages","descriptionType":"Other"}]}}}""", MediaType.APPLICATION_JSON));
 
         ScholarlyWork w = index.byDoi("10.48550/arXiv.1706.03762").orElseThrow();
 
         assertThat(w.title()).isEqualTo("Attention Is All You Need");
-        assertThat(w.abstractText()).isEqualTo("The dominant");
+        assertThat(w.authors()).containsExactly("Ashish Vaswani");
+        assertThat(w.year()).isEqualTo(2017);
+        assertThat(w.abstractText()).isEqualTo("The dominant sequence transduction models.");
+    }
+
+    @Test
+    void pubmedAbstractsAreReassembledFromTheirSections() {
+        String xml = "<Abstract><AbstractText Label=\"BACKGROUND\">Deep <i>learning</i> allows models.</AbstractText>"
+                + "<AbstractText>It &amp; more.</AbstractText></Abstract>";
+        assertThat(CrossrefOpenAlexIndex.abstractFromPubmedXml(xml)).isEqualTo("Deep learning allows models. It & more.");
+        assertThat(CrossrefOpenAlexIndex.abstractFromPubmedXml("<PubmedArticle/>")).isNull();
     }
 }

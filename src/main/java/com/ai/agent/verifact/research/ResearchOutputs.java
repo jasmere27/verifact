@@ -33,7 +33,7 @@ public final class ResearchOutputs {
 
     public record ClaimReview(
             @JsonPropertyDescription("The claim ID exactly as given, e.g. C1") String claimId,
-            @JsonPropertyDescription("Exactly one of: SUPPORTED, PARTIALLY_SUPPORTED, CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT")
+            @JsonPropertyDescription("Exactly one of: SUPPORTED, PARTIALLY_SUPPORTED, OVERSTATED, CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT")
             String support,
             @JsonPropertyDescription("ID of the cited work whose abstract the verdict is based on, e.g. R2") String evidenceFrom,
             @JsonPropertyDescription("Exact words from that abstract that support or contradict the claim, copied verbatim (one sentence at most). Empty for NOT_ADDRESSED_IN_ABSTRACT")

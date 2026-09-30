@@ -84,3 +84,11 @@ Only record decisions with real tradeoffs.
 - Decision: a `legal` package in the same Spring Boot app and a `/legal` area in the same frontend; no separate repo, service or database. Shared core through narrow seams (`LlmClient`, evidence retrieval extracted from `VerificationService`, `SearchProvider` with a domain allow-list option). MVP uses Tavily restricted to official domains; case law (CourtListener) excluded until a commercial agreement; Cornell LII is link-only (non-commercial licence). MVP stores no case text.
 - Consequences: extraction later means moving a package and a frontend folder. Legal safety rules live in `legalfact.md` and `/vf-legal-audit`. Storing cases waits for auth + retention.
 
+## ADR-13 — ResearchFact as a third product on the shared evidence core
+**Accepted** · 2026-09-30 (owner request)
+- Decision: `research` package + `/research` frontend (own folder, copy and positioning), sharing `LlmClient`, `evidence.Grounding` (moved from `legal`), the SSE streamer, rate limiting and key trimming. New `ScholarlyIndex` seam (Crossref + DataCite + OpenAlex + PubMed) instead of web search. Two LLM calls. Nothing stored.
+- Focus: whether the cited paper supports the claim (verbatim abstract quote) plus retraction/existence checks, since existence/retraction alone is already free elsewhere.
+- Rules in code: existence/match/retraction from index data only; a model DOI is used only if it appears in the text; LOOKUP_FAILED ≠ NOT_FOUND; verdicts/conflicts need verbatim abstract quotes; quotes ≤300 chars.
+- Semantic Scholar excluded (licence). OpenAlex key and Crossref contact email optional env vars.
+- Consequences: judgments are abstract-only; validate with editors before any pricing (E5).
+
