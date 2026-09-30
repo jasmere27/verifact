@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -96,7 +97,7 @@ public class ResearchDiscoveryService {
                 DiscoveryPrompts.planUser(nonce, category.name(), clean(topic, 300), clean(text, 1500),
                         country == null ? null : Locale.of("", country).getDisplayCountry(Locale.ENGLISH)),
                 SearchPlan.class);
-        List<String> queries = queries(plan, topic);
+        List<String> queries = queries(plan, topic, text);
         List<String> names = category == Category.THEORIES || category == Category.CONCEPTS || category == Category.METHODS
                 ? names(plan) : List.of();
 
@@ -203,6 +204,8 @@ public class ResearchDiscoveryService {
                 }
             } else if (n != null && !n.relevant() && quote == null) {
                 continue; // the model judged it off-topic and there's nothing to show for it
+            } else if (names.isEmpty() && !onTopic(h.work, relevanceTo)) {
+                continue; // not one distinctive topic word in its title or abstract, whatever the model said
             }
             sources.add(source(h, why, quote, stance, country));
         }
@@ -316,16 +319,49 @@ public class ResearchDiscoveryService {
                 w.abstractText() != null, why, quote, stance, Verification.VERIFIED);
     }
 
-    private static List<String> queries(SearchPlan plan, String topic) {
+    /**
+     * The model's queries, kept only if they share a distinctive word with the student's topic or text: a
+     * confused or refusing plan ("please resubmit the topic…", seen in production) must never become a search.
+     */
+    static List<String> queries(SearchPlan plan, String topic, String text) {
         List<String> out = new ArrayList<>();
+        Set<String> anchor = distinctive(topic + " " + (text == null ? "" : text));
         if (plan != null && plan.queries() != null) {
-            plan.queries().stream().map(q -> clean(q, 150)).filter(q -> q.split(" ").length >= 2).distinct()
+            plan.queries().stream().map(q -> clean(q, 150)).filter(q -> q.split(" ").length >= 2)
+                    .filter(q -> distinctive(q).stream().anyMatch(anchor::contains)).distinct()
                     .limit(MAX_QUERIES).forEach(out::add);
         }
         if (out.isEmpty()) {
             out.add(clean(topic, 150));
         }
         return out;
+    }
+
+    /** Words too common in research titles to show that a paper is about this topic. */
+    private static final Set<String> GENERIC = Set.of("effect", "effects", "impact", "influence", "role", "study", "studies",
+            "student", "students", "learner", "learners", "school", "schools", "high", "senior", "junior", "grade", "level",
+            "research", "analysis", "among", "using", "based", "case", "approach", "towards", "toward", "between", "their",
+            "during", "within", "through", "from", "with", "into", "about", "this", "that", "what", "which", "does", "how",
+            "and", "the", "for", "are", "was", "were", "has", "have", "its", "not", "new", "use", "on", "of", "in", "to", "a", "an");
+
+    static Set<String> distinctive(String text) {
+        Set<String> out = new java.util.LinkedHashSet<>();
+        for (String w : words(text == null ? "" : text).split(" ")) {
+            if (w.length() >= 3 && !GENERIC.contains(w) && !w.matches("\\d+")) {
+                out.add(w.length() > 4 && w.endsWith("s") && !w.endsWith("ss") ? w.substring(0, w.length() - 1) : w);
+            }
+        }
+        return out;
+    }
+
+    static boolean onTopic(DiscoveredWork w, String relevanceTo) {
+        Set<String> topicWords = distinctive(relevanceTo);
+        if (topicWords.isEmpty()) {
+            return true;
+        }
+        Set<String> workWords = distinctive((w.work().title() == null ? "" : w.work().title()) + " "
+                + (w.work().abstractText() == null ? "" : w.work().abstractText()));
+        return topicWords.stream().anyMatch(workWords::contains);
     }
 
     private static List<String> names(SearchPlan plan) {
