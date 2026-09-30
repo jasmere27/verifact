@@ -74,8 +74,13 @@ public class ResearchCheckService {
 
     /** DOIs as they appear in text; characters that would alter a URL ({@code ?#&{}}) end the match. */
     private static final Pattern DOI = Pattern.compile("(?i)\\b(10\\.\\d{4,9}/[^\\s\"<>{}?#&|\\\\^`]+)");
-    /** Past this, remaining references are marked not looked up, so the whole check fits the client's wait. */
-    static final long LOOKUP_BUDGET_NANOS = 50_000_000_000L;
+    /**
+     * Time for reference lookups, counted from when they start (the first model call is excluded). With
+     * the related-work cut-off and the second model call, a check stays inside the client's 170 s wait.
+     */
+    static final long LOOKUP_BUDGET_NANOS = 75_000_000_000L;
+    /** No new related-work searches after this much of the whole request. */
+    static final long RELATED_DEADLINE_NANOS = 105_000_000_000L;
     private static final Pattern YEAR = Pattern.compile("\\b(1[89]\\d{2}|20\\d{2})\\b");
     private static final Set<String> TITLE_STOPWORDS = Set.of("the", "a", "an", "of", "and", "in", "on", "for", "to", "with", "by", "at", "from");
 
@@ -115,8 +120,9 @@ public class ResearchCheckService {
         progress.stage(VerificationProgress.Stage.SEARCHING);
         Map<String, Resolved> resolved = new LinkedHashMap<>();
         boolean outOfTime = false;
+        long lookupsStartedAt = System.nanoTime();
         for (ExtractedReference r : refs) {
-            if (System.nanoTime() - startedAt > LOOKUP_BUDGET_NANOS) {
+            if (System.nanoTime() - lookupsStartedAt > LOOKUP_BUDGET_NANOS) {
                 outOfTime = true;
                 resolved.put(r.id(), new Resolved(ReferenceStatus.LOOKUP_FAILED, List.of("Not looked up: time limit reached."), null));
             } else {
@@ -142,7 +148,7 @@ public class ResearchCheckService {
         int searches = 0;
         for (CitedClaim c : claims) {
             if (searches == MAX_RELATED_SEARCHES || c.searchQuery() == null || c.searchQuery().isBlank()
-                    || System.nanoTime() - startedAt > LOOKUP_BUDGET_NANOS) {
+                    || System.nanoTime() - startedAt > RELATED_DEADLINE_NANOS) {
                 continue;
             }
             searches++;
