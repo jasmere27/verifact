@@ -14,8 +14,10 @@ _Rule: every number has a date and a source; missing data is `UNKNOWN` with how 
 | Feedback submissions | 2 log entries | FACT: Render logs; content in `verification_feedback` |
 | Active / unique users | **UNKNOWN** | No analytics. Add privacy-friendly page analytics (e.g. Cloudflare Web Analytics) |
 | Conversion, retention, churn, CAC, LTV | **UNKNOWN** | Need accounts or at least analytics + a priced offer |
-| AI cost per fact check | ~2 LLM calls, ~3k prompt + 1–2k completion tokens (FACT: logs, ADR-9); **$ UNKNOWN** until checked on the OpenAI usage page | Owner: OpenAI usage dashboard ÷ checks |
-| AI cost per LegalFact case | ~2 calls, ~2k prompt + 3–4k completion tokens each (FACT: eval logs); **$ UNKNOWN** | Same |
+| AI cost per fact check | **≈ $0.005** (ESTIMATE: 25 production checks, avg 622+527 tokens extraction, 2,243+1,542 assessment, at gpt-5-mini $0.25/$2.00 per 1M in/out, developers.openai.com/api/docs/pricing, 2026-09-30) | Confirm on OpenAI usage page |
+| AI cost per image check | ≈ $0.006 (ESTIMATE, n=2) | Same |
+| AI cost per LegalFact case | **≈ $0.016** (ESTIMATE: intake 2,179+4,320, sources 2,413+3,305 tokens avg, n=3–4) | Same |
+| All-in cost per use after Tavily free tier | fact check ≈ $0.04 (≤4 searches × $0.008); LegalFact case ≈ $0.06 (≤6 searches) | ESTIMATE; search dominates cost |
 | Search cost | Tavily: 1,000 free credits/mo, then $0.008/credit (FACT, researched 2026-09-30); ≤4 searches/check, ≤6/case | Tavily dashboard |
 | Infrastructure | Render web service (plan per `render.yaml`; free vs starter to confirm), Cloudflare Pages free, Supabase free tier | Owner: billing pages |
 
