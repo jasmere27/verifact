@@ -12,7 +12,7 @@ _Rule: every number has a date and a source; missing data is `UNKNOWN` with how 
 | Completed fact checks since launch (2026-09-29) | **25** (18 text, 7 image) + 3 reused | FACT: Render logs ("Verification done"). Mostly owner/developer testing |
 | LegalFact analyses | **2** (both developer smoke tests) | FACT: Render logs |
 | Feedback submissions | 2 log entries | FACT: Render logs; content in `verification_feedback` |
-| Active / unique users | **UNKNOWN** | No analytics. Add privacy-friendly page analytics (e.g. Cloudflare Web Analytics) |
+| Active / unique users | **UNKNOWN until data accrues**: Cloudflare Web Analytics enabled 2026-09-30 (beacon on verifact-blf.pages.dev) | Cloudflare dashboard → Analytics & Logs → Web Analytics |
 | Conversion, retention, churn, CAC, LTV | **UNKNOWN** | Need accounts or at least analytics + a priced offer |
 | AI cost per fact check | **≈ $0.005** (ESTIMATE: 25 production checks, avg 622+527 tokens extraction, 2,243+1,542 assessment, at gpt-5-mini $0.25/$2.00 per 1M in/out, developers.openai.com/api/docs/pricing, 2026-09-30) | Confirm on OpenAI usage page |
 | AI cost per image check | ≈ $0.006 (ESTIMATE, n=2) | Same |
