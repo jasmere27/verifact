@@ -170,7 +170,7 @@ function App() {
         </div>
       </header>
 
-      <main id="main" className={route.name === "landing" ? "main main--wide" : "main"}>
+      <main id="main" className={route.name === "landing" ? "main main--wide" : route.name === "research" ? "main main--research" : "main"}>
         {route.name === "landing" && <Landing />}
 
         {route.name === "check" && (
