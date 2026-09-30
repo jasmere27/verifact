@@ -88,22 +88,52 @@
 .wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-family: var(--display);
-  font-size: 1.45rem;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  gap: 10px;
   color: var(--text);
   text-decoration: none;
 }
 
-.wordmark svg {
-  filter: drop-shadow(0 3px 6px rgb(43 79 214 / 0.3));
-  transition: transform 180ms ease;
+.brand-mark {
+  flex: none;
+  filter: drop-shadow(0 4px 10px rgb(79 70 229 / 0.32));
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
 }
 
-.wordmark:hover svg {
-  transform: rotate(-6deg) scale(1.06);
+.wordmark:hover .brand-mark {
+  transform: translateY(-1px) rotate(-5deg) scale(1.05);
+  filter: drop-shadow(0 6px 14px rgb(13 148 136 / 0.35));
+}
+
+.brand-word {
+  font-family: "Sora", var(--body);
+  font-size: 1.28rem;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.brand-word-accent {
+  font-weight: 700;
+  background: linear-gradient(120deg, #4f46e5 0%, #2563eb 50%, #0d9488 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme="dark"] .brand-word-accent {
+  background-image: linear-gradient(120deg, #a5b4fc 0%, #93c5fd 50%, #5eead4 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .brand-word-accent {
+    background-image: linear-gradient(120deg, #a5b4fc 0%, #93c5fd 50%, #5eead4 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark {
+    transition: none;
+  }
 }
 
 .wordmark:hover {
@@ -210,8 +240,16 @@
 
 .site-footer-brand {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   max-width: 26rem;
+}
+
+.wordmark--footer {
+  margin-bottom: 4px;
+}
+
+.wordmark--footer .brand-word {
+  font-size: 1.12rem;
 }
 
 .site-footer-links {
