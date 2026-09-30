@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.legal;
 
+import com.ai.agent.verifact.evidence.Grounding;
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.evidence.Evidence;
@@ -30,8 +31,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-import static com.ai.agent.verifact.legal.Grounding.material;
-import static com.ai.agent.verifact.legal.Grounding.words;
+import static com.ai.agent.verifact.evidence.Grounding.material;
+import static com.ai.agent.verifact.evidence.Grounding.words;
 
 /**
  * Legal content audit (experiment E2, legalfact.md): does a legal web page still match official
