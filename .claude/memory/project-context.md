@@ -26,6 +26,7 @@ real, maintainable, eventually monetizable product run by one developer.
 Students, general public checking viral claims/screenshots, educators; later journalists/moderators.
 
 ## Working agreements
-- Orchestrator protocol: `.claude/orchestrator.md`. Commands: `/vf-investigate`, `/vf-plan`, `/vf-implement`, `/vf-review`, `/vf-qa`, `/vf-optimize`, `/vf-ship`, `/vf-legal-audit`. (Prefixed `vf-` because `/review`, `/plan` etc. clash with Claude Code built-ins.)
+- Orchestrator protocol: `.claude/orchestrator.md`. Commands: `/vf-investigate`, `/vf-plan`, `/vf-implement`, `/vf-review`, `/vf-qa`, `/vf-optimize`, `/vf-ship`, `/vf-legal-audit`, `/vf-validate-product`, `/vf-research-market`, `/vf-revenue-review`, `/vf-experiment`.
+- Business goal (owner, 2026-09-30): $1M/year revenue as a target, not a promise; build customer problem → value → willingness to pay. Business memory: `revenue-strategy.md`, `product-validation.md`, `experiments.md`, `customer-research.md`, `pricing.md`. (Prefixed `vf-` because `/review`, `/plan` etc. clash with Claude Code built-ins.)
 - Direction (2026-09-30): VeriFact becomes an evidence and information verification platform; **LegalFact** is its first vertical, built as a module in this codebase (`.claude/memory/legalfact.md`).
 - Major changes need user approval. No pushes/deploys without explicit approval.
