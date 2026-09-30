@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public class TrimmedKeysEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
-    static final List<String> KEYS = List.of("OPEN_AI_API_KEY", "TAVILY_API_KEY", "GOOGLE_API_KEY", "GOOGLE_SEARCH_ENGINE");
+    static final List<String> KEYS = List.of("OPEN_AI_API_KEY", "TAVILY_API_KEY", "GOOGLE_API_KEY", "GOOGLE_SEARCH_ENGINE", "OPENALEX_API_KEY", "SCHOLARLY_CONTACT_EMAIL");
 
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {

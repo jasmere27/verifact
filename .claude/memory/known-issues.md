@@ -41,6 +41,12 @@ for context; delete them once they stop being useful._
    - Shares the per-IP rate limit with fact checks although a case costs ~2×; add a legal-specific quota before public launch.
    - Wording not yet reviewed by a licensed attorney. LegalFact is linked publicly since 2026-09-30 (owner's decision); get the review done soon.
 
+14j. **ResearchFact (MVP, ADR-13):**
+   - Judgments are abstract-only; ~40% of works lack open abstracts (NO_ABSTRACT). PubMed lookup failures also surface as NO_ABSTRACT (not distinguished yet).
+   - Outbound calls: up to ~50 sequential lookups per check (12 refs × Crossref/DataCite/OpenAlex/PubMed + searches); 50 s lookup budget; PubMed and Crossref list calls throttled per instance. No cache yet.
+   - DataCite/Zenodo DOIs can be self-deposited: their abstracts are user-controlled (treated as untrusted; verdicts need a verbatim, claim-relevant quote). Consider showing lower trust for DataCite-only works.
+   - Reference-parsing accuracy not yet measured on a labelled set (planned).
+
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.

@@ -1,4 +1,4 @@
-package com.ai.agent.verifact.legal;
+package com.ai.agent.verifact.evidence;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,12 +9,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * "Did the model make this up?" checks for model-written text. Numbers (digits or number words:
+ * "Did the model make this up?" checks for model-written text, shared by every vertical. Numbers (digits or number words:
  * section numbers, figures, deadlines) and case names ("Smith v. Jones") must appear in the material
  * the text is about: the user's description for intake fields, the cited source for source notes.
  * Anything else is the model's memory or an injected instruction, which LegalFact must not show.
  */
-final class Grounding {
+public final class Grounding {
 
     private Grounding() {
     }
@@ -41,7 +41,7 @@ final class Grounding {
      * @param material the text it must be grounded in, already passed through {@link #words}
      *                 and padded with spaces
      */
-    static boolean supported(String text, String material) {
+    public static boolean supported(String text, String material) {
         if (text == null || text.isBlank()) {
             return true;
         }
@@ -71,7 +71,7 @@ final class Grounding {
     }
 
     /** The text without sentences that fail {@link #supported}. */
-    static String supportedSentences(String text, String material) {
+    public static String supportedSentences(String text, String material) {
         if (text == null || text.isBlank()) {
             return "";
         }
@@ -84,16 +84,17 @@ final class Grounding {
         return String.join(" ", kept).trim();
     }
 
-    /** Lower case, letters and digits only, ordinals as plain numbers ("3rd" → "3"), single spaces. */
-    static String words(String text) {
-        return text.toLowerCase(Locale.ROOT)
+    /** Lower case, accents removed ("Müller" → "muller"), letters and digits only, ordinals as plain numbers ("3rd" → "3"), single spaces. */
+    public static String words(String text) {
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("(\\d+)(?:st|nd|rd|th)\\b", "$1")
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim();
     }
 
     /** {@link #words} padded with spaces, for {@code contains(" phrase ")} checks. */
-    static String material(String... texts) {
+    public static String material(String... texts) {
         return " " + words(String.join(" ", texts)) + " ";
     }
 }

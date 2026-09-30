@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.legal;
 
+import com.ai.agent.verifact.evidence.Grounding;
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;

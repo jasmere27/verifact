@@ -92,6 +92,7 @@ facts traceable to input; an attorney-style reviewer finds it faster to read tha
 - Backend `legal/` + `/api/v2/legal/case-intelligence(/stream)`; frontend `/legal` (`frontend/src/legal/`). Professional-facing copy.
 - Curated state sources: California only; other states get federal sources and an uncertainty note.
 - Live eval `CaseIntelligenceEvalIT` (7 hypothetical cases: CA employment, TX deposit, UK, injection with a fake citation and planted advice, multi-state, contradictory, vague) passes all invariants; outputs saved to `target/legal-eval/`. 55–76 s per case, ~3–4k completion tokens per call; frontend waits up to 170 s; the source-matching call is skipped after 75 s.
+- (`Grounding` moved to the shared `evidence` package on 2026-09-30 for ResearchFact.)
 - Deterministic guards (after legal + security/AI review):
   - quotes ≥3 words/15 chars, verbatim in the input; statements must share most content words with the input, else shown as the quote; advice-like quotes dropped
   - dates must appear as written (contiguous phrase, ordinals normalised)

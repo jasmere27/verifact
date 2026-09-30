@@ -9,6 +9,7 @@ import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
 import LegalPage from "./legal/LegalPage";
+import ResearchPage from "./research/ResearchPage";
 import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
@@ -156,11 +157,14 @@ function App() {
           </Link>
           <div className="header-end">
             <nav className="site-nav" aria-label="Products">
-              <Link href="/" aria-current={route.name === "legal" ? undefined : "page"}>
+              <Link href="/" aria-current={route.name === "legal" || route.name === "research" ? undefined : "page"}>
                 Fact check
               </Link>
               <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
                 LegalFact
+              </Link>
+              <Link href="/research" aria-current={route.name === "research" ? "page" : undefined}>
+                ResearchFact
               </Link>
             </nav>
             <ThemeToggle />
@@ -195,6 +199,14 @@ function App() {
                 <span>
                   <strong>LegalFact</strong> for legal professionals: turn a client&apos;s description into facts, a
                   timeline and official sources.
+                </span>
+                <span aria-hidden="true">→</span>
+              </Link>
+              <Link href="/research" className="legalfact-callout">
+                <span className="legalfact-callout-badge">New</span>
+                <span>
+                  <strong>ResearchFact</strong> for researchers and editors: check that every citation exists, isn&apos;t
+                  retracted, and says what the text claims.
                 </span>
                 <span aria-hidden="true">→</span>
               </Link>
@@ -247,6 +259,8 @@ function App() {
         )}
 
         {route.name === "legal" && <LegalPage />}
+
+        {route.name === "research" && <ResearchPage />}
 
         {route.name === "notFound" && (
           <section className="card state-card" aria-labelledby="nf-heading">

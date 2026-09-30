@@ -25,5 +25,9 @@ _No customer interviews or payments have happened yet, so nothing is validated._
 - **Role:** free showcase, credibility and SEO funnel for the evidence engine.
 - **Next:** E4 (fake-door) only once there's real traffic (≥1,000 checks).
 
+## 4. ResearchFact citation integrity (journals, editorial offices, universities). **HYPOTHESIS** (built 2026-09-30)
+- Commodity parts (existence, retraction) are free elsewhere (Zotero, scite free tier: FACT); differentiator = claim-support check with verbatim abstract quotes (HYPOTHESIS). Publishers already pay for integrity screening (Clear Skies, Signals: MARKET CLAIM, no public prices).
+- Next: E5; reference-parsing accuracy test.
+
 ## Rejected / deferred
 - Consumer-facing "legal help" routing people to attorneys: deferred (lawyer-referral/lead-gen rules, UPL risk; see `customer-research.md`).

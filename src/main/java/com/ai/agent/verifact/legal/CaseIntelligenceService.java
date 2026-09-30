@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.legal;
 
+import com.ai.agent.verifact.evidence.Grounding;
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.evidence.Evidence;
@@ -44,8 +45,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import static com.ai.agent.verifact.legal.Grounding.material;
-import static com.ai.agent.verifact.legal.Grounding.words;
+import static com.ai.agent.verifact.evidence.Grounding.material;
+import static com.ai.agent.verifact.evidence.Grounding.words;
 
 /**
  * LegalFact Case Intelligence (ADR-12, legalfact.md). Two model calls, like VeriFact:
