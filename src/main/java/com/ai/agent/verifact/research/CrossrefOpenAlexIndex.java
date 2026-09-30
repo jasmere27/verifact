@@ -112,6 +112,74 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
         return out;
     }
 
+    @Override
+    public Optional<DiscoveredWork> work(String key) {
+        String path;
+        if (key != null && key.matches("(?i)10\\.\\d{4,9}/\\S+")) {
+            path = "/works/doi:" + encodeDoi(key.toLowerCase(java.util.Locale.ROOT));
+        } else if (key != null && key.matches("https://openalex\\.org/W\\d{1,12}")) {
+            path = "/works/" + key.substring("https://openalex.org/".length());
+        } else {
+            return Optional.empty();
+        }
+        JsonNode w = get(URI.create(OPENALEX + path + "?select=id,doi,display_name,authorships,publication_year,"
+                + "primary_location,type,cited_by_count,is_retracted,abstract_inverted_index"
+                + (openAlexKey.isEmpty() ? "" : "&api_key=" + java.net.URLEncoder.encode(openAlexKey, java.nio.charset.StandardCharsets.UTF_8))), true);
+        return w == null ? Optional.empty() : Optional.of(discovered(w));
+    }
+
+    @Override
+    public List<DiscoveredWork> discover(String query, String countryCode, Integer fromYear, String type,
+                                         boolean byCitations, int rows) {
+        List<String> filters = new ArrayList<>();
+        if (countryCode != null && countryCode.matches("[A-Za-z]{2}")) {
+            filters.add("authorships.institutions.country_code:" + countryCode.toLowerCase(java.util.Locale.ROOT));
+        }
+        if (fromYear != null) {
+            filters.add("from_publication_date:" + fromYear + "-01-01");
+        }
+        if (type != null && type.matches("[a-z-]+")) {
+            filters.add("type:" + type);
+        }
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString(OPENALEX + "/works")
+                .queryParam("search", query)
+                .queryParam("per-page", rows)
+                .queryParam("select", "id,doi,display_name,authorships,publication_year,primary_location,type,"
+                        + "cited_by_count,is_retracted,abstract_inverted_index");
+        if (!filters.isEmpty()) {
+            b.queryParam("filter", String.join(",", filters));
+        }
+        if (byCitations) {
+            b.queryParam("sort", "cited_by_count:desc");
+        }
+        if (!openAlexKey.isEmpty()) {
+            b.queryParam("api_key", openAlexKey);
+        }
+        JsonNode root = get(b.encode().build().toUri(), false);
+        List<DiscoveredWork> out = new ArrayList<>();
+        if (root != null) {
+            for (JsonNode w : root.path("results")) {
+                out.add(discovered(w));
+            }
+        }
+        return out;
+    }
+
+    DiscoveredWork discovered(JsonNode w) {
+        java.util.Set<String> countries = new java.util.TreeSet<>();
+        for (JsonNode a : w.path("authorships")) {
+            for (JsonNode inst : a.path("institutions")) {
+                String c = inst.path("country_code").asString("");
+                if (c.matches("[A-Za-z]{2}")) {
+                    countries.add(c.toUpperCase(java.util.Locale.ROOT));
+                }
+            }
+        }
+        String landing = w.path("primary_location").path("landing_page_url").asString("");
+        return new DiscoveredWork(fromOpenAlex(w), emptyToNull(w.path("id").asString("")),
+                emptyToNull(w.path("type").asString("")), List.copyOf(countries), emptyToNull(landing));
+    }
+
     /** Adds OpenAlex's retraction flag, abstract and citation count to a Crossref record. */
     private ScholarlyWork enrich(ScholarlyWork work) {
         if (work.doi() == null) {

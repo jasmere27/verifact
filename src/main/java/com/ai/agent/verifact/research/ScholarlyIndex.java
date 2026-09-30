@@ -18,6 +18,24 @@ public interface ScholarlyIndex {
     /** Works with abstracts related to a query, for "does other research conflict?". */
     List<ScholarlyWork> related(String query, int rows);
 
+    /**
+     * Discovery search (Student Research Mode).
+     *
+     * @param countryCode only works with an author at an institution in this country (e.g. "PH"); null for any
+     * @param fromYear    earliest publication year; null for any
+     * @param type        OpenAlex work type (e.g. "review", "article"); null for any
+     * @param byCitations order by citation count instead of relevance
+     */
+    /** One work by its DOI or OpenAlex id ("https://openalex.org/W123"), for re-verifying saved sources. */
+    default Optional<DiscoveredWork> work(String key) {
+        return Optional.empty();
+    }
+
+    default List<DiscoveredWork> discover(String query, String countryCode, Integer fromYear, String type, boolean byCitations,
+                                          int rows) {
+        return List.of();
+    }
+
     class ScholarlyIndexUnavailableException extends RuntimeException {
         public ScholarlyIndexUnavailableException(String message) {
             super(message);

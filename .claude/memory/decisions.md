@@ -98,3 +98,10 @@ Only record decisions with real tradeoffs.
 - Human review needs saved state without accounts: `news_reviews` table (Flyway V4) with an unguessable UUID for reading and a random edit token (only its SHA-256 stored) for changes. CORS now allows PUT and `X-Edit-Token`; review saves share the feedback rate limiter.
 - Consequences: link = read access; token loss = read-only; retention policy still missing (known issues). Accounts/teams when newsroom demand is shown.
 
+
+## ADR-15 — ResearchFact Student Research Mode: discovery from a scholarly index, saved workspaces
+**Accepted** · 2026-09-30 (owner request; plan approved)
+- Decision: students discover sources (RRL, RRS, local/foreign, theories, concepts, methods, recent, supporting/contradicting a claim) through `ResearchDiscoveryService`. The model only **plans searches and suggests names**; every listed source is a real OpenAlex record fetched by the backend. Relevance notes are shown only with a verbatim abstract quote (`ResearchCheckService.verbatim`); suggested theories/concepts/methods are VERIFIED only when a found source's title/abstract names them, else shown as "Unverified suggestion". Local vs foreign is decided in code from author-affiliation countries.
+- Workspaces (`research_workspaces`, Flyway V5) reuse the NewsFact pattern via the new shared `common/EditTokens`: UUID link = read, edit token (SHA-256 stored) = write. Saving a source **re-fetches it server-side** by key, so clients can't inject fabricated metadata; a nightly job deletes workspaces 90 days after the last change; explicit delete endpoint.
+- APA references are formatted client-side from index metadata, with a "check against the paper" note.
+- Phases 2 (file upload and analysis: PDF/DOCX/TXT/PPTX) and 3 (gaps, conceptual frameworks) are not built yet.

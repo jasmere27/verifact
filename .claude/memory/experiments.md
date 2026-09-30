@@ -9,6 +9,7 @@ _Hypothesis → cheapest test → metric → pass/fail threshold (set before sta
 | E3 | Small firms find case intelligence worth paying for | 5 small firms paste 10 anonymised intake notes each into /legal | Pass: ≥3 firms report ≥10 min saved per matter **and** ≥1 pre-pays $50/mo | Owner time | PLANNED |
 | E5 | Small/society journal editors will pay for citation-support screening (ResearchFact) | Concierge pilot: 10 editors/managing editors run 3 real manuscripts each through /research | Pass: ≥2 written commitments to a paid pilot (≥$100/mo) within 30 days | Owner time; ~$0.05/check | PLANNED |
 | E6 | Local/regional newsrooms and fact-check desks would use (and pay for) NewsFact as a pre-publication check | 5 editors run 3 real stories each through /news; ask what they'd pay | Pass: ≥3 use it on a second story unprompted **and** ≥1 written commitment to a paid pilot | Owner time; ~$0.10/story | PLANNED |
+| E7 | Senior-high/college students writing a thesis or capstone (PH) would use Student Research Mode to build their RRL/RRS and come back to it | 10 students create a workspace for their real topic; observe for 2 weeks | Pass: ≥5 save ≥5 sources and return on a second day; ≥3 say they'd pay (or their school would) | Owner time; ~$0.01–0.03 per discovery | PLANNED |
 | E4 | Some VeriFact users would pay for history/bulk checks | "$5/mo for history + bulk checks" fake-door button, shown after a check | Pass: ≥2% click-through over ≥1,000 completed checks | ~0.5 day dev | BLOCKED (needs traffic + analytics) |
 
 ## Results

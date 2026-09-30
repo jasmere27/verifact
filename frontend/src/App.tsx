@@ -11,6 +11,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import Landing from "./landing/Landing";
 import LegalPage from "./legal/LegalPage";
 import ResearchPage from "./research/ResearchPage";
+import StudentWorkspace from "./research/student/StudentWorkspace";
 import NewsPage from "./news/NewsPage";
 import NewsWorkspace from "./news/NewsWorkspace";
 import { formatRelative } from "./format";
@@ -169,7 +170,7 @@ function App() {
               <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
                 LegalFact
               </Link>
-              <Link href="/research" aria-current={route.name === "research" ? "page" : undefined}>
+              <Link href="/research" aria-current={route.name === "research" || route.name === "researchWorkspace" ? "page" : undefined}>
                 ResearchFact
               </Link>
             </nav>
@@ -253,6 +254,8 @@ function App() {
         {route.name === "legal" && <LegalPage />}
 
         {route.name === "research" && <ResearchPage />}
+
+        {route.name === "researchWorkspace" && <StudentWorkspace key={route.id} id={route.id} />}
 
         {route.name === "news" && <NewsPage />}
 

@@ -51,7 +51,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/v2/research/check",
             "/api/v2/research/check/stream",
             "/api/v2/news/checks",
-            "/api/v2/news/checks/stream");
+            "/api/v2/news/checks/stream",
+            "/api/v2/research/discover");
 
     /**
      * Feedback and NewsFact review saves are cheap but spammable; limited separately so they never use
@@ -59,6 +60,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
      */
     static final java.util.regex.Pattern FEEDBACK_PATH =
             java.util.regex.Pattern.compile("^/api/v2/(verifications/[^/]+/feedback|news/checks/[^/]+/review)$");
+    /** ResearchFact workspace changes (create, save a source, edit, delete): same light limiter; reads are free. */
+    static final java.util.regex.Pattern WORKSPACE_PATH =
+            java.util.regex.Pattern.compile("^/api/v2/research/workspaces(/[^/]+(/sources)?)?$");
 
     private final FixedWindowRateLimiter feedbackPerIpMinute;
     private final FixedWindowRateLimiter perIpMinute;
@@ -102,7 +106,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return true;
         }
         String path = normalizedPath(request);
-        return !LIMITED_PATHS.contains(path) && !FEEDBACK_PATH.matcher(path).matches();
+        return !LIMITED_PATHS.contains(path) && !isLightWrite(request, path);
+    }
+
+    private static boolean isLightWrite(HttpServletRequest request, String path) {
+        return FEEDBACK_PATH.matcher(path).matches()
+                || (WORKSPACE_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod()));
     }
 
     /**
@@ -123,7 +132,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String clientIp = clientIp(request);
 
-        if (FEEDBACK_PATH.matcher(normalizedPath(request)).matches()) {
+        if (isLightWrite(request, normalizedPath(request))) {
             long wait = feedbackPerIpMinute.tryAcquire(clientIp);
             if (wait > 0) {
                 reject(response, wait, "You're saving too quickly. Please wait a moment.");

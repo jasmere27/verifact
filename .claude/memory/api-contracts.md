@@ -134,3 +134,11 @@ interface NewsWorkspace { check: NewsCheck; review: NewsReview; editToken: strin
 ```
 Guarantees: every excerpt is the source's own words (≤300 chars); a verdict other than INSUFFICIENT_EVIDENCE and any context flag have an excerpt; quote status is computed in code.
 
+
+## ResearchFact Student Research Mode (added 2026-09-30, ADR-15)
+- `POST /api/v2/research/discover` `{topic (5–300), category, text? (≤3000; required for FOR_TEXT/SUPPORTING/CONTRADICTING), country? (ISO-2; required for LOCAL/FOREIGN)}` → `Discovery {category, topic, searches[], sources[FoundSource], leads[Lead], limitations[], notice, durationMs}`. Rate-limited like checks. 503 when the index is down (never an empty result).
+- `POST /api/v2/research/workspaces` `{topic, field?, country?}` → `{workspace, editToken}` (token shown once; stored in the browser as `researchfact.token.{id}`).
+- `GET /api/v2/research/workspaces/{id}` → `{workspace, editToken: null}`; 404 for unknown or expired.
+- `PUT /api/v2/research/workspaces/{id}` (X-Edit-Token) `{topic?, field?, country?, notes?, sources?[{key, folder, studentNote}]}` → `Workspace`. `sources` can only keep/refile/annotate already-saved keys.
+- `POST /api/v2/research/workspaces/{id}/sources` (X-Edit-Token) `{key, folder, relevance?, relevanceQuote?, stance?}` → `Workspace`; the work is re-fetched by key (404 if not in the index); relevance kept only if the quote is verbatim.
+- `DELETE /api/v2/research/workspaces/{id}` (X-Edit-Token) → 204. Workspace writes share the light (feedback) limiter, now 20/min. CORS allows DELETE.
