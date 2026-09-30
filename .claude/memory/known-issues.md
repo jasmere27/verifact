@@ -42,6 +42,7 @@ for context; delete them once they stop being useful._
    - Wording not yet reviewed by a licensed attorney. LegalFact is linked publicly since 2026-09-30 (owner's decision); get the review done soon.
 
 14k. **NewsFact (ADR-14):** saved reviews (`news_reviews`) kept indefinitely with no delete path; readable by anyone with the link; edit tokens live in one browser (lost token = read-only). Evidence is search snippets only. Add retention + delete before promoting.
+14l. **ResearchFact Student Mode (ADR-15):** discovery depends on OpenAlex (paid key; local `.env` lacks `OPENALEX_API_KEY`, so live discovery was only tested on Render). Local/foreign relies on OpenAlex affiliation countries, which are missing for many Philippine journals not indexed there. Relevance is abstract-only. Workspaces are readable by anyone with the link; lost token = read-only. APA formatting is metadata-based (casing/italics need a manual check). No file upload yet (Phase 2).
 
 14j. **ResearchFact (MVP, ADR-13):**
    - Judgments are abstract-only; ~40% of works lack open abstracts (NO_ABSTRACT). PubMed lookup failures also surface as NO_ABSTRACT (not distinguished yet).

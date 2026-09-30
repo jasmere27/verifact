@@ -5,6 +5,7 @@ import { plural } from "../format";
 import type { SourcesFound, StageId } from "../types";
 import { checkResearchStream } from "./api";
 import ResearchReport from "./ResearchReport";
+import StartWorkspace from "./student/StartWorkspace";
 import type { ResearchCheck } from "./types";
 import "./research.css";
 
@@ -111,6 +112,8 @@ export default function ResearchPage() {
           <li>Other research that reports a different finding</li>
         </ul>
       </section>
+
+      {!loading && <StartWorkspace />}
 
       {state.status === "error" && (
         <div className="alert" role="alert" ref={alertRef} tabIndex={-1}>

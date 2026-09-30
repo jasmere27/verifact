@@ -7,10 +7,12 @@ export type Route =
   | { name: "report"; id: string }
   | { name: "legal" }
   | { name: "research" }
+  | { name: "researchWorkspace"; id: string }
   | { name: "news" }
   | { name: "newsWorkspace"; id: string }
   | { name: "notFound" };
 
+const RESEARCH_WORKSPACE_PATH = /^\/research\/w\/([0-9a-fA-F-]{36})\/?$/;
 const NEWS_PATH = /^\/news\/([0-9a-fA-F-]{36})\/?$/;
 const REPORT_PATH = /^\/r\/([A-Za-z0-9-]{1,64})\/?$/;
 
@@ -19,6 +21,8 @@ export function parseRoute(pathname: string): Route {
   if (pathname === "/check" || pathname === "/check/") return { name: "check" };
   if (pathname === "/legal" || pathname === "/legal/") return { name: "legal" };
   if (pathname === "/research" || pathname === "/research/") return { name: "research" };
+  const workspace = RESEARCH_WORKSPACE_PATH.exec(pathname);
+  if (workspace) return { name: "researchWorkspace", id: workspace[1] };
   if (pathname === "/news" || pathname === "/news/") return { name: "news" };
   const news = NEWS_PATH.exec(pathname);
   if (news) return { name: "newsWorkspace", id: news[1] };

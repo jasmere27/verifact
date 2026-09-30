@@ -49,3 +49,10 @@ abstracts (PubMed fallback), no OVERSTATED status.
 - Abstract-only: full text isn't read; ~40% of works lack abstracts in open indexes (research estimate).
 - Reference parsing is the main failure point for such tools; measure with a labelled set (experiment E5).
 - Validation (not done): E5 in experiments.md.
+
+## Student Research Mode (ADR-15, Phase 1, 2026-09-30)
+- `/research` has a "Start my research workspace" card (topic, field, country, PH default) → `/research/w/{id}`.
+- Tabs: Find sources (8 category buttons + paragraph/claim: find sources, supporting, contradicting) · My sources (folders RRL/RRS/Theory/Concept/Method/Evidence/Other, notes, remove) · Citations (APA 7, copy) · Notes (autosave 2.5 s).
+- Backend: `ResearchDiscoveryService`, `DiscoveryPrompts`, `ResearchWorkspaceStore`, `StudentResearchController`; OpenAlex search needs `OPENALEX_API_KEY` (anonymous search is paused; $0.001/search, single-work lookups free).
+- Integrity rules: no source from the model; relevance only with a verbatim abstract quote; claim-mode lists a source only when its stance is backed by a quote; unverified leads are labelled "Unverified suggestion"; retracted works flagged "don't cite".
+- Next: Phase 2 upload/analysis, Phase 3 gaps/frameworks; validation experiment E7.
