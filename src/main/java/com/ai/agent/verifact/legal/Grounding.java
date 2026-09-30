@@ -3,6 +3,7 @@ package com.ai.agent.verifact.legal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,6 +26,15 @@ final class Grounding {
             "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen",
             "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "thirty", "forty",
             "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "thousand", "million");
+    /** "8" and "eight" are the same figure: sources and rewrites switch between them. */
+    private static final Map<String, String> DIGIT_WORD = Map.ofEntries(
+            Map.entry("2", "two"), Map.entry("3", "three"), Map.entry("4", "four"), Map.entry("5", "five"),
+            Map.entry("6", "six"), Map.entry("7", "seven"), Map.entry("8", "eight"), Map.entry("9", "nine"),
+            Map.entry("10", "ten"), Map.entry("11", "eleven"), Map.entry("12", "twelve"), Map.entry("13", "thirteen"),
+            Map.entry("14", "fourteen"), Map.entry("15", "fifteen"), Map.entry("16", "sixteen"),
+            Map.entry("17", "seventeen"), Map.entry("18", "eighteen"), Map.entry("19", "nineteen"),
+            Map.entry("20", "twenty"), Map.entry("30", "thirty"), Map.entry("40", "forty"), Map.entry("50", "fifty"),
+            Map.entry("60", "sixty"), Map.entry("70", "seventy"), Map.entry("80", "eighty"), Map.entry("90", "ninety"));
     private static final Pattern SENTENCE_END = Pattern.compile("(?<=[.!?])\\s+");
 
     /**
@@ -38,12 +48,16 @@ final class Grounding {
         String w = " " + words(text) + " ";
         Matcher digits = DIGITS.matcher(w);
         while (digits.find()) {
-            if (!material.contains(" " + digits.group() + " ")) {
+            String d = digits.group();
+            String word = DIGIT_WORD.get(d);
+            if (!material.contains(" " + d + " ") && (word == null || !material.contains(" " + word + " "))) {
                 return false;
             }
         }
         for (String token : w.trim().split(" ")) {
-            if (NUMBER_WORDS.contains(token) && !material.contains(" " + token + " ")) {
+            if (NUMBER_WORDS.contains(token) && !material.contains(" " + token + " ")
+                    && DIGIT_WORD.entrySet().stream().noneMatch(e -> e.getValue().equals(token)
+                            && material.contains(" " + e.getKey() + " "))) {
                 return false;
             }
         }

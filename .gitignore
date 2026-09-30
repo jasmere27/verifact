@@ -15,3 +15,6 @@ frontend/.env.local
 .idea/
 *.iml
 .vscode/
+
+# Local experiment outputs (name real third-party sites; never publish)
+experiments/

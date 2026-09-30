@@ -36,6 +36,7 @@ export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=VerificationEvalIT   # live eval (costs money)
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=ImageVisionEvalIT    # live image check (costs money)
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=CaseIntelligenceEvalIT  # live LegalFact check; outputs in target/legal-eval/
+RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=ContentAuditEvalIT      # experiment E2: audits real law-firm pages; reports in target/content-audit/
 
 cd frontend && npm ci && npm run build && npm run lint
 ```

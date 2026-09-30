@@ -25,6 +25,7 @@ changes over impressive ones.
 | `research-agent` | current docs, pricing, provider/API comparisons | no |
 | `product-engineer` | user value, prioritization, scope cuts, monetization, growth | no |
 | `legal-product-agent` | LegalFact product design, legal-safety boundaries, source hierarchy, wording | no |
+| `product-growth-agent` | segments, competitors, pricing, distribution, experiments, revenue reviews | no |
 
 ## Deciding who to involve
 
@@ -39,6 +40,15 @@ changes over impressive ones.
 Run independent investigations **in parallel** (multiple Agent calls in one message).
 Give each agent a self-contained brief: goal, relevant files, constraints, the output
 format below, and whether it may edit files. Agents start cold; they do not see this chat.
+
+## Business rules (owner's target: $1M/year revenue: a target, not a promise)
+
+- Build from **customer problem → measurable value → willingness to pay → revenue**. A feature without a named customer and problem is P3/P4 at best.
+- Label claims FACT / MARKET CLAIM / CUSTOMER FEEDBACK / EXPERIMENT RESULT / HYPOTHESIS; never present a hypothesis as fact; never invent metrics (use `UNKNOWN`).
+- Cheapest validation first (interviews, concierge pilots, a priced landing page) before engineering. Billing, SSO, teams/roles, dashboards only after validated demand.
+- Priorities: **P0** security/data loss/production down · **P1** validated customer value or critical function · **P2** useful · **P3** nice-to-have · **P4** speculative. Validated P1 beats impressive P3/P4.
+- Business memory: `revenue-strategy.md`, `product-validation.md`, `experiments.md`, `customer-research.md`, `pricing.md`. Commands: `/vf-validate-product`, `/vf-research-market`, `/vf-revenue-review`, `/vf-experiment`.
+- Anything outward-facing (emails, posts, public pages, pricing shown to users) needs the owner's explicit OK.
 
 ## Required agent output format
 

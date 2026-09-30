@@ -33,6 +33,15 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☐ Auth (evaluate Supabase Auth JWT verified by Spring Security vs. alternatives)
 - ☐ Private history, saved reports, shareable public report pages (opt-in)
 
+## Commercial priorities (2026-09-30; see revenue-strategy.md, product-validation.md, experiments.md)
+Revenue $0, no validated demand yet. Order of work (P = priority):
+- P1 Measure: privacy-friendly analytics (Cloudflare Web Analytics) + AI/search $ per check from provider dashboards. Without these nothing can be validated.
+- ☑ P1 E2 (prototype built, run 2 passed preliminarily 2026-09-30): legal-content audit prototype (page URL → legal claims → official-source check → POTENTIALLY_OUTDATED / POTENTIALLY_UNSUPPORTED / REQUIRES_REVIEW / UNABLE_TO_VERIFY), first used internally to produce sample audits; measure precision on ~100 real pages.
+- P1 E1 (owner): personalised outreach to legal content/SEO agencies with sample audits; sell audits as a service before productising.
+- P2 E3 (owner): 5-firm case-intelligence pilot on anonymised intake notes.
+- P2 LegalFact nav: "Back to Fact check" link instead of the disappearing switch.
+- Deferred until validated demand: accounts/teams, billing, public API, SSO, dashboards, consumer legal routing.
+
 ## LegalFact vertical (planned 2026-09-30 — see legalfact.md, ADR-12)
 - ☐ L0: design sign-off, 10–15 hypothetical case eval set (vague, contradictory, multi-state, non-US, injection)
 - ◐ L1: Case Intelligence MVP (US, employment tuned; allow-listed official sources; not stored) — deployed 2026-09-30 **unlisted** at https://verifact-blf.pages.dev/legal (PR #2); needs attorney wording review before linking it publicly

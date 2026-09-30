@@ -155,13 +155,11 @@ function App() {
             <span>VeriFact</span>
           </Link>
           <div className="header-end">
-            {/* LegalFact stays unlisted (reachable at /legal) until its wording has had attorney review. */}
+            {/* LegalFact stays unlisted (reachable at /legal) until its wording has had attorney review,
+                so the home page doesn't link to it; from /legal there is a way back. */}
             {route.name === "legal" && (
-              <nav className="site-nav" aria-label="Products">
-                <Link href="/">Fact check</Link>
-                <Link href="/legal" aria-current="page">
-                  LegalFact
-                </Link>
+              <nav className="site-nav" aria-label="Site">
+                <Link href="/">← Back to Fact check</Link>
               </nav>
             )}
             <ThemeToggle />
