@@ -92,3 +92,9 @@ Only record decisions with real tradeoffs.
 - Semantic Scholar excluded (licence). OpenAlex key and Crossref contact email optional env vars.
 - Consequences: judgments are abstract-only; validate with editors before any pricing (E5).
 
+## ADR-14 — NewsFact: newsroom workspace, the first product with saved, editable state
+**Accepted** · 2026-09-30 (owner request)
+- Decision: `news` package + `/news` frontend, reusing `SafeUrlFetcher`, `EvidenceRetriever`, `LlmClient`, `Grounding` (new `findSpan`), the VeriFact `Verdict` taxonomy, the SSE streamer and rate limiting. Quotes are verified in code, not by the model. Verdicts and context flags need sources' verbatim excerpts.
+- Human review needs saved state without accounts: `news_reviews` table (Flyway V4) with an unguessable UUID for reading and a random edit token (only its SHA-256 stored) for changes. CORS now allows PUT and `X-Edit-Token`; review saves share the feedback rate limiter.
+- Consequences: link = read access; token loss = read-only; retention policy still missing (known issues). Accounts/teams when newsroom demand is shown.
+

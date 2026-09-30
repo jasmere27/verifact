@@ -38,6 +38,7 @@ RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=ImageVi
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=CaseIntelligenceEvalIT  # live LegalFact check; outputs in target/legal-eval/
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=ContentAuditEvalIT      # experiment E2: audits real law-firm pages; reports in target/content-audit/
 RUN_EVALS=true OPEN_AI_API_KEY=... ./mvnw test -Dtest=ResearchCheckEvalIT                        # live ResearchFact known-answer check (Crossref/OpenAlex/PubMed)
+RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=NewsCheckEvalIT         # live NewsFact known-answer check
 
 cd frontend && npm ci && npm run build && npm run lint
 ```
@@ -47,6 +48,7 @@ cd frontend && npm ci && npm run build && npm run lint
 - `verification/` — **the product**: API v2 (`VerificationController`), the pipeline (`VerificationService`: extract claims → search → cited assessment → server-side validation), prompts, DTOs, JSON report persistence (`VerificationStore`).
 - `ai/` — `LlmClient` seam and `SpringAiLlmClient` (plain messages, JSON parsing, usage logging, `LlmException` failure kinds).
 - `evidence/` — shared by all verticals: `EvidenceRetriever` (queries → de-duplicated, capped evidence; optional official-domain allow-list; refuses when search is down), `Evidence`, `SourceType`, `Urls`.
+- `news/` — **NewsFact** (ADR-14, `.claude/memory/newsfact.md`): `NewsCheckService` (article → typed claims → web evidence → quote check in code → verdicts/context from sources' verbatim excerpts), `NewsStore` (`news_reviews`, edit tokens), `NewsController` (`/api/v2/news/checks`). Frontend: `frontend/src/news/`.
 - `research/` — **ResearchFact** (ADR-13, `.claude/memory/researchfact.md`): `ResearchCheckService` (references + cited claims → `ScholarlyIndex` = `CrossrefOpenAlexIndex`: Crossref, DataCite, OpenAlex, PubMed → claim support from abstracts with verbatim quotes), `ResearchController` (`/api/v2/research/check`). Frontend: `frontend/src/research/`.
 - `legal/` — **LegalFact** (ADR-12, `.claude/memory/legalfact.md`): `CaseIntelligenceService` (intake → allow-listed official sources → source matching, with quote/date/jurisdiction/citation/number checks and `AdviceLanguage` filter), `LegalController` (`/api/v2/legal/case-intelligence`). Legal information, never advice; nothing stored. Frontend: `frontend/src/legal/`.
 - `controller/` — deprecated v1: `AiController` (`/api/v1/isFakeNews`, `/analyzeImage`, `/analyzeAudio`), `HistoryController` (disabled unless `HISTORY_API_ENABLED`).

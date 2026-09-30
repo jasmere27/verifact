@@ -42,6 +42,11 @@ Revenue $0, no validated demand yet. Order of work (P = priority):
 - ☑ P2 LegalFact nav: "Back to Fact check" link (deployed 2026-09-30, PR #3).
 - Deferred until validated demand: accounts/teams, billing, public API, SSO, dashboards, consumer legal routing.
 
+## NewsFact (ADR-14, newsfact.md)
+- ☑ N1: story check (typed claims, quote verification in code, context issues, conflicts) + review workspace + report (2026-09-30)
+- ☐ E6: validate with newsroom editors / fact-check desks before accounts or pricing
+- ☐ Retention + delete for saved reviews; accounts/teams only after demand
+
 ## ResearchFact (ADR-13, researchfact.md)
 - ☑ R1: citation-check MVP (existence/match, retraction, claim support from abstracts with verbatim quotes, conflicting research), `/research` (2026-09-30)
 - ☐ E5: validate with journal editors (see experiments.md) before any pricing

@@ -10,6 +10,8 @@ import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
 import LegalPage from "./legal/LegalPage";
 import ResearchPage from "./research/ResearchPage";
+import NewsPage from "./news/NewsPage";
+import NewsWorkspace from "./news/NewsWorkspace";
 import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
@@ -157,8 +159,14 @@ function App() {
           </Link>
           <div className="header-end">
             <nav className="site-nav" aria-label="Products">
-              <Link href="/" aria-current={route.name === "legal" || route.name === "research" ? undefined : "page"}>
+              <Link
+                href="/"
+                aria-current={["legal", "research", "news", "newsWorkspace"].includes(route.name) ? undefined : "page"}
+              >
                 Fact check
+              </Link>
+              <Link href="/news" aria-current={route.name === "news" || route.name === "newsWorkspace" ? "page" : undefined}>
+                NewsFact
               </Link>
               <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
                 LegalFact
@@ -199,6 +207,14 @@ function App() {
                 <span>
                   <strong>LegalFact</strong> for legal professionals: turn a client&apos;s description into facts, a
                   timeline and official sources.
+                </span>
+                <span aria-hidden="true">→</span>
+              </Link>
+              <Link href="/news" className="legalfact-callout">
+                <span className="legalfact-callout-badge">New</span>
+                <span>
+                  <strong>NewsFact</strong> for newsrooms: check every claim and quote in a story, then review it as a
+                  desk.
                 </span>
                 <span aria-hidden="true">→</span>
               </Link>
@@ -261,6 +277,10 @@ function App() {
         {route.name === "legal" && <LegalPage />}
 
         {route.name === "research" && <ResearchPage />}
+
+        {route.name === "news" && <NewsPage />}
+
+        {route.name === "newsWorkspace" && <NewsWorkspace key={route.id} id={route.id} />}
 
         {route.name === "notFound" && (
           <section className="card state-card" aria-labelledby="nf-heading">

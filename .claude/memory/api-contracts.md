@@ -115,3 +115,22 @@ interface ResearchCheck { createdAt: string;
 ```
 Guarantees: `evidenceQuote` and conflict quotes are verbatim from the named work's abstract (≤300 chars); statuses other than the five model verdicts are set by code only.
 
+## NewsFact — story checks and reviews (added 2026-09-30, ADR-14)
+- `POST /api/v2/news/checks` JSON `{"input": "<article URL or text>"}` (text ≥60 chars, ≤10,000) → `NewsWorkspace` (includes `editToken` once); `/stream` → SSE (`stage` incl. READING_INPUT for links, `claims`, `sources`, `result`/`error`).
+- `GET /api/v2/news/checks/{id}` → `NewsWorkspace` (`editToken` null). Not rate limited.
+- `PUT /api/v2/news/checks/{id}/review` header `X-Edit-Token`, body `{decisions: {"C1": {status, note}}, editorNote}` → `NewsReview`. 403 without the right token; ids `C1`–`C99`, ≤20 decisions, notes ≤1,000 chars. Shares the feedback limiter (10/min/IP).
+- Errors: `400` · `413` · `422` link unreadable or no claims · `429` · `502` AI · `503` search or save failure.
+```ts
+type ClaimType = "FACT"|"STATISTIC"|"QUOTE"|"DATE_TIME"|"ATTRIBUTION";
+type ContextIssue = "NONE"|"OUTDATED"|"OLD_EVENT_AS_NEW"|"MISSING_CONTEXT"|"MISATTRIBUTED";
+interface NewsClaim { id: string; type: ClaimType; articleQuote: string; claim: string; speaker: string|null; quotedWords: string|null;
+  verdict: Verdict; supporting: {sourceId: string; excerpt: string}|null; contradicting: {sourceId: string; excerpt: string}|null;
+  contextIssue: ContextIssue; quoteStatus: "NOT_A_QUOTE"|"FOUND_VERBATIM"|"NOT_LOCATED"; quoteSource: {sourceId: string; excerpt: string}|null;
+  sourcesConflict: boolean; explanation: string|null; }
+interface NewsCheck { id: string; createdAt: string; articleUrl: string|null; articleTitle: string|null; articleDate: string|null;
+  claims: NewsClaim[]; sources: Evidence[]; verdictCounts: Record<Verdict, number>; limitations: string[]; notice: string; searchProvider: string; durationMs: number; }
+interface NewsReview { decisions: Record<string, {status: "UNREVIEWED"|"CONFIRMED"|"DISPUTED"|"NEEDS_WORK"; note: string|null}>; editorNote: string|null; updatedAt: string|null; }
+interface NewsWorkspace { check: NewsCheck; review: NewsReview; editToken: string|null; }
+```
+Guarantees: every excerpt is the source's own words (≤300 chars); a verdict other than INSUFFICIENT_EVIDENCE and any context flag have an excerpt; quote status is computed in code.
+

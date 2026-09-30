@@ -84,6 +84,43 @@ public final class Grounding {
         return String.join(" ", kept).trim();
     }
 
+    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+");
+
+    /**
+     * Where {@code quote} appears in {@code text} word for word (ignoring case, accents and punctuation),
+     * as the text's own characters, so the displayed words are the source's, not a paraphrase.
+     *
+     * @return the span, or null if fewer than {@code minWords} words or not found in sequence
+     */
+    public static String findSpan(String quote, String text, int minWords) {
+        if (quote == null || text == null) {
+            return null;
+        }
+        String q = words(quote);
+        if (q.isEmpty() || q.split(" ").length < minWords) {
+            return null;
+        }
+        List<String> target = List.of(q.split(" "));
+        List<String> tokens = new ArrayList<>();
+        List<int[]> spans = new ArrayList<>();
+        Matcher m = TOKEN.matcher(text);
+        while (m.find()) {
+            String w = words(m.group());
+            if (!w.isEmpty()) {
+                for (String part : w.split(" ")) { // "3rd" etc. normalise to one token; keep alignment simple
+                    tokens.add(part);
+                    spans.add(new int[]{m.start(), m.end()});
+                }
+            }
+        }
+        for (int i = 0; i + target.size() <= tokens.size(); i++) {
+            if (tokens.subList(i, i + target.size()).equals(target)) {
+                return text.substring(spans.get(i)[0], spans.get(i + target.size() - 1)[1]).replaceAll("\\s+", " ");
+            }
+        }
+        return null;
+    }
+
     /** Lower case, accents removed ("Müller" → "muller"), letters and digits only, ordinals as plain numbers ("3rd" → "3"), single spaces. */
     public static String words(String text) {
         return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
