@@ -5,8 +5,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#121416" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0a0f1d" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
       content="VeriFact checks claims in text, links, images and short audio clips against published sources, showing which sources support or contradict each claim and what remains uncertain."
@@ -37,6 +37,18 @@
       href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Apply a saved Light/Dark choice before first paint (see src/theme.ts).
+      try {
+        var t = localStorage.getItem("verifact.theme");
+        if (t === "light" || t === "dark") {
+          document.documentElement.setAttribute("data-theme", t);
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.content = t === "dark" ? "#0a0f1d" : "#f4f6fb";
+          });
+        }
+      } catch (e) {}
+    </script>
     <title>VeriFact — Verify Truth, Fight the False</title>
   </head>
   <body>

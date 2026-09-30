@@ -7,6 +7,7 @@ import CheckProgress from "./components/CheckProgress";
 import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
+import ThemeToggle from "./components/ThemeToggle";
 import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
@@ -149,13 +150,22 @@ function App() {
       <header className="site-header">
         <div className="site-header-inner">
           <Link href="/" className="wordmark" aria-label="VeriFact home">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-              <rect x="1" y="1" width="22" height="22" rx="5" fill="var(--accent)" />
-              <path d="M6.5 12.3l3.4 3.4 7.6-7.9" fill="none" stroke="var(--on-accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">
+              <defs>
+                <linearGradient id="wordmark-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#2b4fd6" />
+                  <stop offset="1" stopColor="#0d7a84" />
+                </linearGradient>
+              </defs>
+              <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#wordmark-grad)" />
+              <path d="M6.5 12.3l3.4 3.4 7.6-7.9" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <span>VeriFact</span>
           </Link>
-          <p className="slogan">Verify Truth, Fight the False</p>
+          <div className="header-end">
+            <p className="slogan">Verify Truth, Fight the False</p>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -163,7 +173,7 @@ function App() {
         {route.name === "home" && (
           <>
             <section className="intro" aria-labelledby="page-heading">
-              <h1 id="page-heading">Saw something viral? Check it first.</h1>
+              <h1 id="page-heading">Saw something viral? <span className="headline-accent">Check it first.</span></h1>
               <p className="lede">
                 Paste a post, a link or a screenshot and see what fact-checkers, news and reference sources say.
               </p>

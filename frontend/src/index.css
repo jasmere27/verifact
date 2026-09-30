@@ -1,22 +1,29 @@
 /*
- * Design tokens. Calm, editorial, neutral: warm paper / graphite, one ink-blue accent.
+ * Design tokens. Confident, modern editorial: cool paper / deep ink, an indigo→teal brand gradient.
  * Verdict colours are distinct hues, each >= 4.5:1 on its surface, and always paired with an icon + label.
  */
 :root {
-  --bg: #f7f6f3;
+  --bg: #f4f6fb;
   --surface: #ffffff;
-  --surface-2: #f1efea;
-  --text: #1b1d21;
-  --text-2: #43474e;
-  --muted: #5d636c;
-  --line: #e3e0d9;
-  --line-strong: #cbc7be;
+  --surface-2: #eef1f8;
+  --text: #121626;
+  --text-2: #3a4157;
+  --muted: #586079;
+  --line: #e1e5ef;
+  --line-strong: #c7cddc;
 
-  --accent: #1d4f8c;
-  --accent-hover: #153d6d;
-  --accent-soft: #e7eef7;
+  --accent: #2b4fd6;
+  --accent-hover: #1f3cae;
+  --accent-soft: #e8edfd;
+  --accent-2: #0d7a84;
   --on-accent: #ffffff;
-  --focus: #1d4f8c;
+  --focus: #2b4fd6;
+
+  /* Brand gradient (white text stays >= 4.5:1 across it) */
+  --brand-grad: linear-gradient(135deg, #2b4fd6 0%, #2a5fcf 45%, #0d7a84 100%);
+  --brand-grad-hover: linear-gradient(135deg, #1f3cae 0%, #1f4cb0 45%, #0a646c 100%);
+  --glow-1: rgb(43 79 214 / 0.13);
+  --glow-2: rgb(13 122 132 / 0.10);
 
   --danger: #a4271d;
   --danger-bg: #fbeceb;
@@ -30,11 +37,11 @@
   --v-mixed: #6a4596;
 
   /* Source letter avatars (text on these >= 4.5:1) */
-  --av-1: #1d4f8c;
+  --av-1: #2b4fd6;
   --av-2: #1c6b3f;
   --av-3: #6a4596;
   --av-4: #8f5100;
-  --av-5: #0f6470;
+  --av-5: #0d7a84;
   --av-6: #7a3b52;
   --on-av: #ffffff;
 
@@ -42,9 +49,10 @@
   --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 
-  --radius: 10px;
-  --radius-sm: 6px;
-  --shadow: 0 1px 2px rgb(20 20 20 / 0.04), 0 2px 8px rgb(20 20 20 / 0.04);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 1px 2px rgb(18 22 38 / 0.04), 0 4px 12px rgb(18 22 38 / 0.05), 0 12px 32px -12px rgb(43 79 214 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(18 22 38 / 0.05), 0 10px 28px -6px rgb(43 79 214 / 0.22);
 
   font: 16px/1.55 var(--body);
   color-scheme: light;
@@ -57,22 +65,29 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* Dark tokens: follow the system unless the viewer picked Light; always when they picked Dark (see theme.ts). */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121416;
-    --surface: #1a1d21;
-    --surface-2: #22262b;
-    --text: #ecebe7;
-    --text-2: #c6c4bf;
-    --muted: #a0a6ae;
-    --line: #2c3036;
-    --line-strong: #40454d;
+  :root:not([data-theme="light"]) {
+    --bg: #0a0f1d;
+    --surface: #111829;
+    --surface-2: #182135;
+    --text: #e9ecf5;
+    --text-2: #c2c8d8;
+    --muted: #98a1b7;
+    --line: #222c43;
+    --line-strong: #34405d;
 
-    --accent: #93bbed;
-    --accent-hover: #b4d0f3;
-    --accent-soft: #1f2b3a;
-    --on-accent: #0d1826;
-    --focus: #93bbed;
+    --accent: #92a9ff;
+    --accent-hover: #b4c4ff;
+    --accent-soft: #1b2546;
+    --accent-2: #62d2d2;
+    --on-accent: #0a0f1d;
+    --focus: #92a9ff;
+
+    --brand-grad: linear-gradient(135deg, #92a9ff 0%, #86b8f5 45%, #62d2d2 100%);
+    --brand-grad-hover: linear-gradient(135deg, #b4c4ff 0%, #a6cdf8 45%, #8ae0e0 100%);
+    --glow-1: rgb(98 124 255 / 0.16);
+    --glow-2: rgb(58 190 190 / 0.10);
 
     --danger: #f19188;
     --danger-bg: #2d1b1a;
@@ -84,17 +99,63 @@
     --v-insufficient: #aab1ba;
     --v-mixed: #bea2e6;
 
-    --av-1: #93bbed;
+    --av-1: #92a9ff;
     --av-2: #74cf98;
     --av-3: #bea2e6;
     --av-4: #eaa851;
-    --av-5: #7fd0d8;
+    --av-5: #62d2d2;
     --av-6: #e7a3bd;
-    --on-av: #0d1826;
+    --on-av: #0a0f1d;
 
-    --shadow: none;
+    --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -8px rgb(0 0 0 / 0.5);
+    --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 14px 32px -8px rgb(0 0 0 / 0.6);
     color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0f1d;
+  --surface: #111829;
+  --surface-2: #182135;
+  --text: #e9ecf5;
+  --text-2: #c2c8d8;
+  --muted: #98a1b7;
+  --line: #222c43;
+  --line-strong: #34405d;
+
+  --accent: #92a9ff;
+  --accent-hover: #b4c4ff;
+  --accent-soft: #1b2546;
+  --accent-2: #62d2d2;
+  --on-accent: #0a0f1d;
+  --focus: #92a9ff;
+
+  --brand-grad: linear-gradient(135deg, #92a9ff 0%, #86b8f5 45%, #62d2d2 100%);
+  --brand-grad-hover: linear-gradient(135deg, #b4c4ff 0%, #a6cdf8 45%, #8ae0e0 100%);
+  --glow-1: rgb(98 124 255 / 0.16);
+  --glow-2: rgb(58 190 190 / 0.10);
+
+  --danger: #f19188;
+  --danger-bg: #2d1b1a;
+
+  --v-supported: #74cf98;
+  --v-partly: #bccb62;
+  --v-misleading: #eaa851;
+  --v-contradicted: #f38b80;
+  --v-insufficient: #aab1ba;
+  --v-mixed: #bea2e6;
+
+  --av-1: #92a9ff;
+  --av-2: #74cf98;
+  --av-3: #bea2e6;
+  --av-4: #eaa851;
+  --av-5: #62d2d2;
+  --av-6: #e7a3bd;
+  --on-av: #0a0f1d;
+
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 14px 32px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
 }
 
 * {
@@ -107,8 +168,12 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
   min-width: 320px;
+  background:
+    radial-gradient(900px 480px at 8% -8%, var(--glow-1), transparent 65%),
+    radial-gradient(760px 420px at 100% 4%, var(--glow-2), transparent 65%),
+    var(--bg);
+  background-repeat: no-repeat;
 }
 
 h1,
