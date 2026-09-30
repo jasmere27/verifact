@@ -276,4 +276,24 @@ class CaseIntelligenceServiceTest {
         assertThat(CaseIntelligenceService.supportedDate("About two weeks later", input)).isEqualTo("About two weeks later");
         assertThat(CaseIntelligenceService.supportedDate("last spring", input)).isNull();
     }
+
+    @Test
+    void oneDocumentUnderDifferentlyCasedUrlsCountsOnce() {
+        Evidence a = new Evidence("E1", "https://www.dir.ca.gov/dlse/FinalPay.pdf", "dir.ca.gov", "Final pay", "x", null,
+                Instant.EPOCH, SourceType.GOVERNMENT);
+        Evidence b = new Evidence("E2", "http://www.dir.ca.gov/dlse/finalpay.pdf", "dir.ca.gov", "Final pay", "x", null,
+                Instant.EPOCH, SourceType.GOVERNMENT);
+        Evidence statute = new Evidence("E3", "https://leginfo.legislature.ca.gov/faces/codes.xhtml", "leginfo.legislature.ca.gov",
+                "Labor Code", "y", null, Instant.EPOCH, SourceType.GOVERNMENT);
+
+        assertThat(CaseIntelligenceService.rankAndNumber(List.of(a, b, statute)))
+                .extracting(Evidence::id, Evidence::domain)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("E1", "leginfo.legislature.ca.gov"),
+                        org.assertj.core.groups.Tuple.tuple("E2", "dir.ca.gov"));
+    }
+
+    @Test
+    void theSourcesPromptKeepsFederalSourcesForEveryState() {
+        assertThat(LegalPrompts.SOURCES_SYSTEM).contains("Federal sources apply in every US state");
+    }
 }

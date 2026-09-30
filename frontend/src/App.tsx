@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, verifyFileStream, verifyTextStream } from "./api";
+import { errorMessage, verifyFileStream, verifyTextStream } from "./api";
 import type { StreamHandlers } from "./api";
 import CheckForm from "./components/CheckForm";
 import type { Submission } from "./components/CheckForm";
@@ -8,6 +8,7 @@ import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
+import LegalPage from "./legal/LegalPage";
 import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
@@ -28,15 +29,6 @@ const REUSE_THRESHOLD_MS = 2 * 60_000;
 interface ReusedReport {
   id: string;
   submittedAt: number;
-}
-
-function errorMessage(err: unknown): { message: string; requestId?: string } {
-  if (err instanceof ApiError) {
-    const wait =
-      err.status === 429 && err.retryAfterSeconds ? ` You can try again in about ${err.retryAfterSeconds} seconds.` : "";
-    return { message: `${err.message}${wait}`, requestId: err.requestId };
-  }
-  return { message: "Something went wrong. Please try again." };
 }
 
 function App() {
@@ -163,7 +155,14 @@ function App() {
             <span>VeriFact</span>
           </Link>
           <div className="header-end">
-            <p className="slogan">Verify Truth, Fight the False</p>
+            <nav className="site-nav" aria-label="Products">
+              <Link href="/" aria-current={route.name === "legal" ? undefined : "page"}>
+                Fact check
+              </Link>
+              <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
+                LegalFact
+              </Link>
+            </nav>
             <ThemeToggle />
           </div>
         </div>
@@ -238,6 +237,8 @@ function App() {
             onRecheck={recheck}
           />
         )}
+
+        {route.name === "legal" && <LegalPage />}
 
         {route.name === "notFound" && (
           <section className="card state-card" aria-labelledby="nf-heading">

@@ -56,7 +56,10 @@ final class LegalPrompts {
             - relevance: one sentence on why a professional might consult it for this topic, in general terms
               ("Describes when final wages must be paid"). Never apply it to the person ("this means the employer
               broke the law", "the person is entitled to...").
-            - A source for a different jurisdiction than the one given is not relevant; leave it out.
+            - Federal sources apply in every US state: never leave one out for being federal. Leave out only sources
+              for a different state or country than the jurisdiction given.
+            - Leave out sources about a different kind of situation, industry or group of people than the topic
+              concerns (e.g. farmworker rules for a warehouse employee).
             - uncertainties: short notes on what remains unclear (e.g. "Sources are general guidance; how they apply
               depends on facts not provided", "State-specific sources were not available").
             """;
