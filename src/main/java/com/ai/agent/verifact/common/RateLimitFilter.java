@@ -45,7 +45,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/v2/verifications/audio",
             "/api/v2/verifications/stream",
             "/api/v2/verifications/image/stream",
-            "/api/v2/verifications/audio/stream");
+            "/api/v2/verifications/audio/stream",
+            "/api/v2/legal/case-intelligence",
+            "/api/v2/legal/case-intelligence/stream");
 
     /** Feedback is cheap but spammable; limited separately so it never uses up check quota. */
     static final java.util.regex.Pattern FEEDBACK_PATH =

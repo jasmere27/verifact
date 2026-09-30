@@ -1,4 +1,4 @@
-package com.ai.agent.verifact.verification;
+package com.ai.agent.verifact.evidence;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -33,7 +33,7 @@ class SourceTypeTest {
             "https://www.toureiffel.paris/en, OTHER",
     })
     void classifiesByUrl(String url, SourceType expected) {
-        String host = VerificationService.domain(url);
-        assertThat(SourceType.classify(url, host, VerificationService.registrableDomain(host))).isEqualTo(expected);
+        String host = Urls.domain(url);
+        assertThat(SourceType.classify(url, host, Urls.registrableDomain(host))).isEqualTo(expected);
     }
 }

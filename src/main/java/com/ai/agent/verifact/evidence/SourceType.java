@@ -1,4 +1,4 @@
-package com.ai.agent.verifact.verification;
+package com.ai.agent.verifact.evidence;
 
 import java.util.List;
 import java.util.Locale;

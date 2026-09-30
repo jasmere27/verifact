@@ -1,6 +1,5 @@
 package com.ai.agent.verifact.ai;
 
-import com.ai.agent.verifact.common.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -12,7 +11,6 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 
@@ -57,7 +55,7 @@ public class SpringAiLlmClient implements LlmClient {
         try {
             response = chatClient.prompt(prompt).call().chatResponse();
         } catch (RuntimeException e) {
-            throw new ApiException(HttpStatus.BAD_GATEWAY,
+            throw new LlmException(classify(e),
                     "The analysis service is unavailable right now. Please try again shortly.", e);
         }
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
@@ -67,14 +65,34 @@ public class SpringAiLlmClient implements LlmClient {
                 : response.getResult().getOutput().getText();
         logUsage(response, type, durationMs);
         if (text == null || text.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "The analysis service returned an empty result. Please try again.");
+            throw new LlmException(LlmException.Failure.UNUSABLE_OUTPUT,
+                    "The analysis service returned an empty result. Please try again.", null);
         }
         try {
             return parse(converter, text);
         } catch (RuntimeException e) {
-            throw new ApiException(HttpStatus.BAD_GATEWAY,
-                    "The analysis service returned an unreadable result. Please try again.", e);
+            // Not chained: a parser's message quotes the model output, which echoes the user's text, and
+            // error handlers log the cause.
+            throw new LlmException(LlmException.Failure.UNUSABLE_OUTPUT,
+                    "The analysis service returned an unreadable result. Please try again.",
+                    new IllegalStateException("Model output not parseable as " + type.getSimpleName()
+                            + " (" + e.getClass().getSimpleName() + ")"));
         }
+    }
+
+    /**
+     * The provider's 400/422 means it refused this request (e.g. a model without image input); anything
+     * else (timeouts, 401/403, 429 including "no credits", 5xx, bad configuration) means it's unusable
+     * for now. Matched by name so this class doesn't depend on one provider SDK's exception types.
+     */
+    static LlmException.Failure classify(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            String name = t.getClass().getSimpleName();
+            if (name.equals("BadRequestException") || name.equals("UnprocessableEntityException")) {
+                return LlmException.Failure.REQUEST_REJECTED;
+            }
+        }
+        return LlmException.Failure.PROVIDER_UNAVAILABLE;
     }
 
     /** Parses as-is first; if the model wrapped the JSON in prose, retries on the outermost {...}. */

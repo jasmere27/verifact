@@ -35,6 +35,7 @@ export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH
 ./mvnw spring-boot:run              # needs .env values exported (see .env.example)
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=VerificationEvalIT   # live eval (costs money)
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=ImageVisionEvalIT    # live image check (costs money)
+RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=CaseIntelligenceEvalIT  # live LegalFact check; outputs in target/legal-eval/
 
 cd frontend && npm ci && npm run build && npm run lint
 ```
@@ -42,7 +43,9 @@ cd frontend && npm ci && npm run build && npm run lint
 ## Code map (`src/main/java/com/ai/agent/verifact/`)
 
 - `verification/` — **the product**: API v2 (`VerificationController`), the pipeline (`VerificationService`: extract claims → search → cited assessment → server-side validation), prompts, DTOs, JSON report persistence (`VerificationStore`).
-- `ai/` — `LlmClient` seam and `SpringAiLlmClient` (plain messages, JSON parsing, usage logging).
+- `ai/` — `LlmClient` seam and `SpringAiLlmClient` (plain messages, JSON parsing, usage logging, `LlmException` failure kinds).
+- `evidence/` — shared by all verticals: `EvidenceRetriever` (queries → de-duplicated, capped evidence; optional official-domain allow-list; refuses when search is down), `Evidence`, `SourceType`, `Urls`.
+- `legal/` — **LegalFact** (ADR-12, `.claude/memory/legalfact.md`): `CaseIntelligenceService` (intake → allow-listed official sources → source matching, with quote/date/jurisdiction/citation/number checks and `AdviceLanguage` filter), `LegalController` (`/api/v2/legal/case-intelligence`). Legal information, never advice; nothing stored. Frontend: `frontend/src/legal/`.
 - `controller/` — deprecated v1: `AiController` (`/api/v1/isFakeNews`, `/analyzeImage`, `/analyzeAudio`), `HistoryController` (disabled unless `HISTORY_API_ENABLED`).
 - `service/AiService` — (v1) builds the prompt, calls the model with tools `dateTimeTool` + `webSearchTool`, maps failures to `ApiException`, persists results. `ImageOcrService` decodes/validates images, prepares them for the vision model (scaled, re-encoded JPEG), and runs Tesseract for the fallback. `FactCheckResponseParser` regex-extracts fields from the model's markdown.
 - `search/` — `SearchProvider` interface, `TavilySearchProvider`, `GoogleCustomSearchProvider` (legacy), `SearchConfig` (selection via `SEARCH_PROVIDER`).

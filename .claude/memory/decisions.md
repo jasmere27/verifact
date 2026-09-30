@@ -78,3 +78,9 @@ Only record decisions with real tradeoffs.
 - Live results (gpt-5-mini, 2 runs × 6 synthetic screenshots, all passing): false post → CONTRADICTED; true headline → SUPPORTED; chart → claims per bar; fake Einstein quote → CONTRADICTED / INSUFFICIENT_EVIDENCE (never SUPPORTED); no-claim meme → 422; injection meme → CONTRADICTED with no planted claim or "Verified by Reuters". Vision step: ~1.5–2.1k prompt tokens (image counted at full detail, not the ~85-token low-detail rate), 0.4–1.3k completion tokens, 4–15 s.
 - Consequences: images (not just their text) are sent to OpenAI (the upload form says so); the image itself is not stored. Slightly more tokens and latency per image check. The text/link prompts are unchanged, so the text eval is unaffected; images have their own opt-in live check, `ImageVisionEvalIT`.
 
+## ADR-12 — LegalFact as a module in the VeriFact monolith
+**Accepted** · 2026-09-30 (MVP approved; professional-facing first)
+- Context: LegalFact (legal information and evidence intelligence) should reuse VeriFact's evidence engine and may later become its own product. One developer, low budget.
+- Decision: a `legal` package in the same Spring Boot app and a `/legal` area in the same frontend; no separate repo, service or database. Shared core through narrow seams (`LlmClient`, evidence retrieval extracted from `VerificationService`, `SearchProvider` with a domain allow-list option). MVP uses Tavily restricted to official domains; case law (CourtListener) excluded until a commercial agreement; Cornell LII is link-only (non-commercial licence). MVP stores no case text.
+- Consequences: extraction later means moving a package and a frontend folder. Legal safety rules live in `legalfact.md` and `/vf-legal-audit`. Storing cases waits for auth + retention.
+

@@ -18,12 +18,14 @@ real, maintainable, eventually monetizable product run by one developer.
 - Backend: Java 21, Spring Boot 4.1.1, Spring AI 2.0.1 (OpenAI starter, backed by the official openai-java SDK), Jackson 3, Maven wrapper, Jsoup 1.23, Tess4j 5.20, Google Cloud Speech 4.93, Spring Data JPA (Hibernate 7), Flyway 12, PostgreSQL driver.
 - Frontend: React 19, Vite 8, TypeScript 6, oxlint. No router, no test runner.
 - DB: Supabase Postgres, project ref `yappnvazdkscgqzipdxd`, region ap-southeast-2 (Sydney). Session pooler host `aws-0-ap-southeast-2.pooler.supabase.com:5432`, user `postgres.yappnvazdkscgqzipdxd`. Tables via Flyway (`fact_check_results`, `verifications`). Render region set to singapore to match.
-- Search: Google Custom Search JSON API (**shuts down 2027-01-01; closed to new customers**).
+- Search: Tavily (ADR-5); Google Custom Search remains as a legacy fallback (**shuts down 2027-01-01**).
+- AI: OpenAI gpt-5-mini via Spring AI; images read by the same model (ADR-11). No auth/accounts yet.
 - Hosting config: `render.yaml` (Render, Docker, `plan: starter`), `frontend/wrangler.toml` + `public/_redirects` (Cloudflare Pages). **Live since 2026-09-30:** frontend https://verifact-blf.pages.dev (Pages project `verifact`, direct upload via wrangler), backend https://verifact-backend-5mux.onrender.com (Render `srv-dad6lhrncjis7387if1g`, free, Singapore, auto-deploys `main`). Redeploy steps: top of `docs/DEPLOYMENT.md`. Render CLI at `~/.local/bin/render` and wrangler (via npx) are logged in as the owner. The old `verifact-bw9.pages.dev` site lives in a different Cloudflare account and is stale.
 
 ## Users (hypothesis, not validated)
 Students, general public checking viral claims/screenshots, educators; later journalists/moderators.
 
 ## Working agreements
-- Orchestrator protocol: `.claude/orchestrator.md`. Commands: `/vf-investigate`, `/vf-plan`, `/vf-implement`, `/vf-review`, `/vf-qa`, `/vf-optimize`, `/vf-ship`.
+- Orchestrator protocol: `.claude/orchestrator.md`. Commands: `/vf-investigate`, `/vf-plan`, `/vf-implement`, `/vf-review`, `/vf-qa`, `/vf-optimize`, `/vf-ship`, `/vf-legal-audit`. (Prefixed `vf-` because `/review`, `/plan` etc. clash with Claude Code built-ins.)
+- Direction (2026-09-30): VeriFact becomes an evidence and information verification platform; **LegalFact** is its first vertical, built as a module in this codebase (`.claude/memory/legalfact.md`).
 - Major changes need user approval. No pushes/deploys without explicit approval.

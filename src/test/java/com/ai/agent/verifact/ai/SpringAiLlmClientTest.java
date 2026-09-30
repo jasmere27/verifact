@@ -120,4 +120,30 @@ class SpringAiLlmClientTest {
             assertThat(media.getDataAsByteArray()).isEqualTo(jpeg);
         });
     }
+
+    @Test
+    void providerFailuresAreClassifiedSoCallersKnowWhetherToFallBack() {
+        class BadRequestException extends RuntimeException {}
+        class RateLimitException extends RuntimeException {}
+        assertThat(SpringAiLlmClient.classify(new RuntimeException(new BadRequestException())))
+                .isEqualTo(LlmException.Failure.REQUEST_REJECTED);
+        assertThat(SpringAiLlmClient.classify(new RateLimitException()))
+                .isEqualTo(LlmException.Failure.PROVIDER_UNAVAILABLE);
+        assertThat(SpringAiLlmClient.classify(new IllegalArgumentException("Unexpected char 0x0a")))
+                .isEqualTo(LlmException.Failure.PROVIDER_UNAVAILABLE);
+    }
+
+    @Test
+    void unreadableOutputNeverTravelsInTheExceptionThatGetsLogged() {
+        // The model echoes the user's text; a parser's message would quote it into the logs.
+        SpringAiLlmClient client = clientReplying("{\"claims\": [{\"claim\": \"SECRET-CASE-DETAIL\", ");
+
+        assertThatThrownBy(() -> client.generate("system", "user", ClaimExtraction.class))
+                .isInstanceOfSatisfying(LlmException.class, e -> {
+                    assertThat(e.failure()).isEqualTo(LlmException.Failure.UNUSABLE_OUTPUT);
+                    for (Throwable t = e; t != null; t = t.getCause()) {
+                        assertThat(String.valueOf(t.getMessage())).doesNotContain("SECRET-CASE-DETAIL");
+                    }
+                });
+    }
 }

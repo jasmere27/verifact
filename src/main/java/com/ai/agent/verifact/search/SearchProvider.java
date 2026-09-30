@@ -13,4 +13,15 @@ public interface SearchProvider {
      * @throws SearchUnavailableException if the provider can't be reached or rejects the request
      */
     List<SearchResult> search(String query);
+
+    /**
+     * Search limited to the given domains (and their subdomains) where the provider supports it.
+     * Providers that can't restrict fall back to a normal search; {@code EvidenceRetriever} filters
+     * the results either way.
+     *
+     * @param includeDomains e.g. ["govinfo.gov", "dol.gov"]; empty = no restriction
+     */
+    default List<SearchResult> search(String query, List<String> includeDomains) {
+        return search(query);
+    }
 }

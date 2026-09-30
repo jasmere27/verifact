@@ -2,21 +2,22 @@ package com.ai.agent.verifact.verification;
 
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
+import com.ai.agent.verifact.ai.LlmException;
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.evidence.Evidence;
+import com.ai.agent.verifact.evidence.EvidenceRetriever;
+import com.ai.agent.verifact.evidence.SourceType;
+import com.ai.agent.verifact.evidence.Urls;
 import com.ai.agent.verifact.fetch.FetchFailedException;
 import com.ai.agent.verifact.fetch.SafeUrlFetcher;
 import com.ai.agent.verifact.fetch.UnsafeUrlException;
 import com.ai.agent.verifact.fetch.UrlGuard;
 import com.ai.agent.verifact.model.InputType;
-import com.ai.agent.verifact.search.SearchProvider;
-import com.ai.agent.verifact.search.SearchResult;
-import com.ai.agent.verifact.search.SearchUnavailableException;
 import com.ai.agent.verifact.verification.ModelOutputs.Assessment;
 import com.ai.agent.verifact.verification.ModelOutputs.ClaimExtraction;
 import com.ai.agent.verifact.verification.ModelOutputs.ClaimVerdict;
 import com.ai.agent.verifact.verification.ModelOutputs.ExtractedClaim;
 import com.ai.agent.verifact.verification.ModelOutputs.ImageExtraction;
-import com.google.common.net.InternetDomainName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,16 +65,9 @@ public class VerificationService {
 
     static final int MAX_CLAIMS = 3;
     static final int MAX_SEARCHES = 4;
-    static final int RESULTS_PER_SEARCH = 4;
     static final int MAX_EVIDENCE = 10;
-    static final int MAX_SNIPPET_CHARS = 600;
     static final int CHECKED_TEXT_EXCERPT_CHARS = 1500;
-    static final int MAX_SOCIAL = 2;
 
-    /** Search operators that could let content steer where evidence comes from (e.g. site:attacker.example). */
-    private static final Pattern SEARCH_OPERATOR = Pattern.compile(
-            "(?i)\\b(?:site|inurl|allinurl|intitle|allintitle|intext|allintext|filetype|ext|related|cache|link|info|source|before|after|daterange):\\S*");
-    private static final Pattern EXCLUSION_TERM = Pattern.compile("(^|\\s)-\\S+");
     private static final Pattern EVIDENCE_REF = Pattern.compile("\\bE\\d+\\b");
     /** A vision failure slower than this is not retried with OCR (see {@link #verifyImage}). */
     static final Duration VISION_FALLBACK_BUDGET = Duration.ofSeconds(30);
@@ -98,19 +92,19 @@ public class VerificationService {
     record Validation(List<ClaimAssessment> claims, boolean anyDowngraded) {}
 
     private final LlmClient llm;
-    private final SearchProvider searchProvider;
+    private final EvidenceRetriever evidenceRetriever;
     private final SafeUrlFetcher safeUrlFetcher;
     private final VerificationStore store;
     private final Clock clock;
     private final int maxContentChars;
     private final Duration reuseWindow;
 
-    public VerificationService(LlmClient llm, SearchProvider searchProvider, SafeUrlFetcher safeUrlFetcher,
+    public VerificationService(LlmClient llm, EvidenceRetriever evidenceRetriever, SafeUrlFetcher safeUrlFetcher,
                                VerificationStore store, Clock clock,
                                @Value("${app.ai.max-content-chars:20000}") int maxContentChars,
                                @Value("${app.reuse.ttl-hours:24}") long reuseTtlHours) {
         this.llm = llm;
-        this.searchProvider = searchProvider;
+        this.evidenceRetriever = evidenceRetriever;
         this.safeUrlFetcher = safeUrlFetcher;
         this.store = store;
         this.clock = clock;
@@ -183,12 +177,13 @@ public class VerificationService {
             try {
                 extraction = llm.generateWithImage(VerificationPrompts.IMAGE_EXTRACTION_SYSTEM,
                         VerificationPrompts.imageExtractionUser(today()), image, ImageExtraction.class);
-            } catch (ApiException e) {
-                // Fall back only on a quick failure (model rejects images, unreadable output). A slow one is
-                // usually a timeout or outage: retrying on the OCR path would blow the time budget and the
-                // user's 120 s wait, and likely fail the same way.
+            } catch (LlmException e) {
+                // Fall back only when OCR + a text call could succeed: the model refused the image or its
+                // output was unusable, and quickly. If the provider itself is unavailable (outage, timeout,
+                // no credit, bad key) the OCR path's model call fails the same way, just ~a minute later.
                 Duration spent = Duration.between(visionStartedAt, clock.instant());
-                if (e.getStatus() != HttpStatus.BAD_GATEWAY || spent.compareTo(VISION_FALLBACK_BUDGET) > 0) {
+                if (e.failure() == LlmException.Failure.PROVIDER_UNAVAILABLE
+                        || spent.compareTo(VISION_FALLBACK_BUDGET) > 0) {
                     throw e;
                 }
                 // Cause type only: a parse error's message can contain the model's transcription of the image.
@@ -265,7 +260,10 @@ public class VerificationService {
         List<String> claimTexts = claims.stream().map(ExtractedClaim::claim).toList();
         progress.claims(claimTexts);
         progress.stage(VerificationProgress.Stage.SEARCHING);
-        List<Evidence> evidence = gatherEvidence(claims, now, sourceUrl);
+        String excludedSite = sourceUrl == null ? null : Urls.registrableDomain(Urls.domain(sourceUrl));
+        List<Evidence> evidence = rankAndNumber(evidenceRetriever.retrieve(
+                claims.stream().map(ExtractedClaim::searchQueries).toList(),
+                new EvidenceRetriever.Options(MAX_SEARCHES, MAX_EVIDENCE, excludedSite, List.of()), now));
         progress.sources(evidence.size(), evidence.stream().map(Evidence::domain).distinct().limit(8).toList());
 
         // 3. Assessment (skipped when there is nothing to weigh)
@@ -318,7 +316,7 @@ public class VerificationService {
         VerificationResult result = new VerificationResult(
                 UUID.randomUUID(), now, inputType, truncate(displayInput, 2000),
                 truncate(content, CHECKED_TEXT_EXCERPT_CHARS), overall, summary, assessments, evidence,
-                List.copyOf(new LinkedHashSet<>(limitations)), searchProvider.name(), durationMs, imageContext);
+                List.copyOf(new LinkedHashSet<>(limitations)), evidenceRetriever.providerName(), durationMs, imageContext);
 
         log.info("Verification done id={} inputType={} claims={} evidence={} overall={} durationMs={}",
                 result.id(), inputType, assessments.size(), evidence.size(), overall, durationMs);
@@ -372,7 +370,7 @@ public class VerificationService {
             List<String> queries = new ArrayList<>();
             if (c.searchQueries() != null) {
                 c.searchQueries().stream()
-                        .map(VerificationService::cleanQuery)
+                        .map(EvidenceRetriever::cleanQuery)
                         .filter(q -> !q.isBlank())
                         .limit(2)
                         .forEach(queries::add);
@@ -388,83 +386,6 @@ public class VerificationService {
         return claims;
     }
 
-    /** Plain keywords only: search operators and exclusion terms are removed. */
-    static String cleanQuery(String query) {
-        String q = cleanText(query, 200);
-        q = SEARCH_OPERATOR.matcher(q).replaceAll(" ");
-        q = EXCLUSION_TERM.matcher(q).replaceAll(" ");
-        return q.replaceAll("\\s+", " ").trim();
-    }
-
-    /**
-     * Runs each claim's first query, then second queries, within the search budget. Each claim gets
-     * a fair share of evidence slots, and the checked page's own site is excluded.
-     */
-    private List<Evidence> gatherEvidence(List<ExtractedClaim> claims, Instant now, String sourceUrl) {
-        List<String> queries = new ArrayList<>();
-        List<Integer> queryClaim = new ArrayList<>();
-        for (int round = 0; round < 2; round++) {
-            for (int i = 0; i < claims.size(); i++) {
-                ExtractedClaim claim = claims.get(i);
-                if (claim.searchQueries().size() > round && queries.size() < MAX_SEARCHES) {
-                    queries.add(claim.searchQueries().get(round));
-                    queryClaim.add(i);
-                }
-            }
-        }
-        int perClaimCap = (MAX_EVIDENCE + claims.size() - 1) / claims.size();
-        int[] perClaim = new int[claims.size()];
-        String excludedSite = sourceUrl == null ? null : registrableDomain(domain(sourceUrl));
-
-        Map<String, Evidence> byUrl = new LinkedHashMap<>();
-        int failures = 0;
-        int socialCount = 0;
-        for (int qi = 0; qi < queries.size(); qi++) {
-            String query = queries.get(qi);
-            int claimIndex = queryClaim.get(qi);
-            List<SearchResult> results;
-            try {
-                results = searchProvider.search(query);
-            } catch (SearchUnavailableException e) {
-                log.warn("Search failed via {}: {}", searchProvider.name(), e.getMessage());
-                failures++;
-                continue;
-            }
-            int taken = 0;
-            for (SearchResult r : results) {
-                if (byUrl.size() >= MAX_EVIDENCE || taken >= RESULTS_PER_SEARCH || perClaim[claimIndex] >= perClaimCap) {
-                    break;
-                }
-                String key = normalizeUrl(r.url());
-                String domain = domain(r.url());
-                if (key == null || domain == null || byUrl.containsKey(key)) {
-                    continue;
-                }
-                if (excludedSite != null && excludedSite.equals(registrableDomain(domain))) {
-                    continue; // the checked page (or its own site) can't be evidence for itself
-                }
-                SourceType type = SourceType.classify(r.url(), domain, registrableDomain(domain));
-                if (type == SourceType.SOCIAL && socialCount >= MAX_SOCIAL) {
-                    continue; // user-generated content is kept to a minimum
-                }
-                if (type == SourceType.SOCIAL) {
-                    socialCount++;
-                }
-                String id = "E" + (byUrl.size() + 1);
-                byUrl.put(key, new Evidence(id, r.url(), domain, cleanText(r.title(), 300),
-                        cleanText(r.snippet(), MAX_SNIPPET_CHARS), emptyToNull(cleanText(r.publishedDate(), 40)), now,
-                        type));
-                taken++;
-                perClaim[claimIndex]++;
-            }
-        }
-        if (failures == queries.size()) {
-            // Without search the only alternative is the model's memory; refuse instead.
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Web search is unavailable right now, so VeriFact can't gather evidence. Please try again later.");
-        }
-        return rankAndNumber(new ArrayList<>(byUrl.values()));
-    }
 
     /** Orders evidence by source type (fact-checkers first, social last) and renumbers E1..En. */
     static List<Evidence> rankAndNumber(List<Evidence> evidence) {
@@ -577,7 +498,7 @@ public class VerificationService {
         for (String id : direction) {
             Evidence e = evidenceById.get(id);
             if (!e.isSocial()) { // user-generated posts don't count as independent sources
-                domains.add(registrableDomain(e.domain()));
+                domains.add(Urls.registrableDomain(e.domain()));
             }
         }
         EvidenceStrength strength = domains.size() >= 3 ? EvidenceStrength.STRONG
@@ -608,38 +529,6 @@ public class VerificationService {
         return out;
     }
 
-    static String domain(String url) {
-        try {
-            String host = URI.create(url.trim()).getHost();
-            if (host == null) {
-                return null;
-            }
-            host = host.toLowerCase(Locale.ROOT);
-            return host.startsWith("www.") ? host.substring(4) : host;
-        } catch (RuntimeException e) {
-            return null;
-        }
-    }
-
-    /**
-     * The site that owns a host, per the public suffix list: news.bbc.co.uk → bbc.co.uk. Hosts on
-     * shared-hosting suffixes (e.g. blogspot.com) stay distinct per site. IPs and unknowns pass through.
-     */
-    static String registrableDomain(String host) {
-        if (host == null) {
-            return null;
-        }
-        try {
-            InternetDomainName name = InternetDomainName.from(host);
-            if (name.isUnderPublicSuffix()) {
-                return name.topPrivateDomain().toString();
-            }
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            // IP literal or invalid name: fall through
-        }
-        return host;
-    }
-
     /**
      * Identity of an input for reuse: SHA-256 over the normalised link, or over the text in lower
      * case with whitespace collapsed and surrounding quotes/end punctuation removed. So
@@ -648,7 +537,7 @@ public class VerificationService {
     static String inputHash(String input, boolean isLink) {
         String key;
         if (isLink) {
-            String url = normalizeUrl(input);
+            String url = Urls.normalizeUrl(input);
             if (url == null) {
                 return null;
             }
@@ -666,27 +555,6 @@ public class VerificationService {
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);
-        }
-    }
-
-    static String normalizeUrl(String url) {
-        if (url == null || url.isBlank()) {
-            return null;
-        }
-        try {
-            URI uri = URI.create(url.trim());
-            String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
-            if (!scheme.equals("http") && !scheme.equals("https")) {
-                return null; // only web links can be shown as sources
-            }
-            String path = uri.getRawPath() == null || uri.getRawPath().isEmpty() ? "/" : uri.getRawPath();
-            if (path.length() > 1 && path.endsWith("/")) {
-                path = path.substring(0, path.length() - 1);
-            }
-            String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();
-            return domain(url) + path + query;
-        } catch (RuntimeException e) {
-            return null;
         }
     }
 

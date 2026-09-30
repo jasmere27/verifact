@@ -33,6 +33,15 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☐ Auth (evaluate Supabase Auth JWT verified by Spring Security vs. alternatives)
 - ☐ Private history, saved reports, shareable public report pages (opt-in)
 
+## LegalFact vertical (planned 2026-09-30 — see legalfact.md, ADR-12)
+- ☐ L0: design sign-off, 10–15 hypothetical case eval set (vague, contradictory, multi-state, non-US, injection)
+- ◐ L1: Case Intelligence MVP (US, employment tuned; allow-listed official sources; not stored) — built on `legalfact-mvp`, live eval passing; needs review fixes, attorney wording review, deploy
+- ☐ L2: Evidence pack (source metadata, export/print with disclaimer)
+- ☐ L3: Accounts + saved cases (needs Phase 4 auth, retention, delete)
+- ☐ L4: Legal content audit (articles → potentially outdated/unsupported claims)
+- ☐ L5: LegalMatch-style demo on a hypothetical case
+- ☐ Validate with legal professionals before any billing
+
 ## Phase 5 — Monetization (only after usage data)
 Candidates: higher limits, batch checks, API access, team workspaces, exportable reports.
 

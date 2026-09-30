@@ -83,21 +83,35 @@ function normalize(raw: VerificationResult): VerificationResult {
   };
 }
 
+/** A user-facing message (plus the request ID to quote) for any error from these calls. */
+export function errorMessage(err: unknown): { message: string; requestId?: string } {
+  if (err instanceof ApiError) {
+    const wait =
+      err.status === 429 && err.retryAfterSeconds ? ` You can try again in about ${err.retryAfterSeconds} seconds.` : "";
+    return { message: `${err.message}${wait}`, requestId: err.requestId };
+  }
+  return { message: "Something went wrong. Please try again." };
+}
+
 const TIMEOUT_MESSAGE = "The check took too long to complete. Please try again in a moment.";
 const OFFLINE_MESSAGE = "Couldn't reach VeriFact. Check your connection and try again.";
 
 /**
- * Run `work` with a 120 s overall timeout (covering the whole response, streamed or not).
+ * Run `work` with an overall timeout (default 120 s, covering the whole response, streamed or not).
  * If the caller's `signal` aborts, the AbortError is rethrown unchanged so callers can ignore it;
  * network failures and timeouts become ApiErrors.
  */
-async function withTimeout<T>(signal: AbortSignal | undefined, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+async function withTimeout<T>(
+  signal: AbortSignal | undefined,
+  work: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
   const onCallerAbort = () => controller.abort();
   if (signal?.aborted) controller.abort();
   signal?.addEventListener("abort", onCallerAbort);
@@ -201,7 +215,19 @@ function parseJson(data: string): Record<string, unknown> | null {
   }
 }
 
-async function streamResult(path: string, body: BodyInit, headers: HeadersInit, handlers: StreamHandlers, signal?: AbortSignal) {
+/**
+ * POST and read a Server-Sent Events stream (`stage`, `claims`, `sources`, then `result` or `error`).
+ * Shared by VeriFact checks and LegalFact case intelligence; `toResult` validates the result payload.
+ */
+export async function streamResult<T = VerificationResult>(
+  path: string,
+  body: BodyInit,
+  headers: HeadersInit,
+  handlers: StreamHandlers,
+  signal?: AbortSignal,
+  toResult: (raw: unknown) => T = (raw) => normalize(raw as VerificationResult) as T,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   return withTimeout(signal, async (timeoutSignal) => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: "POST",
@@ -214,11 +240,11 @@ async function streamResult(path: string, body: BodyInit, headers: HeadersInit, 
     const requestId = response.headers.get("X-Request-Id") ?? undefined;
     // A proxy or old backend may answer with plain JSON; accept that too.
     if (!response.headers.get("Content-Type")?.includes("text/event-stream")) {
-      return normalize((await response.json()) as VerificationResult);
+      return toResult(await response.json());
     }
     if (!response.body) throw new ApiError(OFFLINE_MESSAGE, 0, requestId);
 
-    let outcome: { result: VerificationResult } | { error: ApiError } | null = null;
+    let outcome: { result: T } | { error: ApiError } | null = null;
     const parser = createSseParser(({ event, data }) => {
       if (outcome) return;
       const payload = parseJson(data);
@@ -237,7 +263,7 @@ async function streamResult(path: string, body: BodyInit, headers: HeadersInit, 
           });
           break;
         case "result":
-          outcome = { result: normalize(payload as unknown as VerificationResult) };
+          outcome = { result: toResult(payload) };
           break;
         case "error": {
           const status = typeof payload.status === "number" ? payload.status : 500;
@@ -268,13 +294,13 @@ async function streamResult(path: string, body: BodyInit, headers: HeadersInit, 
       if (outcome) reader.cancel().catch(() => undefined);
     }
 
-    const final = outcome as { result: VerificationResult } | { error: ApiError } | null;
+    const final = outcome as { result: T } | { error: ApiError } | null;
     if (!final) {
       throw new ApiError("The check stopped before it finished. Please try again.", 0, requestId);
     }
     if ("error" in final) throw final.error;
     return final.result;
-  });
+  }, timeoutMs);
 }
 
 /** `refresh: true` asks the server to run a new check instead of reusing a recent report for the same input. */
