@@ -2,6 +2,7 @@ package com.ai.agent.verifact.verification;
 
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
+import com.ai.agent.verifact.ai.LlmException;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.fetch.FetchFailedException;
 import com.ai.agent.verifact.fetch.SafeUrlFetcher;
@@ -183,12 +184,13 @@ public class VerificationService {
             try {
                 extraction = llm.generateWithImage(VerificationPrompts.IMAGE_EXTRACTION_SYSTEM,
                         VerificationPrompts.imageExtractionUser(today()), image, ImageExtraction.class);
-            } catch (ApiException e) {
-                // Fall back only on a quick failure (model rejects images, unreadable output). A slow one is
-                // usually a timeout or outage: retrying on the OCR path would blow the time budget and the
-                // user's 120 s wait, and likely fail the same way.
+            } catch (LlmException e) {
+                // Fall back only when OCR + a text call could succeed: the model refused the image or its
+                // output was unusable, and quickly. If the provider itself is unavailable (outage, timeout,
+                // no credit, bad key) the OCR path's model call fails the same way, just ~a minute later.
                 Duration spent = Duration.between(visionStartedAt, clock.instant());
-                if (e.getStatus() != HttpStatus.BAD_GATEWAY || spent.compareTo(VISION_FALLBACK_BUDGET) > 0) {
+                if (e.failure() == LlmException.Failure.PROVIDER_UNAVAILABLE
+                        || spent.compareTo(VISION_FALLBACK_BUDGET) > 0) {
                     throw e;
                 }
                 // Cause type only: a parse error's message can contain the model's transcription of the image.

@@ -2,6 +2,7 @@ package com.ai.agent.verifact.verification;
 
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
+import com.ai.agent.verifact.ai.LlmException;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.fetch.SafeUrlFetcher;
 import com.ai.agent.verifact.fetch.UnsafeUrlException;
@@ -654,7 +655,7 @@ class VerificationServiceTest {
         service = new VerificationService(llm, search, fetcher, store, clock, 20_000, 24);
         llm.imageExtraction = i -> {
             clock.advance(VerificationService.VISION_FALLBACK_BUDGET.plusSeconds(1));
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "The analysis service is unavailable right now.");
+            throw new LlmException(LlmException.Failure.REQUEST_REJECTED, "The analysis service is unavailable right now.", null);
         };
 
         assertThatThrownBy(() -> service.verifyImage("p.png", IMAGE, this::ocr, VerificationProgress.NONE))
@@ -696,7 +697,7 @@ class VerificationServiceTest {
         oneClaimWithSources("https://a.example/1");
         llm.assessment = u -> new Assessment("s", List.of(), List.of());
         llm.imageExtraction = i -> {
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "The analysis service is unavailable right now.");
+            throw new LlmException(LlmException.Failure.UNUSABLE_OUTPUT, "The analysis service returned an unreadable result.", null);
         };
 
         VerificationResult result = service.verifyImage("post.png", IMAGE, this::ocr, VerificationProgress.NONE);
@@ -749,5 +750,17 @@ class VerificationServiceTest {
         ExtractedClaim quoted = new ExtractedClaim("Albert Einstein said \"the internet will be the greatest invention\".", List.of("q"));
         ExtractedClaim bare = new ExtractedClaim("The internet will be the greatest invention", List.of("q"));
         assertThat(VerificationService.dropRestatements(List.of(bare, quoted))).containsExactly(quoted);
+    }
+
+    @Test
+    void anUnavailableProviderIsReportedNotRetriedWithOcr() {
+        // e.g. out of credit (429) or a bad key: the OCR path's model call would fail the same way.
+        llm.imageExtraction = i -> {
+            throw new LlmException(LlmException.Failure.PROVIDER_UNAVAILABLE, "The analysis service is unavailable right now.", null);
+        };
+
+        assertThatThrownBy(() -> service.verifyImage("p.png", IMAGE, this::ocr, VerificationProgress.NONE))
+                .isInstanceOf(LlmException.class);
+        assertThat(ocrRuns).hasValue(0);
     }
 }

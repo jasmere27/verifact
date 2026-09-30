@@ -120,4 +120,16 @@ class SpringAiLlmClientTest {
             assertThat(media.getDataAsByteArray()).isEqualTo(jpeg);
         });
     }
+
+    @Test
+    void providerFailuresAreClassifiedSoCallersKnowWhetherToFallBack() {
+        class BadRequestException extends RuntimeException {}
+        class RateLimitException extends RuntimeException {}
+        assertThat(SpringAiLlmClient.classify(new RuntimeException(new BadRequestException())))
+                .isEqualTo(LlmException.Failure.REQUEST_REJECTED);
+        assertThat(SpringAiLlmClient.classify(new RateLimitException()))
+                .isEqualTo(LlmException.Failure.PROVIDER_UNAVAILABLE);
+        assertThat(SpringAiLlmClient.classify(new IllegalArgumentException("Unexpected char 0x0a")))
+                .isEqualTo(LlmException.Failure.PROVIDER_UNAVAILABLE);
+    }
 }
