@@ -19,6 +19,25 @@ function saveToken(id: string, token: string) {
   }
 }
 
+/** Ids of workspaces this browser created (it holds their edit tokens). */
+export function savedWorkspaceIds(): string[] {
+  try {
+    const ids: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("researchfact.token.")) ids.push(key.slice("researchfact.token.".length));
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
+/** For a workspace that no longer exists (deleted or expired). */
+export function forgetWorkspace(id: string) {
+  forgetToken(id);
+}
+
 function forgetToken(id: string) {
   try {
     localStorage.removeItem(TOKEN_KEY(id));

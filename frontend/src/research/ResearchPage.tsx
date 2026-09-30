@@ -5,6 +5,7 @@ import { plural } from "../format";
 import type { SourcesFound, StageId } from "../types";
 import { checkResearchStream } from "./api";
 import ResearchReport from "./ResearchReport";
+import RecentWorkspaces from "./student/RecentWorkspaces";
 import StartWorkspace from "./student/StartWorkspace";
 import type { ResearchCheck } from "./types";
 import "./research.css";
@@ -33,8 +34,32 @@ const STEPS: { id: StageId; title: string; detail: string }[] = [
   { id: "ASSESSING", title: "Comparing claims with abstracts", detail: "Does the cited paper say this? Does other research disagree?" },
 ];
 
+const FEATURES = [
+  {
+    title: "Find sources",
+    text: "RRL, RRS, local and foreign studies, theories, concepts, methods, and recent work.",
+    d: "M10.5 17a6.5 6.5 0 100-13 6.5 6.5 0 000 13zM20 20l-4.8-4.8",
+  },
+  {
+    title: "Check your draft",
+    text: "Upload a chapter to see which statements need a citation, and check your reference list.",
+    d: "M7 3h7l5 5v13H7V3zm7 0v5h5M10 13l1.8 1.8L15 11.5",
+  },
+  {
+    title: "Gaps & framework",
+    text: "Possible research gaps and framework variables, tied to the sources you saved.",
+    d: "M4 19h16M6 16V9m6 7V5m6 11v-4",
+  },
+  {
+    title: "APA references",
+    text: "Organise sources into folders and copy a ready APA 7 reference list.",
+    d: "M6 4h9l3 3v13H6V4zm3 7h6M9 14h6M9 17h4",
+  },
+];
+
 export default function ResearchPage() {
   const [text, setText] = useState("");
+  const [showCheck, setShowCheck] = useState(false);
   const [state, setState] = useState<State>({ status: "idle" });
   const [problem, setProblem] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
@@ -95,25 +120,53 @@ export default function ResearchPage() {
 
   return (
     <div className="research">
-      <section className="intro" aria-labelledby="research-heading">
-        <p className="research-brand">
-          <span className="research-brand-name">ResearchFact</span> by VeriFact
-        </p>
-        <h1 id="research-heading">Check every citation before it's published.</h1>
-        <p className="lede">
-          Paste a manuscript section, literature review or essay with its references. ResearchFact checks that each
-          cited work exists and matches, flags retractions, and compares each claim with what the cited paper&apos;s
-          abstract actually says, with the quote.
-        </p>
-        <ul className="research-points" aria-label="What it checks">
-          <li>Fabricated or mismatched references</li>
-          <li>Retracted and corrected papers</li>
-          <li>Claims the cited paper doesn&apos;t support, or overstates</li>
-          <li>Other research that reports a different finding</li>
-        </ul>
+      <section className="rf-hero" aria-labelledby="research-heading">
+        <div className="rf-hero-copy">
+          <p className="rf-eyebrow">
+            <span className="rf-eyebrow-name">ResearchFact</span> · Student Research Mode
+          </p>
+          <h1 id="research-heading">
+            Build your thesis research on <span className="headline-accent">real sources.</span>
+          </h1>
+          <p className="rf-lede">
+            Find related literature and studies, local and foreign, for your topic, check your draft, and keep everything
+            in one workspace. Every source comes from a scholarly index; nothing is made up.
+          </p>
+        </div>
+        <StartWorkspace />
       </section>
 
-      {!loading && <StartWorkspace />}
+      <RecentWorkspaces />
+
+      <section className="rf-features" aria-label="What Student Research Mode does">
+        {FEATURES.map((f) => (
+          <div key={f.title} className="rf-feature">
+            <span className="rf-feature-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d={f.d} />
+              </svg>
+            </span>
+            <h2>{f.title}</h2>
+            <p>{f.text}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="rf-check" aria-labelledby="rf-check-heading">
+        <div className="rf-check-head">
+          <div>
+            <h2 id="rf-check-heading">Already have references? Check them.</h2>
+            <p>
+              Paste a paragraph with its reference list: we check that each work exists, isn&apos;t retracted, and actually
+              supports your sentence.
+            </p>
+          </div>
+          {!showCheck && !loading && (
+            <button type="button" className="button button--secondary" onClick={() => setShowCheck(true)} aria-expanded="false" aria-controls="research-text">
+              Check citations
+            </button>
+          )}
+        </div>
 
       {state.status === "error" && (
         <div className="alert" role="alert" ref={alertRef} tabIndex={-1}>
@@ -167,9 +220,9 @@ export default function ResearchPage() {
             <p className="progress-note">This usually takes 30–90 seconds.</p>
           </div>
         </section>
-      ) : (
+      ) : showCheck ? (
         <form
-          className="card form-card research-form"
+          className="rf-check-form"
           onSubmit={(e) => {
             e.preventDefault();
             void check();
@@ -184,15 +237,14 @@ export default function ResearchPage() {
             className="text-input research-input"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste a paragraph with in-text citations (Smith et al., 2020) and its reference list, or DOIs."
+            placeholder="Paste a paragraph with in-text citations, e.g. (Reyes & Cruz, 2021), followed by its reference list."
             aria-describedby="research-hint"
             aria-invalid={problem ? true : undefined}
-            rows={12}
+            rows={7}
           />
           <div className="input-foot">
             <p id="research-hint" className="hint">
-              Up to 12 references and 8 cited claims per check. Nothing is stored; the text is sent to our AI provider,
-              and reference details to Crossref, DataCite, OpenAlex and PubMed.
+              Up to 12 references and 8 cited claims. Not stored. About 1–2 minutes.
             </p>
             <span className={text.length > MAX_CHARS ? "counter counter--over" : "counter"}>
               {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
@@ -208,11 +260,15 @@ export default function ResearchPage() {
               Check citations
             </button>
             <button type="button" className="text-button" onClick={() => setText(SAMPLE_TEXT)}>
-              Use a sample (includes a retracted and a made-up reference)
+              Try a sample
+            </button>
+            <button type="button" className="text-button rf-hide" onClick={() => setShowCheck(false)}>
+              Hide
             </button>
           </div>
         </form>
-      )}
+      ) : null}
+      </section>
     </div>
   );
 }

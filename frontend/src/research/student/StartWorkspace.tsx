@@ -3,7 +3,7 @@ import { errorMessage } from "../../api";
 import { navigate } from "../../router";
 import { createWorkspace } from "./api";
 
-/** Entry point on the ResearchFact page: topic → a saved Student Research Mode workspace. */
+/** The ResearchFact page's main action: topic → a saved Student Research Mode workspace. */
 export default function StartWorkspace() {
   const [topic, setTopic] = useState("");
   const [field, setField] = useState("");
@@ -28,67 +28,59 @@ export default function StartWorkspace() {
   }
 
   return (
-    <section className="card st-start" aria-labelledby="st-start-heading">
-      <p className="st-start-kicker">Student Research Mode</p>
-      <h2 id="st-start-heading">Working on a thesis, capstone or research paper?</h2>
-      <p className="muted">
-        Start a workspace for your topic. Find real, verifiable sources for your RRL and RRS, local and foreign studies,
-        theories and methods, then save and organise them with ready-made APA references.
-      </p>
-      <form
-        className="st-start-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void start();
-        }}
-        noValidate
-      >
-        <label htmlFor="st-topic" className="st-why-label">
-          Research title or topic
-        </label>
-        <input
-          id="st-topic"
-          className="text-input"
-          value={topic}
-          maxLength={300}
-          onChange={(e) => setTopic(e.target.value)}
-          placeholder="e.g. Effect of flipped classroom on Grade 11 students' mathematics achievement"
-        />
-        <div className="st-start-row">
-          <div>
-            <label htmlFor="st-field" className="st-why-label">
-              Field (optional)
-            </label>
-            <input id="st-field" className="text-input" value={field} maxLength={120} onChange={(e) => setField(e.target.value)} placeholder="e.g. Education" />
-          </div>
-          <div>
-            <label htmlFor="st-country" className="st-why-label">
-              Local studies from
-            </label>
-            <select id="st-country" className="st-select" value={country} onChange={(e) => setCountry(e.target.value)}>
-              <option value="PH">Philippines</option>
-              <option value="">No local/foreign split</option>
-              <option value="ID">Indonesia</option>
-              <option value="MY">Malaysia</option>
-              <option value="IN">India</option>
-              <option value="NG">Nigeria</option>
-              <option value="US">United States</option>
-              <option value="GB">United Kingdom</option>
-            </select>
-          </div>
+    <form
+      className="rf-start"
+      aria-label="Start a research workspace"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void start();
+      }}
+      noValidate
+    >
+      <label htmlFor="st-topic" className="rf-field-label">
+        Your research title or topic
+      </label>
+      <input
+        id="st-topic"
+        className="rf-input rf-input--lg"
+        value={topic}
+        maxLength={300}
+        onChange={(e) => setTopic(e.target.value)}
+        placeholder="e.g. Effect of flipped classroom on Grade 11 students' mathematics achievement"
+        aria-invalid={problem ? true : undefined}
+      />
+      <div className="rf-start-row">
+        <div>
+          <label htmlFor="st-field" className="rf-field-label">
+            Field <span className="rf-optional">(optional)</span>
+          </label>
+          <input id="st-field" className="rf-input" value={field} maxLength={120} onChange={(e) => setField(e.target.value)} placeholder="e.g. Education" />
         </div>
-        {problem && (
-          <p className="field-problem" role="alert">
-            {problem}
-          </p>
-        )}
-        <div className="form-actions">
-          <button type="submit" className="button button--primary" disabled={busy}>
-            {busy ? "Creating…" : "Start my research workspace"}
-          </button>
-          <span className="muted small">Free, no sign-up. Deleted after 90 days without changes, or whenever you choose.</span>
+        <div>
+          <label htmlFor="st-country" className="rf-field-label">
+            Local studies from
+          </label>
+          <select id="st-country" className="rf-input" value={country} onChange={(e) => setCountry(e.target.value)}>
+            <option value="PH">Philippines</option>
+            <option value="">No local/foreign split</option>
+            <option value="ID">Indonesia</option>
+            <option value="MY">Malaysia</option>
+            <option value="IN">India</option>
+            <option value="NG">Nigeria</option>
+            <option value="US">United States</option>
+            <option value="GB">United Kingdom</option>
+          </select>
         </div>
-      </form>
-    </section>
+      </div>
+      {problem && (
+        <p className="field-problem" role="alert">
+          {problem}
+        </p>
+      )}
+      <button type="submit" className="button button--primary rf-start-button" disabled={busy}>
+        {busy ? "Creating your workspace…" : "Start my research workspace"}
+      </button>
+      <p className="rf-start-note">Free · no sign-up · deleted after 90 days without changes, or whenever you choose</p>
+    </form>
   );
 }
