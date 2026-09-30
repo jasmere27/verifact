@@ -24,6 +24,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static com.ai.agent.verifact.evidence.Grounding.material;
 import static com.ai.agent.verifact.evidence.Grounding.words;
@@ -51,6 +55,7 @@ public class ResearchDiscoveryService {
     static final int PER_SEARCH = 8;
     static final int MAX_SOURCES = 12;
     static final int MAX_ABSTRACT_CHARS = 1200;
+    static final int REVIEW_BATCH = 4;
 
     static final String NOTICE = "Every source here is a real record from OpenAlex (with its DOI where one exists). "
             + "\"Why it's relevant\" is an AI reading of the abstract, shown only with the abstract's own words: read "
@@ -87,7 +92,7 @@ public class ResearchDiscoveryService {
 
         // 1. Plan searches
         String nonce = nonce();
-        SearchPlan plan = llm.generate(DiscoveryPrompts.withNonce(DiscoveryPrompts.PLAN_SYSTEM, nonce),
+        SearchPlan plan = llm.generateQuick(DiscoveryPrompts.withNonce(DiscoveryPrompts.PLAN_SYSTEM, nonce),
                 DiscoveryPrompts.planUser(nonce, category.name(), clean(topic, 300), clean(text, 1500),
                         country == null ? null : Locale.of("", country).getDisplayCountry(Locale.ENGLISH)),
                 SearchPlan.class);
@@ -140,22 +145,41 @@ public class ResearchDiscoveryService {
         Map<String, WorkNote> notes = new LinkedHashMap<>();
         List<Hit> withAbstracts = candidates.stream().filter(h -> h.work.work().abstractText() != null).limit(MAX_SOURCES + 4).toList();
         if (!withAbstracts.isEmpty()) {
-            String reviewNonce = nonce();
-            List<DiscoveryPrompts.WorkLine> lines = new ArrayList<>();
-            for (Hit h : withAbstracts) {
-                String a = h.work.work().abstractText();
-                lines.add(new DiscoveryPrompts.WorkLine(h.id, h.work.work().title(), h.work.work().year(),
-                        a.length() > MAX_ABSTRACT_CHARS ? a.substring(0, MAX_ABSTRACT_CHARS) : a));
-            }
-            RelevanceReview review = llm.generate(DiscoveryPrompts.withNonce(DiscoveryPrompts.REVIEW_SYSTEM, reviewNonce),
-                    DiscoveryPrompts.reviewUser(reviewNonce, category.name(), clean(topic, 300), claimMode ? clean(text, 1500) : null, lines),
-                    RelevanceReview.class);
-            if (review != null && review.works() != null) {
-                for (WorkNote n : review.works()) {
-                    if (n != null && n.workId() != null) {
-                        notes.putIfAbsent(n.workId().trim().toUpperCase(Locale.ROOT), n);
-                    }
+            // Small batches in parallel: one long review took ~110 s in production; batches of 4 take ~15-25 s each.
+            List<Future<RelevanceReview>> batches = new ArrayList<>();
+            try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+                for (int from = 0; from < withAbstracts.size(); from += REVIEW_BATCH) {
+                    List<Hit> batch = withAbstracts.subList(from, Math.min(from + REVIEW_BATCH, withAbstracts.size()));
+                    batches.add(pool.submit(() -> review(batch, category, topic, claimMode ? text : null)));
                 }
+            }
+            RuntimeException firstFailure = null;
+            int failed = 0;
+            for (Future<RelevanceReview> f : batches) {
+                try {
+                    RelevanceReview review = f.get();
+                    if (review != null && review.works() != null) {
+                        for (WorkNote n : review.works()) {
+                            if (n != null && n.workId() != null) {
+                                notes.putIfAbsent(n.workId().trim().toUpperCase(Locale.ROOT), n);
+                            }
+                        }
+                    }
+                } catch (ExecutionException e) {
+                    failed++;
+                    if (firstFailure == null) {
+                        firstFailure = e.getCause() instanceof RuntimeException r ? r : new IllegalStateException(e.getCause());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "The search was interrupted. Please try again.");
+                }
+            }
+            if (failed == batches.size() && firstFailure != null) {
+                throw firstFailure;
+            }
+            if (failed > 0) {
+                limitations.add("Relevance couldn't be checked for some sources; they're listed without an explanation.");
             }
         }
 
@@ -214,6 +238,19 @@ public class ResearchDiscoveryService {
                 hits.size(), sources.size(), durationMs);
         return new Discovery(category, clean(topic, 300), List.copyOf(searches), sources, leads, List.copyOf(limitations),
                 NOTICE, durationMs);
+    }
+
+    private RelevanceReview review(List<Hit> batch, Category category, String topic, String claim) {
+        String nonce = nonce();
+        List<DiscoveryPrompts.WorkLine> lines = new ArrayList<>();
+        for (Hit h : batch) {
+            String a = h.work.work().abstractText();
+            lines.add(new DiscoveryPrompts.WorkLine(h.id, h.work.work().title(), h.work.work().year(),
+                    a.length() > MAX_ABSTRACT_CHARS ? a.substring(0, MAX_ABSTRACT_CHARS) : a));
+        }
+        return llm.generateQuick(DiscoveryPrompts.withNonce(DiscoveryPrompts.REVIEW_SYSTEM, nonce),
+                DiscoveryPrompts.reviewUser(nonce, category.name(), clean(topic, 300), clean(claim, 1500), lines),
+                RelevanceReview.class);
     }
 
     private List<DiscoveredWork> search(Category category, String q, String country) {

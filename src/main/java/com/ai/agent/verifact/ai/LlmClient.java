@@ -13,6 +13,14 @@ public interface LlmClient {
     <T> T generate(String systemPrompt, String userMessage, Class<T> type);
 
     /**
+     * Like {@link #generate} with low reasoning effort: for simple planning or classification steps whose
+     * output is checked in code anyway. Several times faster on reasoning models.
+     */
+    default <T> T generateQuick(String systemPrompt, String userMessage, Class<T> type) {
+        return generate(systemPrompt, userMessage, type);
+    }
+
+    /**
      * Like {@link #generate}, with an image attached to the user message.
      *
      * @throws com.ai.agent.verifact.common.ApiException 502 if the provider fails (including a model
