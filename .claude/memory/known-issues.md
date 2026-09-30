@@ -45,6 +45,7 @@ for context; delete them once they stop being useful._
 
 14j. **ResearchFact (MVP, ADR-13):**
    - Judgments are abstract-only; ~40% of works lack open abstracts (NO_ABSTRACT). PubMed lookup failures also surface as NO_ABSTRACT (not distinguished yet).
+   - Latency: production checks took 64–134 s (Render in Singapore → US-hosted indexes; 134 s while another check ran concurrently), close to the 170 s client limit. Options: parallelise non-Crossref lookups, cache DOI lookups, set SCHOLARLY_CONTACT_EMAIL (Crossref polite pool allows concurrency).
    - Outbound calls: up to ~50 sequential lookups per check (12 refs × Crossref/DataCite/OpenAlex/PubMed + searches); 50 s lookup budget; PubMed and Crossref list calls throttled per instance. No cache yet.
    - DataCite/Zenodo DOIs can be self-deposited: their abstracts are user-controlled (treated as untrusted; verdicts need a verbatim, claim-relevant quote). Consider showing lower trust for DataCite-only works.
    - Reference-parsing accuracy not yet measured on a labelled set (planned).

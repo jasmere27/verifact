@@ -1,6 +1,6 @@
 # NewsFact
 
-_Last updated: 2026-09-30. Status: **MVP built** (branch `feature/newsfact`). Decisions: ADR-14._
+_Last updated: 2026-09-30. Status: **MVP deployed** 2026-09-30 (PR #7; V4 applied on Supabase): https://verifact-blf.pages.dev/news. Production smoke test: create 200 (~99 s), load, review save with token 200, wrong token 403, CORS PUT preflight OK. Decisions: ADR-14._
 
 ## Positioning
 **NewsFact by VeriFact: a fact-checking workspace for journalists and editors.** Article (link or text) →

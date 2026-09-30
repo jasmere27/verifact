@@ -231,7 +231,7 @@ function ActionButtons({ actions, variant }: { actions: ReturnType<typeof useRep
         <ReplyIcon />
         {copied("reply") ? "Copied" : "Copy reply"}
       </button>
-      <Link href="/" className="button button--secondary">
+      <Link href="/check" className="button button--secondary">
         <PlusIcon />
         New check
       </Link>

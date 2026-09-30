@@ -1,6 +1,6 @@
 # ResearchFact
 
-_Last updated: 2026-09-30. Status: **MVP built** (branch `feature/researchfact`). Decisions: ADR-13._
+_Last updated: 2026-09-30. Status: **MVP deployed** 2026-09-30 (PR #5, time-budget fix PR #6): https://verifact-blf.pages.dev/research. Production sample: all four references correct (verified ×2, retracted, not found), 64–134 s. Decisions: ADR-13._
 
 ## Positioning
 **ResearchFact by VeriFact: citation integrity for research writing.** Checks that every citation

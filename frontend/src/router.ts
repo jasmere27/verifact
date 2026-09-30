@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from "react";
 
-/** Minimal pathname router: `/` (check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact). */
+/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact). */
 export type Route =
-  | { name: "home" }
+  | { name: "landing" }
+  | { name: "check" }
   | { name: "report"; id: string }
   | { name: "legal" }
   | { name: "research" }
@@ -14,7 +15,8 @@ const NEWS_PATH = /^\/news\/([0-9a-fA-F-]{36})\/?$/;
 const REPORT_PATH = /^\/r\/([A-Za-z0-9-]{1,64})\/?$/;
 
 export function parseRoute(pathname: string): Route {
-  if (pathname === "/" || pathname === "") return { name: "home" };
+  if (pathname === "/" || pathname === "") return { name: "landing" };
+  if (pathname === "/check" || pathname === "/check/") return { name: "check" };
   if (pathname === "/legal" || pathname === "/legal/") return { name: "legal" };
   if (pathname === "/research" || pathname === "/research/") return { name: "research" };
   if (pathname === "/news" || pathname === "/news/") return { name: "news" };
