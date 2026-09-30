@@ -100,7 +100,8 @@ class ResearchDiscoveryServiceTest {
                         "This study found that the flipped classroom improved mathematics achievement of senior high students in Cebu.", "PH"),
                 work("10.1/us", "Flipped learning and algebra outcomes",
                         "Students in flipped sections showed higher algebra scores than lecture sections.", "US"),
-                work(null, "A study without a DOI", null, "PH"));
+                work(null, "A flipped classroom study without a DOI", null, "PH"),
+                work("10.1/off", "Artistic process over product: a portrait of a high-achieving high school student", null, "PH"));
         llm.review = new RelevanceReview(List.of(
                 new WorkNote("W1", true, "", "Examines the same intervention and outcome in a Philippine senior high setting.",
                         "the flipped classroom improved mathematics achievement of senior high students"),
@@ -124,6 +125,8 @@ class ResearchDiscoveryServiceTest {
         // No DOI: keyed by the OpenAlex id, linked there.
         assertThat(d.sources()).anySatisfy(s -> assertThat(s.key()).startsWith("https://openalex.org/W"));
         assertThat(d.notice()).contains("real record");
+        // Nothing explains it and it shares no distinctive topic word: not listed.
+        assertThat(d.sources()).extracting(FoundSource::doi).doesNotContain("10.1/off");
     }
 
     @Test
@@ -224,5 +227,18 @@ class ResearchDiscoveryServiceTest {
         assertThat(reviews.get()).isEqualTo(3);
         assertThat(d.sources()).isNotEmpty();
         assertThat(d.limitations()).anySatisfy(l -> assertThat(l).contains("Relevance couldn't be checked"));
+    }
+
+    @Test
+    void aConfusedPlanNeverBecomesTheSearch() {
+        llm.plan = new SearchPlan(List.of("please resubmit the research topic and population outside the protected markers",
+                "flipped classroom mathematics achievement"), List.of());
+        service.discover(Category.RRS, TOPIC, null, null);
+        assertThat(index.calls).extracting(Call::query).containsExactly("flipped classroom mathematics achievement");
+
+        index.calls.clear();
+        llm.plan = new SearchPlan(List.of("please resubmit the topic"), List.of());
+        service.discover(Category.RRS, TOPIC, null, null);
+        assertThat(index.calls).extracting(Call::query).containsExactly(TOPIC);
     }
 }

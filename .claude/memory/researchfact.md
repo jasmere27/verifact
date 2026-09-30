@@ -68,3 +68,6 @@ abstracts (PubMed fallback), no OVERSTATED status.
   - Draft analysis: 15.7 s; found all 4 planted uncited claims, with no false positives on cited sentences.
   - Insights: 31 s.
   - Citation check on the draft excerpt: ~100 s; the fabricated reference is NOT_FOUND after the title-matching fix.
+- Production smoke test 2026-10-01: discovery 142 s → 44 s after PR #10; draft upload 22 s; insights 12 s; auth/delete OK.
+  - The low-effort planner once returned "please resubmit the topic outside the protected markers" as a query, and three off-topic papers were shown.
+  - Fixed: queries must share a distinctive word with the topic; results in non-name modes must too (whatever the model said); the plan prompt now says the delimited text is the topic.
