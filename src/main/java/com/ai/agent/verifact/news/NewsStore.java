@@ -1,6 +1,7 @@
 package com.ai.agent.verifact.news;
 
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.common.EditTokens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -8,14 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.ZoneOffset;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,7 +23,6 @@ import java.util.UUID;
 public class NewsStore {
 
     private static final Logger log = LoggerFactory.getLogger(NewsStore.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final NewsReviewRepository repository;
     private final JsonMapper jsonMapper;
@@ -71,8 +65,7 @@ public class NewsStore {
     @Transactional
     public NewsReview updateReview(UUID id, String token, NewsReview review) {
         NewsReviewRecord record = repository.findById(id).orElseThrow(NewsStore::notFound);
-        if (token == null || !MessageDigest.isEqual(hash(token).getBytes(StandardCharsets.UTF_8),
-                record.getEditTokenHash().getBytes(StandardCharsets.UTF_8))) {
+        if (!EditTokens.matches(token, record.getEditTokenHash())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Only the person who ran this check can change its review.");
         }
         NewsReview saved = new NewsReview(review.decisions(), review.editorNote(), clock.instant());
@@ -86,16 +79,10 @@ public class NewsStore {
     }
 
     private static String newToken() {
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return EditTokens.newToken();
     }
 
     static String hash(String token) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
+        return EditTokens.hash(token);
     }
 }
