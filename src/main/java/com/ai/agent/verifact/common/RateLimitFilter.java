@@ -49,11 +49,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
             "/api/v2/legal/case-intelligence",
             "/api/v2/legal/case-intelligence/stream",
             "/api/v2/research/check",
-            "/api/v2/research/check/stream");
+            "/api/v2/research/check/stream",
+            "/api/v2/news/checks",
+            "/api/v2/news/checks/stream");
 
-    /** Feedback is cheap but spammable; limited separately so it never uses up check quota. */
+    /**
+     * Feedback and NewsFact review saves are cheap but spammable; limited separately so they never use
+     * up check quota.
+     */
     static final java.util.regex.Pattern FEEDBACK_PATH =
-            java.util.regex.Pattern.compile("^/api/v2/verifications/[^/]+/feedback$");
+            java.util.regex.Pattern.compile("^/api/v2/(verifications/[^/]+/feedback|news/checks/[^/]+/review)$");
 
     private final FixedWindowRateLimiter feedbackPerIpMinute;
     private final FixedWindowRateLimiter perIpMinute;
@@ -121,7 +126,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (FEEDBACK_PATH.matcher(normalizedPath(request)).matches()) {
             long wait = feedbackPerIpMinute.tryAcquire(clientIp);
             if (wait > 0) {
-                reject(response, wait, "You're sending feedback too quickly. Please wait a moment.");
+                reject(response, wait, "You're saving too quickly. Please wait a moment.");
                 return;
             }
             chain.doFilter(request, response);
