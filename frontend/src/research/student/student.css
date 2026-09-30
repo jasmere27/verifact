@@ -244,3 +244,124 @@ input.text-input {
     border-radius: var(--radius-sm);
   }
 }
+
+/* My draft */
+.st-upload {
+  display: grid;
+  gap: 8px;
+}
+
+.st-upload input[type="file"] {
+  font: inherit;
+  font-size: 0.9rem;
+  max-width: 100%;
+}
+
+.st-draft,
+.st-insights {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.st-draft-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  word-break: break-word;
+}
+
+.st-block {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.st-block h2 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.st-chips {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.st-chip {
+  padding: 4px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.st-chip:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: var(--accent-soft);
+}
+
+.st-draft-text {
+  max-height: 420px;
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.st-draft-text::selection,
+.st-draft-text *::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.st-selection {
+  position: sticky;
+  bottom: 12px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow, 0 6px 20px rgb(0 0 0 / 0.12));
+  word-break: break-word;
+}
+
+/* Insights */
+.st-stats {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.st-stats li {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+.st-stats strong {
+  color: var(--text);
+  font-size: 1.05rem;
+  margin-right: 2px;
+}

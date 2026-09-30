@@ -311,7 +311,7 @@ public class ResearchCheckService {
             return false;
         }
         if (r.title() != null && !r.title().isBlank()) {
-            return titleSimilarity(r.title(), w.title()) >= TITLE_MATCH;
+            return titleMatches(r.title(), w.title());
         }
         List<String> titleWords = contentWords(w.title());
         if (titleWords.size() < 2) {
@@ -332,7 +332,7 @@ public class ResearchCheckService {
                 && !authorMatches(r.firstAuthor(), w.authors().get(0))) {
             out.add("First author: \"" + clean(r.firstAuthor(), 60) + "\" in the text, \"" + w.authors().get(0) + "\" in the record.");
         }
-        if (r.title() != null && !r.title().isBlank() && w.title() != null && titleSimilarity(r.title(), w.title()) < TITLE_MATCH) {
+        if (r.title() != null && !r.title().isBlank() && w.title() != null && !titleMatches(r.title(), w.title())) {
             out.add("Title differs from the record: \"" + clean(w.title(), 160) + "\".");
         }
         return out;
@@ -353,6 +353,27 @@ public class ResearchCheckService {
     }
 
     /**
+     * The shorter title's content words all appear in the longer one (so "Title" matches "Title: Subtitle"),
+     * allowing one missing word when the shorter title has six or more. A one-word title must match exactly.
+     * Overlap alone isn't enough: "Flipped learning and self-efficacy of Filipino senior high students" shares
+     * six of eight words with a different paper's title.
+     */
+    static boolean titleMatches(String a, String b) {
+        Set<String> x = new HashSet<>(contentWords(a));
+        Set<String> y = new HashSet<>(contentWords(b));
+        if (x.isEmpty() || y.isEmpty()) {
+            return false;
+        }
+        Set<String> shorter = x.size() <= y.size() ? x : y;
+        Set<String> longer = shorter == x ? y : x;
+        if (shorter.size() == 1) {
+            return x.equals(y);
+        }
+        long found = shorter.stream().filter(longer::contains).count();
+        return found >= shorter.size() - (shorter.size() >= 6 ? 1 : 0);
+    }
+
+    /**
      * Overlap relative to the shorter title (so "Title" matches "Title: Subtitle"), with at least two
      * shared content words; 0 when either side is too short to judge.
      */
@@ -370,9 +391,12 @@ public class ResearchCheckService {
         return (double) inter.size() / Math.min(x.size(), y.size());
     }
 
+    /** Title words without stop words, with a plain plural "s" dropped ("students" = "student"). */
     private static List<String> contentWords(String s) {
         return Arrays.stream(words(s == null ? "" : s).split(" "))
-                .filter(t -> !t.isBlank() && !TITLE_STOPWORDS.contains(t)).toList();
+                .filter(t -> !t.isBlank() && !TITLE_STOPWORDS.contains(t))
+                .map(t -> t.length() > 3 && t.endsWith("s") && !t.endsWith("ss") ? t.substring(0, t.length() - 1) : t)
+                .toList();
     }
 
     private static Integer year(String s) {

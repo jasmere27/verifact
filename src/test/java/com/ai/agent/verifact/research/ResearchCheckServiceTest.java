@@ -303,6 +303,21 @@ class ResearchCheckServiceTest {
     }
 
     @Test
+    void aDifferentPaperSharingMostTitleWordsIsNotAMatch() {
+        // Found in a live run: a fabricated reference matched a real 2019 paper on overlap alone.
+        assertThat(ResearchCheckService.titleMatches("Flipped learning and self-efficacy of Filipino senior high students",
+                "Self-Efficacy of Filipino Senior High School Students: Differences Among Tracks/Strand and Type of School")).isFalse();
+        assertThat(ResearchCheckService.titleMatches("Sleep and memory", "Sleep and memory: a meta-analysis of randomized trials")).isTrue();
+        assertThat(ResearchCheckService.titleMatches("Attention is all you need", "Attention Is All You Need")).isTrue();
+        // One word may differ in a long title (edition wording, a dropped article-like word).
+        assertThat(ResearchCheckService.titleMatches("A critical review of flipped classroom challenges in K-12 education possible solutions",
+                "A critical review of flipped classroom challenges in K-12 education: Possible solutions and recommendations for future research")).isTrue();
+        assertThat(ResearchCheckService.titleMatches("Effects of flipped classroom on student achievement",
+                "Effect of flipped classrooms on students' achievement")).isTrue();
+        assertThat(ResearchCheckService.titleMatches("Autism", "Autism and vaccines")).isFalse();
+    }
+
+    @Test
     void quotesShowTheAbstractsOwnWordsAndMustBeAboutTheClaim() {
         String abs = "The effect was not significant (p>0.05). Memory consolidation improved after naps in older adults.";
         // The model wrote p<0.05; the abstract's own symbol is what's shown.

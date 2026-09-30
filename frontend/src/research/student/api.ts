@@ -64,24 +64,59 @@ export async function createWorkspace(topic: string, field: string, country: str
   return v.workspace;
 }
 
-export async function getWorkspace(id: string) {
-  const v = await call<{ workspace: Workspace }>(`/api/v2/research/workspaces/${encodeURIComponent(id)}`, { method: "GET" });
-  return { ...v.workspace, sources: v.workspace.sources ?? [] };
+function normalise(w: Workspace): Workspace {
+  return { ...w, sources: w.sources ?? [], draft: w.draft ?? null, insights: w.insights ?? null };
 }
 
-export function updateWorkspace(
+export async function getWorkspace(id: string) {
+  const v = await call<{ workspace: Workspace }>(`/api/v2/research/workspaces/${encodeURIComponent(id)}`, { method: "GET" });
+  return normalise(v.workspace);
+}
+
+export async function uploadDraft(id: string, token: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  return normalise(
+    await call<Workspace>(
+      `/api/v2/research/workspaces/${encodeURIComponent(id)}/draft`,
+      { method: "POST", headers: { "X-Edit-Token": token }, body: form },
+      150_000,
+    ),
+  );
+}
+
+export async function deleteDraft(id: string, token: string) {
+  return normalise(
+    await call<Workspace>(`/api/v2/research/workspaces/${encodeURIComponent(id)}/draft`, {
+      method: "DELETE",
+      headers: { "X-Edit-Token": token },
+    }),
+  );
+}
+
+export async function generateInsights(id: string, token: string) {
+  return normalise(
+    await call<Workspace>(
+      `/api/v2/research/workspaces/${encodeURIComponent(id)}/insights`,
+      { method: "POST", headers: { "X-Edit-Token": token } },
+      150_000,
+    ),
+  );
+}
+
+export async function updateWorkspace(
   id: string,
   token: string,
   changes: { topic?: string; notes?: string | null; sources?: { key: string; folder: Folder; studentNote: string | null }[] },
 ) {
-  return call<Workspace>(`/api/v2/research/workspaces/${encodeURIComponent(id)}`, { method: "PUT", ...json(changes, token) });
+  return normalise(await call<Workspace>(`/api/v2/research/workspaces/${encodeURIComponent(id)}`, { method: "PUT", ...json(changes, token) }));
 }
 
-export function addSource(id: string, token: string, source: FoundSource, folder: Folder) {
-  return call<Workspace>(`/api/v2/research/workspaces/${encodeURIComponent(id)}/sources`, {
+export async function addSource(id: string, token: string, source: FoundSource, folder: Folder) {
+  return normalise(await call<Workspace>(`/api/v2/research/workspaces/${encodeURIComponent(id)}/sources`, {
     method: "POST",
     ...json({ key: source.key, folder, relevance: source.relevance, relevanceQuote: source.relevanceQuote, stance: source.stance }, token),
-  });
+  }));
 }
 
 export async function deleteWorkspace(id: string, token: string) {

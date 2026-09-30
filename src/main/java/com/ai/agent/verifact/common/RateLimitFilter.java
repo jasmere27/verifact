@@ -62,7 +62,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
             java.util.regex.Pattern.compile("^/api/v2/(verifications/[^/]+/feedback|news/checks/[^/]+/review)$");
     /** ResearchFact workspace changes (create, save a source, edit, delete): same light limiter; reads are free. */
     static final java.util.regex.Pattern WORKSPACE_PATH =
-            java.util.regex.Pattern.compile("^/api/v2/research/workspaces(/[^/]+(/sources)?)?$");
+            java.util.regex.Pattern.compile("^/api/v2/research/workspaces(/[^/]+(/sources|/draft)?)?$");
+    /** Uploading a draft and generating insights call the model: counted like checks. */
+    static final java.util.regex.Pattern HEAVY_WORKSPACE_PATH =
+            java.util.regex.Pattern.compile("^/api/v2/research/workspaces/[^/]+/(draft|insights)$");
 
     private final FixedWindowRateLimiter feedbackPerIpMinute;
     private final FixedWindowRateLimiter perIpMinute;
@@ -106,12 +109,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return true;
         }
         String path = normalizedPath(request);
-        return !LIMITED_PATHS.contains(path) && !isLightWrite(request, path);
+        return !isHeavy(request, path) && !isLightWrite(request, path);
+    }
+
+    private static boolean isHeavy(HttpServletRequest request, String path) {
+        return LIMITED_PATHS.contains(path)
+                || (HEAVY_WORKSPACE_PATH.matcher(path).matches() && "POST".equalsIgnoreCase(request.getMethod()));
     }
 
     private static boolean isLightWrite(HttpServletRequest request, String path) {
         return FEEDBACK_PATH.matcher(path).matches()
-                || (WORKSPACE_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod()));
+                || (WORKSPACE_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod()) && !isHeavy(request, path));
     }
 
     /**
