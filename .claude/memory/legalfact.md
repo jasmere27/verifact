@@ -105,6 +105,12 @@ facts traceable to input; an attorney-style reviewer finds it faster to read tha
 - Labels: facts/timeline USER_STATED; source summaries SOURCE_BACKED; relevance, topics, summary, conflicts AI_INTERPRETATION.
 - Report adds "Inconsistencies to clarify" (quotes of each version) and "Missing information: questions to ask"; unmatched sources are collapsed; notice top and bottom with "consult a licensed attorney in [state]".
 
+## Legal content audit prototype (experiment E2, 2026-09-30; not exposed publicly)
+- `legal/ContentAuditService`: page (fetched via `SafeUrlFetcher`) → ≤8 statements of law with verbatim page quotes → allow-listed official sources → status per statement: CONSISTENT_WITH_SOURCES / POTENTIALLY_OUTDATED / POTENTIALLY_UNSUPPORTED / REQUIRES_REVIEW / UNABLE_TO_VERIFY.
+- Code rules: quotes must be on the page; any status except UNABLE needs a cited source; "source says" must be grounded in the cited excerpt (figures incl. digit/word forms); OUTDATED/UNSUPPORTED need the source's verbatim conflicting words, else REQUIRES_REVIEW; bill texts aren't sources; advice wording stripped.
+- Runner: `ContentAuditEvalIT` finds CA employment pages on law-firm sites, audits them, writes `target/content-audit/NN-site.{json,md}` + `summary.md` (the .md is the sample-audit format for E1).
+- No endpoint or UI yet: only if E2 passes and E1 shows demand.
+
 ## Privacy
 MVP stores nothing (result returned only; no share link). Storing cases requires auth (Supabase
 Auth JWT verified by Spring Security), per-user access, a retention job and a delete path first.

@@ -25,6 +25,14 @@ final class LegalSources {
             "CA", List.of("leginfo.legislature.ca.gov", "dir.ca.gov", "calcivilrights.ca.gov", "edd.ca.gov",
                     "dca.ca.gov", "courts.ca.gov", "oag.ca.gov", "oal.ca.gov"));
 
+    /** Bill texts, version comparisons and bill status pages: proposals or history, not current law. */
+    private static final java.util.regex.Pattern BILL_PAGE = java.util.regex.Pattern.compile(
+            "(?i)(leginfo\\.legislature\\.ca\\.gov/faces/bill|congress\\.gov/bill/|govinfo\\.gov/(?:app/details|content/pkg)/(?:bills|billstatus))");
+
+    static boolean isCurrentLawSource(String url) {
+        return url != null && !BILL_PAGE.matcher(url).find();
+    }
+
     static List<String> allowedDomains(String stateCode) {
         List<String> domains = new ArrayList<>(FEDERAL);
         if (stateCode != null) {

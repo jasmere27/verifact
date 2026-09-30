@@ -408,14 +408,17 @@ public class CaseIntelligenceService {
     // ---------------------------------------------------------------- source checks
 
     /**
-     * Official sources first by kind (statutes, regulations, guidance), renumbered E1..En. Government
+     * Official sources first by kind (statutes, regulations, guidance), renumbered E1..En, without bill
+     * texts. Government
      * sites often serve one document under differently-cased URLs (FinalPay.pdf, finalpay.pdf); those
      * count once.
      */
     static List<Evidence> rankAndNumber(List<Evidence> evidence) {
         Map<String, Evidence> unique = new LinkedHashMap<>();
         for (Evidence e : evidence) {
-            unique.putIfAbsent(e.url().toLowerCase(Locale.ROOT).replaceFirst("^https?://(www\\.)?", ""), e);
+            if (LegalSources.isCurrentLawSource(e.url())) { // bill texts are proposals or history, not the law
+                unique.putIfAbsent(e.url().toLowerCase(Locale.ROOT).replaceFirst("^https?://(www\\.)?", ""), e);
+            }
         }
         List<Evidence> sorted = new ArrayList<>(unique.values());
         sorted.sort(Comparator.comparingInt(e -> LegalSourceType.classify(e.url(), e.domain()).ordinal()));
