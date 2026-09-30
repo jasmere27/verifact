@@ -18,6 +18,7 @@ const SUPPORT_LABEL: Record<Support, { label: string; tone: string }> = {
   NOT_ADDRESSED_IN_ABSTRACT: { label: "Not addressed in the abstract", tone: "muted" },
   NO_ABSTRACT: { label: "No abstract available", tone: "muted" },
   CITATION_PROBLEM: { label: "Citation problem", tone: "bad" },
+  LOOKUP_FAILED: { label: "Couldn't check (lookup failed)", tone: "muted" },
   NEEDS_REVIEW: { label: "Needs review", tone: "warn" },
 };
 

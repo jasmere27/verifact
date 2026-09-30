@@ -65,12 +65,9 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
             if (datacite != null) {
                 return Optional.of(fromDataCite(datacite.path("data").path("attributes")));
             }
-            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(OPENALEX + "/works/doi:" + doi.toLowerCase(java.util.Locale.ROOT))
-                    .queryParam("select", "doi,display_name,authorships,publication_year,primary_location,cited_by_count,is_retracted,abstract_inverted_index");
-            if (!openAlexKey.isEmpty()) {
-                b.queryParam("api_key", openAlexKey);
-            }
-            JsonNode w = get(b.encode().build().toUri(), true);
+            JsonNode w = get(URI.create(OPENALEX + "/works/doi:" + encodeDoi(doi.toLowerCase(java.util.Locale.ROOT))
+                    + "?select=doi,display_name,authorships,publication_year,primary_location,cited_by_count,is_retracted,abstract_inverted_index"
+                    + (openAlexKey.isEmpty() ? "" : "&api_key=" + java.net.URLEncoder.encode(openAlexKey, java.nio.charset.StandardCharsets.UTF_8))), true);
             return w == null ? Optional.empty() : Optional.of(fromOpenAlex(w));
         }
         ScholarlyWork work = fromCrossref(crossref.path("message"));
@@ -82,8 +79,9 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
         URI uri = crossrefBuilder("/works")
                 .queryParam("query.bibliographic", referenceText)
                 .queryParam("rows", rows)
-                .queryParam("select", "DOI,title,author,issued,container-title,publisher,is-referenced-by-count,updated-by")
+                .queryParam("select", "DOI,title,subtitle,author,issued,container-title,publisher,is-referenced-by-count,updated-by")
                 .encode().build().toUri();
+        throttle("crossref-list", contactEmail.isEmpty() ? 1100 : 350); // public pool 1 req/s, polite 3 req/s
         JsonNode root = get(uri, false);
         List<ScholarlyWork> out = new ArrayList<>();
         if (root != null) {
@@ -120,12 +118,9 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
             return work;
         }
         try {
-            UriComponentsBuilder b = UriComponentsBuilder.fromUriString(OPENALEX + "/works/doi:" + work.doi())
-                    .queryParam("select", "is_retracted,abstract_inverted_index,cited_by_count,primary_location,ids");
-            if (!openAlexKey.isEmpty()) {
-                b.queryParam("api_key", openAlexKey);
-            }
-            JsonNode w = get(b.encode().build().toUri(), true);
+            JsonNode w = get(URI.create(OPENALEX + "/works/doi:" + encodeDoi(work.doi())
+                    + "?select=is_retracted,abstract_inverted_index,cited_by_count,primary_location,ids"
+                    + (openAlexKey.isEmpty() ? "" : "&api_key=" + java.net.URLEncoder.encode(openAlexKey, java.nio.charset.StandardCharsets.UTF_8))), true);
             if (w == null) {
                 return work;
             }
@@ -148,6 +143,7 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
         try {
             URI uri = UriComponentsBuilder.fromUriString(PUBMED_EFETCH).queryParam("db", "pubmed").queryParam("id", pmid)
                     .queryParam("rettype", "abstract").queryParam("retmode", "xml").build().toUri();
+            throttle("pubmed", 350); // 3 req/s without an API key, shared by all users of this instance
             String xml = http.get().uri(uri).retrieve().body(String.class);
             return abstractFromPubmedXml(xml);
         } catch (RuntimeException e) {
@@ -219,9 +215,14 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
             retracted |= type.equals("retraction") || type.equals("removal") || type.equals("withdrawal");
         }
         String abs = m.path("abstract").asString("");
+        String title = m.path("title").path(0).asString("");
+        String subtitle = m.path("subtitle").path(0).asString("");
+        if (!title.isBlank() && !subtitle.isBlank()) {
+            title = title + ": " + subtitle; // references usually cite "Title: Subtitle"
+        }
         return new ScholarlyWork(
                 emptyToNull(m.path("DOI").asString("").toLowerCase(java.util.Locale.ROOT)),
-                emptyToNull(m.path("title").path(0).asString("")),
+                emptyToNull(title),
                 authors,
                 parts.isNumber() ? parts.asInt() : null,
                 emptyToNull(m.path("container-title").path(0).asString("")),
@@ -285,6 +286,24 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
             b.queryParam("mailto", contactEmail); // Crossref's polite pool
         }
         return b;
+    }
+
+    private static final Map<String, Long> LAST_CALL = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Spaces calls to a rate-limited endpoint across all requests on this instance. */
+    private static void throttle(String key, long minIntervalMillis) {
+        synchronized (LAST_CALL) {
+            long now = System.currentTimeMillis();
+            long wait = LAST_CALL.getOrDefault(key, 0L) + minIntervalMillis - now;
+            if (wait > 0) {
+                try {
+                    Thread.sleep(wait);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            LAST_CALL.put(key, System.currentTimeMillis());
+        }
     }
 
     /** DOIs contain '/', '<', '(' etc.; each part is percent-encoded but the prefix/suffix slash kept. */

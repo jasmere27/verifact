@@ -72,7 +72,10 @@ public class ResearchCheckService {
             + "doesn't contain everything a paper says: confirm important points in the full text. \"Not found\" can "
             + "mean a work isn't indexed (books, reports, some preprints), not only that it doesn't exist.";
 
-    private static final Pattern DOI = Pattern.compile("(?i)\\b(10\\.\\d{4,9}/[^\\s\"<>]+)");
+    /** DOIs as they appear in text; characters that would alter a URL ({@code ?#&{}}) end the match. */
+    private static final Pattern DOI = Pattern.compile("(?i)\\b(10\\.\\d{4,9}/[^\\s\"<>{}?#&|\\\\^`]+)");
+    /** Past this, remaining references are marked not looked up, so the whole check fits the client's wait. */
+    static final long LOOKUP_BUDGET_NANOS = 50_000_000_000L;
     private static final Pattern YEAR = Pattern.compile("\\b(1[89]\\d{2}|20\\d{2})\\b");
     private static final Set<String> TITLE_STOPWORDS = Set.of("the", "a", "an", "of", "and", "in", "on", "for", "to", "with", "by", "at", "from");
 
@@ -111,8 +114,17 @@ public class ResearchCheckService {
         // 2. Resolve every reference in the scholarly indexes
         progress.stage(VerificationProgress.Stage.SEARCHING);
         Map<String, Resolved> resolved = new LinkedHashMap<>();
+        boolean outOfTime = false;
         for (ExtractedReference r : refs) {
-            resolved.put(r.id(), resolve(r, text));
+            if (System.nanoTime() - startedAt > LOOKUP_BUDGET_NANOS) {
+                outOfTime = true;
+                resolved.put(r.id(), new Resolved(ReferenceStatus.LOOKUP_FAILED, List.of("Not looked up: time limit reached."), null));
+            } else {
+                resolved.put(r.id(), resolve(r, text));
+            }
+        }
+        if (outOfTime) {
+            limitations.add("Not every reference could be looked up within the time limit; check fewer at a time.");
         }
         if (resolved.values().stream().anyMatch(x -> x.status() == ReferenceStatus.LOOKUP_FAILED)) {
             limitations.add("Some references couldn't be looked up because a scholarly index was unavailable; they are "
@@ -129,7 +141,8 @@ public class ResearchCheckService {
         Map<String, ScholarlyWork> related = new LinkedHashMap<>();
         int searches = 0;
         for (CitedClaim c : claims) {
-            if (searches == MAX_RELATED_SEARCHES || c.searchQuery() == null || c.searchQuery().isBlank()) {
+            if (searches == MAX_RELATED_SEARCHES || c.searchQuery() == null || c.searchQuery().isBlank()
+                    || System.nanoTime() - startedAt > LOOKUP_BUDGET_NANOS) {
                 continue;
             }
             searches++;
@@ -140,8 +153,9 @@ public class ResearchCheckService {
                         related.put("P" + (related.size() + 1), w);
                     }
                 }
-            } catch (ScholarlyIndex.ScholarlyIndexUnavailableException e) {
-                log.warn("Related-work search failed: {}", e.getMessage());
+            } catch (RuntimeException e) {
+                log.warn("Related-work search failed: {}", e instanceof ScholarlyIndex.ScholarlyIndexUnavailableException
+                        ? e.getMessage() : e.getClass().getSimpleName());
             }
         }
         progress.sources((int) resolved.values().stream().filter(x -> x.work() != null).count(),
@@ -184,6 +198,9 @@ public class ResearchCheckService {
         for (int i = 0; i < claims.size(); i++) {
             String id = "C" + (i + 1);
             checkedClaims.add(validate(id, claims.get(i), reviews.get(id), resolved, related));
+        }
+        if (checkedClaims.stream().anyMatch(c -> c.support() == Support.NO_ABSTRACT)) {
+            limitations.add("Some cited works have no abstract in the open indexes; their claims need checking against the full text.");
         }
         List<CheckedReference> checkedRefs = refs.stream().map(r -> {
             Resolved x = resolved.get(r.id());
@@ -240,26 +257,46 @@ public class ResearchCheckService {
             ReferenceStatus status = work.retracted() ? ReferenceStatus.RETRACTED
                     : differences.isEmpty() ? ReferenceStatus.VERIFIED : ReferenceStatus.FOUND_WITH_DIFFERENCES;
             return new Resolved(status, differences, work);
-        } catch (ScholarlyIndex.ScholarlyIndexUnavailableException e) {
-            log.warn("Reference lookup failed: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            // Never the reference text or DOI in the log: host/status for index errors, else the type only.
+            log.warn("Reference lookup failed: {}", e instanceof ScholarlyIndex.ScholarlyIndexUnavailableException
+                    ? e.getMessage() : e.getClass().getSimpleName());
             return new Resolved(ReferenceStatus.LOOKUP_FAILED, List.of(), null);
         }
     }
 
+    /**
+     * A DOI for this reference only if it is one of the DOIs actually written in the text (whole, not a
+     * prefix of a longer one): a model-supplied DOI could be invented or truncated.
+     */
     static String doiInText(ExtractedReference r, String text) {
+        Set<String> inText = dois(text);
         for (String candidate : new String[]{r.doi(), r.text()}) {
-            if (candidate == null) {
-                continue;
-            }
-            Matcher m = DOI.matcher(candidate);
-            if (m.find()) {
-                String doi = m.group(1).replaceAll("[.,;:)\\]]+$", "").toLowerCase(Locale.ROOT);
-                if (text.toLowerCase(Locale.ROOT).contains(doi)) {
+            for (String doi : dois(candidate)) {
+                if (inText.contains(doi)) {
                     return doi;
                 }
             }
         }
         return null;
+    }
+
+    private static Set<String> dois(String s) {
+        Set<String> out = new java.util.LinkedHashSet<>();
+        if (s == null) {
+            return out;
+        }
+        Matcher m = DOI.matcher(s);
+        while (m.find()) {
+            String doi = m.group(1).replaceAll("[.,;:\\]]+$", "").toLowerCase(Locale.ROOT);
+            if (doi.endsWith(")") && doi.chars().filter(ch -> ch == '(').count() < doi.chars().filter(ch -> ch == ')').count()) {
+                doi = doi.substring(0, doi.length() - 1); // "(doi:10.1/x)" but keep SICI-style "…(97)11096-0"
+            }
+            if (!doi.contains("/../") && !doi.contains("/./") && !doi.endsWith("/..")) {
+                out.add(doi);
+            }
+        }
+        return out;
     }
 
     /** A bibliographic candidate counts only if its title matches the reference's title (or text). */
@@ -271,7 +308,7 @@ public class ResearchCheckService {
             return titleSimilarity(r.title(), w.title()) >= TITLE_MATCH;
         }
         List<String> titleWords = contentWords(w.title());
-        if (titleWords.size() < 3) {
+        if (titleWords.size() < 2) {
             return false;
         }
         String ref = " " + words(r.text()) + " ";
@@ -285,12 +322,9 @@ public class ResearchCheckService {
         if (year != null && w.year() != null && Math.abs(year - w.year()) > 1) {
             out.add("Year: " + year + " in the text, " + w.year() + " in the record.");
         }
-        String surname = r.firstAuthor() == null ? "" : words(r.firstAuthor());
-        if (!surname.isBlank() && !w.authors().isEmpty()) {
-            String first = " " + words(w.authors().get(0)) + " ";
-            if (!first.contains(" " + surname.split(" ")[surname.split(" ").length - 1] + " ")) {
-                out.add("First author: \"" + clean(r.firstAuthor(), 60) + "\" in the text, \"" + w.authors().get(0) + "\" in the record.");
-            }
+        if (r.firstAuthor() != null && !r.firstAuthor().isBlank() && !w.authors().isEmpty()
+                && !authorMatches(r.firstAuthor(), w.authors().get(0))) {
+            out.add("First author: \"" + clean(r.firstAuthor(), 60) + "\" in the text, \"" + w.authors().get(0) + "\" in the record.");
         }
         if (r.title() != null && !r.title().isBlank() && w.title() != null && titleSimilarity(r.title(), w.title()) < TITLE_MATCH) {
             out.add("Title differs from the record: \"" + clean(w.title(), 160) + "\".");
@@ -298,6 +332,24 @@ public class ResearchCheckService {
         return out;
     }
 
+    /**
+     * "Vaswani, A.", "Smith et al.", "Müller J": any surname-like token (3+ letters, not "et al") of the
+     * text's first author appears in the record's first author. Unknowable cases count as a match.
+     */
+    static boolean authorMatches(String textAuthor, String recordAuthor) {
+        List<String> tokens = Arrays.stream(words(textAuthor).split(" "))
+                .filter(t -> t.length() >= 3 && !t.equals("et") && !t.equals("al") && !t.equals("and")).toList();
+        if (tokens.isEmpty()) {
+            return true;
+        }
+        String record = " " + words(recordAuthor) + " ";
+        return tokens.stream().anyMatch(t -> record.contains(" " + t + " "));
+    }
+
+    /**
+     * Overlap relative to the shorter title (so "Title" matches "Title: Subtitle"), with at least two
+     * shared content words; 0 when either side is too short to judge.
+     */
     static double titleSimilarity(String a, String b) {
         Set<String> x = new HashSet<>(contentWords(a));
         Set<String> y = new HashSet<>(contentWords(b));
@@ -306,9 +358,10 @@ public class ResearchCheckService {
         }
         Set<String> inter = new HashSet<>(x);
         inter.retainAll(y);
-        Set<String> union = new HashSet<>(x);
-        union.addAll(y);
-        return (double) inter.size() / union.size();
+        if (inter.size() < Math.min(2, Math.min(x.size(), y.size()))) {
+            return 0;
+        }
+        return (double) inter.size() / Math.min(x.size(), y.size());
     }
 
     private static List<String> contentWords(String s) {
@@ -328,23 +381,40 @@ public class ResearchCheckService {
         if (extraction == null || extraction.references() == null) {
             return out;
         }
+        Set<String> seenIds = new HashSet<>();
+        Set<String> seenDois = new HashSet<>();
         for (ExtractedReference r : extraction.references()) {
             if (r == null || r.text() == null || r.id() == null) {
                 continue;
             }
+            String id = r.id().trim().toUpperCase(Locale.ROOT);
             String t = clean(r.text(), 500);
             String w = words(t);
-            boolean hasDoi = doiInText(r, text) != null;
-            if (!hasDoi && (w.length() < 6 || !input.contains(" " + w + " "))) {
-                continue; // not actually in the text
+            String doi = doiInText(r, text);
+            if (w.length() < 6 || !input.contains(" " + w + " ")) {
+                if (doi == null) {
+                    continue; // not actually in the text
+                }
+                t = doi; // the model paraphrased the entry; fall back to the DOI the text really gives
             }
-            out.add(new ExtractedReference(r.id().trim().toUpperCase(Locale.ROOT), t, r.doi(), clean(r.title(), 300),
-                    clean(r.firstAuthor(), 80), clean(r.year(), 10)));
+            if (!seenIds.add(id) || (doi != null && !seenDois.add(doi))) {
+                continue; // duplicate reference
+            }
+            // Title/author/year only as the text writes them: a model "correction" would hide a miscitation.
+            String asWritten = material(t);
+            out.add(new ExtractedReference(id, t, doi, inText(r.title(), 300, asWritten),
+                    inText(r.firstAuthor(), 80, asWritten), inText(r.year(), 10, asWritten)));
             if (out.size() == MAX_REFERENCES) {
                 break;
             }
         }
         return out;
+    }
+
+    private static String inText(String field, int max, String asWritten) {
+        String f = clean(field, max);
+        String w = words(f);
+        return w.isEmpty() || !asWritten.contains(" " + w + " ") ? "" : f;
     }
 
     private static List<CitedClaim> claims(CitationExtraction extraction, String input, Set<String> refIds) {
@@ -384,20 +454,25 @@ public class ResearchCheckService {
         List<ScholarlyWork> found = c.referenceIds().stream().map(resolved::get).map(Resolved::work)
                 .filter(w -> w != null).toList();
         if (found.isEmpty()) {
-            return new CheckedClaim(id, c.quote(), c.claim(), c.referenceIds(), Support.CITATION_PROBLEM, null, null,
-                    "The cited reference couldn't be found, so support can't be checked.", List.of());
+            boolean anyNotFound = c.referenceIds().stream().anyMatch(r -> resolved.get(r).status() == ReferenceStatus.NOT_FOUND);
+            return anyNotFound
+                    ? new CheckedClaim(id, c.quote(), c.claim(), c.referenceIds(), Support.CITATION_PROBLEM, null, null,
+                            "The cited reference couldn't be found, so support can't be checked.", List.of())
+                    : new CheckedClaim(id, c.quote(), c.claim(), c.referenceIds(), Support.LOOKUP_FAILED, null, null,
+                            "The cited reference couldn't be looked up right now; try again.", List.of());
         }
         if (found.stream().allMatch(w -> w.abstractText() == null)) {
             return new CheckedClaim(id, c.quote(), c.claim(), c.referenceIds(), Support.NO_ABSTRACT, null, null,
                     "No abstract is available for the cited work; check the full text.", List.of());
         }
-        Support support = parse(review == null ? null : review.support());
+        // The claim was sent for review (it has an abstract); no answer for it is not "not addressed".
+        Support support = review == null ? Support.NEEDS_REVIEW : parse(review.support());
         String from = review == null || review.evidenceFrom() == null ? null : review.evidenceFrom().trim().toUpperCase(Locale.ROOT);
         String quote = null;
         if (support != Support.NOT_ADDRESSED_IN_ABSTRACT) {
             ScholarlyWork source = from != null && c.referenceIds().contains(from) && resolved.get(from).work() != null
                     ? resolved.get(from).work() : null;
-            quote = source == null ? null : verbatim(review.evidenceQuote(), source.abstractText());
+            quote = source == null || review == null ? null : verbatim(review.evidenceQuote(), source.abstractText(), c.claim());
             if (quote == null) {
                 support = Support.NEEDS_REVIEW;
                 from = null;
@@ -408,11 +483,14 @@ public class ResearchCheckService {
         String material = material(c.claim(), quote == null ? "" : quote);
         String note = review == null ? null : Grounding.supported(clean(review.note(), 300), material)
                 ? emptyToNull(clean(review.note(), 300)) : null;
+        if (c.referenceIds().stream().map(resolved::get).anyMatch(x -> x.status() == ReferenceStatus.RETRACTED)) {
+            note = "A cited work has been retracted." + (note == null ? "" : " " + note);
+        }
         List<ConflictingWork> conflicting = new ArrayList<>();
         if (review != null && review.conflicts() != null) {
             for (Conflict k : review.conflicts()) {
                 ScholarlyWork w = k == null || k.paperId() == null ? null : related.get(k.paperId().trim().toUpperCase(Locale.ROOT));
-                String q = w == null ? null : verbatim(k.quote(), w.abstractText());
+                String q = w == null ? null : verbatim(k.quote(), w.abstractText(), c.claim());
                 if (q != null && conflicting.size() < 3) {
                     String kNote = clean(k.note(), 300);
                     conflicting.add(new ConflictingWork(summary(w), q,
@@ -423,17 +501,47 @@ public class ResearchCheckService {
         return new CheckedClaim(id, c.quote(), c.claim(), c.referenceIds(), support, from, quote, note, conflicting);
     }
 
-    /** The quote, if at least five words of it appear verbatim in the abstract; capped for display. */
-    static String verbatim(String quote, String abstractText) {
+    private static final Pattern TOKEN = Pattern.compile("[\\p{L}\\p{N}]+");
+
+    /**
+     * The abstract's own words for the model's quote: at least five words must appear in sequence in
+     * the abstract, and the span returned is the abstract's text (so "p<0.05" can't be shown as
+     * "p>0.05"). The span must share a content word with the claim, so an irrelevant sentence can't
+     * carry a verdict. Capped for display.
+     */
+    static String verbatim(String quote, String abstractText, String claim) {
         if (quote == null || abstractText == null) {
             return null;
         }
-        String q = words(quote);
-        if (q.split(" ").length < 5 || !material(abstractText).contains(" " + q + " ")) {
+        List<String> q = List.of(words(quote).split(" "));
+        if (q.size() < 5) {
             return null;
         }
-        String c = clean(quote, MAX_QUOTE_CHARS);
-        return c.length() == MAX_QUOTE_CHARS ? c + "…" : c;
+        List<int[]> spans = new ArrayList<>();
+        List<String> tokens = new ArrayList<>();
+        Matcher m = TOKEN.matcher(abstractText);
+        while (m.find()) {
+            String w = words(m.group());
+            if (!w.isEmpty()) {
+                tokens.add(w);
+                spans.add(new int[]{m.start(), m.end()});
+            }
+        }
+        for (int i = 0; i + q.size() <= tokens.size(); i++) {
+            if (tokens.subList(i, i + q.size()).equals(q)) {
+                String span = abstractText.substring(spans.get(i)[0], spans.get(i + q.size() - 1)[1]).replaceAll("\\s+", " ");
+                // Shared stem, not exact word: "vaccination" and "vaccine", "consolidated" and "consolidation".
+                List<String> claimStems = contentWords(claim == null ? "" : claim).stream().filter(t -> t.length() >= 4)
+                        .map(t -> t.substring(0, Math.min(5, t.length()))).toList();
+                boolean relevant = contentWords(span).stream().filter(t -> t.length() >= 4)
+                        .anyMatch(t -> claimStems.contains(t.substring(0, Math.min(5, t.length()))));
+                if (!relevant) {
+                    return null;
+                }
+                return span.length() > MAX_QUOTE_CHARS ? span.substring(0, MAX_QUOTE_CHARS) + "…" : span;
+            }
+        }
+        return null;
     }
 
     private static Support parse(String s) {

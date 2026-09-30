@@ -84,9 +84,10 @@ public final class Grounding {
         return String.join(" ", kept).trim();
     }
 
-    /** Lower case, letters and digits only, ordinals as plain numbers ("3rd" → "3"), single spaces. */
+    /** Lower case, accents removed ("Müller" → "muller"), letters and digits only, ordinals as plain numbers ("3rd" → "3"), single spaces. */
     public static String words(String text) {
-        return text.toLowerCase(Locale.ROOT)
+        return java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKD).replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("(\\d+)(?:st|nd|rd|th)\\b", "$1")
                 .replaceAll("[^\\p{L}\\p{N}]+", " ")
                 .trim();

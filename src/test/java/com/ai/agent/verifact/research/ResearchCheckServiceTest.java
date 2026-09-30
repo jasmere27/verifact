@@ -216,7 +216,8 @@ class ResearchCheckServiceTest {
         ResearchCheck r = service.check(TEXT, VerificationProgress.NONE);
 
         assertThat(r.references()).allSatisfy(ref -> assertThat(ref.status()).isEqualTo(ReferenceStatus.LOOKUP_FAILED));
-        assertThat(r.claims()).allSatisfy(c -> assertThat(c.support()).isEqualTo(Support.CITATION_PROBLEM));
+        // An outage never reads as "not found", for references or for claims.
+        assertThat(r.claims()).allSatisfy(c -> assertThat(c.support()).isEqualTo(Support.LOOKUP_FAILED));
         assertThat(r.limitations()).anySatisfy(l -> assertThat(l).contains("lookup failed"));
         assertThat(llm.userMessages).hasSize(1); // nothing to review
     }
@@ -249,5 +250,83 @@ class ResearchCheckServiceTest {
                 "Sleep deprivation and memory consolidation", "Smith", "2020");
         assertThat(ResearchCheckService.matches(ref, work("10/x", "Sleep deprivation and memory consolidation", "J Smith", 2020, false, null))).isTrue();
         assertThat(ResearchCheckService.matches(ref, work("10/y", "Sleep and the immune system", "J Smith", 2020, false, null))).isFalse();
+    }
+
+    // ---- review fixes ----
+
+    @Test
+    void ordinaryCitationStylesMatchTheRecordsFirstAuthor() {
+        assertThat(ResearchCheckService.authorMatches("Vaswani, A.", "Ashish Vaswani")).isTrue();
+        assertThat(ResearchCheckService.authorMatches("Smith et al.", "John Smith")).isTrue();
+        assertThat(ResearchCheckService.authorMatches("Smith J", "J. Smith")).isTrue();
+        assertThat(ResearchCheckService.authorMatches("Müller", "Anna Muller")).isTrue();
+        assertThat(ResearchCheckService.authorMatches("Jones", "John Smith")).isFalse();
+    }
+
+    @Test
+    void theModelCannotQuietlyCorrectAMiscitation() {
+        // The text says 2019 and "Brown"; the model "corrects" to the record's 2022 / "Smith".
+        String text = "Sleep matters for memory (Brown, 2019).\n\nReferences\nBrown, T. (2019). Sleep deprivation and memory consolidation. J Sleep.";
+        llm.extraction = new CitationExtraction(List.of(new ExtractedReference("R1",
+                "Brown, T. (2019). Sleep deprivation and memory consolidation. J Sleep.", "", "Sleep deprivation and memory consolidation",
+                "Smith", "2022")), List.of());
+        index.byReference.put("Sleep deprivation", List.of(work("10.1/sleep", "Sleep deprivation and memory consolidation", "J Smith", 2022, false, null)));
+        index.byDoi.put("10.1/sleep", work("10.1/sleep", "Sleep deprivation and memory consolidation", "J Smith", 2022, false, null));
+
+        ResearchCheck r = service.check(text, VerificationProgress.NONE);
+
+        // The model's author/year aren't in the text, so they're ignored: the mismatch can't be hidden,
+        // and without a year/author from the text only the title is compared.
+        assertThat(r.references().get(0).status()).isEqualTo(ReferenceStatus.VERIFIED);
+        assertThat(r.references().get(0).differences()).isEmpty();
+    }
+
+    @Test
+    void doisThatWouldAlterAUrlOrAreTruncatedAreNotUsed() {
+        String text = "See 10.1234/abc?filter=x&per-page=200 and {10.1234/abc{x} and 10.1016/S0140-6736(97)11096-0 (doi).";
+        assertThat(ResearchCheckService.doiInText(new ExtractedReference("R1", "10.1234/abc?filter=x", "", "", "", ""), text))
+                .isEqualTo("10.1234/abc");
+        assertThat(ResearchCheckService.doiInText(new ExtractedReference("R2", "x", "10.1016/S0140-6736(97)11096", "", "", ""), text))
+                .isNull(); // a prefix of the real DOI
+        assertThat(ResearchCheckService.doiInText(new ExtractedReference("R3", "x", "10.1016/S0140-6736(97)11096-0", "", "", ""), text))
+                .isEqualTo("10.1016/s0140-6736(97)11096-0");
+        assertThat(ResearchCheckService.doiInText(new ExtractedReference("R4", "10.1/a/../../admin", "", "", "", ""),
+                "10.1/a/../../admin")).isNull();
+    }
+
+    @Test
+    void titlesMatchWithSubtitlesAndShortTitlesStillMatch() {
+        assertThat(ResearchCheckService.titleSimilarity("Deep learning", "Deep learning")).isEqualTo(1.0);
+        assertThat(ResearchCheckService.titleSimilarity("Sleep and memory",
+                "Sleep and memory: a meta-analysis of randomized trials")).isGreaterThanOrEqualTo(0.75);
+        assertThat(ResearchCheckService.titleSimilarity("Sleep and memory", "Coffee and longevity")).isZero();
+    }
+
+    @Test
+    void quotesShowTheAbstractsOwnWordsAndMustBeAboutTheClaim() {
+        String abs = "The effect was not significant (p>0.05). Memory consolidation improved after naps in older adults.";
+        // The model wrote p<0.05; the abstract's own symbol is what's shown.
+        assertThat(ResearchCheckService.verbatim("The effect was not significant (p<0.05)", abs, "The effect of naps on memory was not significant"))
+                .isEqualTo("The effect was not significant (p>0.05");
+        // Five real words from the abstract that have nothing to do with the claim can't carry a verdict.
+        assertThat(ResearchCheckService.verbatim("improved after naps in older adults", abs, "Coffee doubles lifespan")).isNull();
+        assertThat(ResearchCheckService.verbatim("was associated with measles, mumps, and rubella vaccination",
+                "Onset was associated with measles, mumps, and rubella vaccination in eight children.",
+                "An early study linked the MMR vaccine to autism")).isNotNull();
+    }
+
+    @Test
+    void aClaimCitingARetractedWorkSaysSo() {
+        extraction();
+        index.byDoi.put("10.1016/s0140-6736(97)11096-0", work("10.1016/s0140-6736(97)11096-0",
+                "Ileal-lymphoid-nodular hyperplasia, non-specific colitis", "AJ Wakefield", 1998, true,
+                "We investigated a consecutive series of children with developmental disorders after vaccination."));
+        llm.review = new SupportReview(List.of(new ClaimReview("C2", "SUPPORTED", "R2",
+                "children with developmental disorders after vaccination", "The paper reported this.", List.of())));
+
+        CheckedClaim c = service.check(TEXT, VerificationProgress.NONE).claims().get(1);
+
+        assertThat(c.support()).isEqualTo(Support.SUPPORTED);
+        assertThat(c.note()).startsWith("A cited work has been retracted.");
     }
 }

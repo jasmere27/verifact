@@ -35,8 +35,10 @@ public record ResearchCheck(Instant createdAt, List<CheckedReference> references
         CONTRADICTED, NOT_ADDRESSED_IN_ABSTRACT,
         /** The cited work was found but no index has its abstract. */
         NO_ABSTRACT,
-        /** The cited reference wasn't found (or the lookup failed), so support can't be checked. */
+        /** The cited reference wasn't found, so support can't be checked. */
         CITATION_PROBLEM,
+        /** The cited reference couldn't be looked up (an index was unavailable); says nothing about it. */
+        LOOKUP_FAILED,
         /** The model's verdict couldn't be backed by a verbatim quote from the abstract. */
         NEEDS_REVIEW
     }

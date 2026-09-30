@@ -10,6 +10,7 @@ export type Support =
   | "NOT_ADDRESSED_IN_ABSTRACT"
   | "NO_ABSTRACT"
   | "CITATION_PROBLEM"
+  | "LOOKUP_FAILED"
   | "NEEDS_REVIEW";
 
 export interface WorkSummary {
