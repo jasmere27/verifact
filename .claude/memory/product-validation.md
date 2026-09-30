@@ -3,7 +3,7 @@
 _Last updated: 2026-09-30. Status per idea: VALIDATED / PARTIALLY_VALIDATED / HYPOTHESIS / UNKNOWN. Labels: FACT, MARKET CLAIM, CUSTOMER FEEDBACK, EXPERIMENT RESULT, HYPOTHESIS._
 _No customer interviews or payments have happened yet, so nothing is validated._
 
-## 1. Legal content audit (law-firm content/SEO agencies, firms, legal publishers). **HYPOTHESIS** (most promising)
+## 1. Legal content audit (law-firm content/SEO agencies, firms, legal publishers). **PARTIALLY_VALIDATED (technical feasibility only)**: E2 run 2 found real outdated/unsupported statements on 4 of 20 real law-firm pages at 83% flag precision; willingness to pay still HYPOTHESIS
 - **Customer:** agencies writing/maintaining law-firm practice-area pages; firms' marketing leads; legal publishers.
 - **Problem (HYPOTHESIS):** legal pages go stale when statutes/regulations change; inaccurate lawyer advertising carries Rule 7.1 risk.
 - **Current workflow:** manual attorney/editor review. Agencies charge $175/new page, $75/page editing (FACT, PaperStreet pricing); attorney-edited retainers $2–4k/mo (MARKET CLAIM, Juris Digital). Agencies list "outdated content (old laws)" in audit checklists (MARKET CLAIM).
