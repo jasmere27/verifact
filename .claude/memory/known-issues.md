@@ -31,6 +31,8 @@ for context; delete them once they stop being useful._
 14f. Feedback has no admin view yet — query `verification_feedback` in Supabase. Worth a tiny internal page once volume grows; 👎 reports with comments are the best source of new eval cases.
 14g. Link previews depend on the backend answering within 4 s; on the free plan a sleeping backend means the first share of a link may show the generic preview (crawlers cache it).
 
+14h. **Production OpenAI config (2026-09-30):** the account ran out of credits, then `OPEN_AI_API_KEY` on Render was saved with a trailing newline ("Unexpected char 0x0a … in Authorization value"). Fix in Render. Hardening to do: trim keys at startup; skip the image OCR fallback on quota/auth errors (both fail the same way, ~80 s wasted).
+
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.
