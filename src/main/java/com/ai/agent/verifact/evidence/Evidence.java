@@ -1,4 +1,4 @@
-package com.ai.agent.verifact.verification;
+package com.ai.agent.verifact.evidence;
 
 import java.time.Instant;
 
@@ -12,7 +12,7 @@ import java.time.Instant;
 public record Evidence(String id, String url, String domain, String title, String snippet,
                        String publishedDate, Instant retrievedAt, SourceType sourceType) {
 
-    boolean isSocial() {
+    public boolean isSocial() {
         return sourceType == SourceType.SOCIAL;
     }
 }

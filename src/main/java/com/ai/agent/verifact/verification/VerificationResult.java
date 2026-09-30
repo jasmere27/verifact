@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.evidence.Evidence;
 import com.ai.agent.verifact.model.InputType;
 
 import java.time.Instant;

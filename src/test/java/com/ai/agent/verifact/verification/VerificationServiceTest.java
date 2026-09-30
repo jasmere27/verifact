@@ -1,5 +1,9 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.evidence.Evidence;
+import com.ai.agent.verifact.evidence.SourceType;
+import com.ai.agent.verifact.evidence.EvidenceRetriever;
+import com.ai.agent.verifact.evidence.Urls;
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.ai.LlmException;
@@ -111,7 +115,7 @@ class VerificationServiceTest {
         search = new FakeSearch();
         fetcher = mock(SafeUrlFetcher.class);
         store = mock(VerificationStore.class);
-        service = new VerificationService(llm, search, fetcher, store, Clock.fixed(NOW, ZoneOffset.UTC), 20_000, 24);
+        service = new VerificationService(llm, new EvidenceRetriever(search), fetcher, store, Clock.fixed(NOW, ZoneOffset.UTC), 20_000, 24);
     }
 
     private static SearchResult hit(String url) {
@@ -393,14 +397,14 @@ class VerificationServiceTest {
                 List.of(new ClaimVerdict("C1", "SUPPORTED", List.of("E1", "E2", "E3"), List.of(), "x")), List.of());
         assertThat(service.verifyText("claim").claims().get(0).evidenceStrength()).isEqualTo(EvidenceStrength.LIMITED);
 
-        assertThat(VerificationService.registrableDomain("a.blogspot.com"))
-                .isNotEqualTo(VerificationService.registrableDomain("b.blogspot.com"));
-        assertThat(VerificationService.registrableDomain("news.bbc.co.uk")).isEqualTo("bbc.co.uk");
+        assertThat(Urls.registrableDomain("a.blogspot.com"))
+                .isNotEqualTo(Urls.registrableDomain("b.blogspot.com"));
+        assertThat(Urls.registrableDomain("news.bbc.co.uk")).isEqualTo("bbc.co.uk");
     }
 
     @Test
     void searchOperatorsInGeneratedQueriesAreStripped() {
-        assertThat(VerificationService.cleanQuery("site:evil.example moon landing -nasa inurl:proof 1969"))
+        assertThat(EvidenceRetriever.cleanQuery("site:evil.example moon landing -nasa inurl:proof 1969"))
                 .isEqualTo("moon landing 1969");
         llm.extraction = u -> new ClaimExtraction(List.of(new ExtractedClaim("claim", List.of("site:evil.example"))));
         search.answer = q -> List.of();
@@ -652,7 +656,7 @@ class VerificationServiceTest {
     @Test
     void aSlowVisionFailureIsReportedNotRetriedWithOcr() {
         MutableClock clock = new MutableClock(NOW);
-        service = new VerificationService(llm, search, fetcher, store, clock, 20_000, 24);
+        service = new VerificationService(llm, new EvidenceRetriever(search), fetcher, store, clock, 20_000, 24);
         llm.imageExtraction = i -> {
             clock.advance(VerificationService.VISION_FALLBACK_BUDGET.plusSeconds(1));
             throw new LlmException(LlmException.Failure.REQUEST_REJECTED, "The analysis service is unavailable right now.", null);

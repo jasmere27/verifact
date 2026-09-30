@@ -29,6 +29,25 @@ class SearchProvidersTest {
     // ---------- Tavily ----------
 
     @Test
+    void tavilyRestrictsToIncludedDomainsOnlyWhenAsked() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        TavilySearchProvider tavily = new TavilySearchProvider(builder, jsonMapper, "tvly-test", 5);
+        server.expect(requestTo(TavilySearchProvider.ENDPOINT))
+                .andExpect(jsonPath("$.include_domains[0]").value("dol.gov"))
+                .andExpect(jsonPath("$.include_domains[1]").value("ecfr.gov"))
+                .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo(TavilySearchProvider.ENDPOINT))
+                .andExpect(jsonPath("$.include_domains").doesNotExist())
+                .andRespond(withSuccess("{\"results\":[]}", MediaType.APPLICATION_JSON));
+
+        tavily.search("overtime rules", List.of("dol.gov", "ecfr.gov"));
+        tavily.search("overtime rules");
+
+        server.verify();
+    }
+
+    @Test
     void tavilySendsDocumentedRequestAndParsesResults() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

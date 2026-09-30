@@ -8,6 +8,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,12 +40,21 @@ public class TavilySearchProvider implements SearchProvider {
 
     @Override
     public List<SearchResult> search(String query) {
-        Map<String, Object> body = Map.of(
-                "query", query,
-                "search_depth", "basic",
-                "topic", "general",
-                "max_results", maxResults,
-                "include_published_date", true);
+        return search(query, List.of());
+    }
+
+    /** Tavily restricts results to {@code include_domains} (subdomains included). */
+    @Override
+    public List<SearchResult> search(String query, List<String> includeDomains) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("query", query);
+        body.put("search_depth", "basic");
+        body.put("topic", "general");
+        body.put("max_results", maxResults);
+        body.put("include_published_date", true);
+        if (!includeDomains.isEmpty()) {
+            body.put("include_domains", includeDomains);
+        }
 
         String response;
         try {

@@ -1,5 +1,7 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.evidence.Evidence;
+import com.ai.agent.verifact.evidence.SourceType;
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.model.InputType;
 import com.ai.agent.verifact.service.ImageOcrService;
