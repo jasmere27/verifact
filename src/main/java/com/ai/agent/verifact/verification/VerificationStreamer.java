@@ -31,7 +31,8 @@ public class VerificationStreamer {
 
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public SseEmitter start(Function<VerificationProgress, VerificationResult> task) {
+    /** Runs {@code task} (a verification, or any other vertical's analysis) and streams its progress and result. */
+    public <T> SseEmitter start(Function<VerificationProgress, T> task) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
         String requestId = MDC.get(RequestIdFilter.MDC_KEY);
 
@@ -41,7 +42,7 @@ public class VerificationStreamer {
             }
             EmittingProgress progress = new EmittingProgress(emitter);
             try {
-                VerificationResult result = task.apply(progress);
+                T result = task.apply(progress);
                 progress.send("result", result);
                 emitter.complete();
             } catch (ApiException e) {
