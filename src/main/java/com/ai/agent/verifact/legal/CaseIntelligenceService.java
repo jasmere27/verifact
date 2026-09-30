@@ -5,6 +5,7 @@ import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.evidence.Evidence;
 import com.ai.agent.verifact.evidence.EvidenceRetriever;
 import com.ai.agent.verifact.legal.CaseIntelligence.Basis;
+import com.ai.agent.verifact.legal.CaseIntelligence.Conflict;
 import com.ai.agent.verifact.legal.CaseIntelligence.Fact;
 import com.ai.agent.verifact.legal.CaseIntelligence.Issue;
 import com.ai.agent.verifact.legal.CaseIntelligence.Jurisdiction;
@@ -18,6 +19,7 @@ import com.ai.agent.verifact.legal.LegalOutputs.IssueToResearch;
 import com.ai.agent.verifact.legal.LegalOutputs.JurisdictionGuess;
 import com.ai.agent.verifact.legal.LegalOutputs.MissingItem;
 import com.ai.agent.verifact.legal.LegalOutputs.SourceReview;
+import com.ai.agent.verifact.legal.LegalOutputs.StatedConflict;
 import com.ai.agent.verifact.legal.LegalOutputs.StatedEvent;
 import com.ai.agent.verifact.legal.LegalOutputs.StatedFact;
 import com.ai.agent.verifact.verification.VerificationProgress;
@@ -27,9 +29,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,16 +42,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static com.ai.agent.verifact.legal.Grounding.material;
+import static com.ai.agent.verifact.legal.Grounding.words;
 
 /**
  * LegalFact Case Intelligence (ADR-12, legalfact.md). Two model calls, like VeriFact:
  *
  * <pre>
- * description ─► [LLM 1] intake: areas, jurisdiction, facts, timeline, issues, missing info
- *             ─► checks: facts/events must quote the description, dates must appear in it,
- *                jurisdiction needs a quoted basis, advice-like wording removed
+ * description ─► [LLM 1] intake: areas, jurisdiction, facts, timeline, conflicts, issues, missing info
+ *             ─► checks: quotes must be in the description, statements must match their quotes, dates
+ *                must appear as written, the state must be named in its quote, no figures or case
+ *                names the description lacks, advice-like wording removed
  *             ─► search official domains only (federal + curated state) per issue
  *             ─► [LLM 2] which retrieved sources bear on which issue ─► citations and figures checked
  * </pre>
@@ -62,23 +69,33 @@ public class CaseIntelligenceService {
 
     static final int MAX_FACTS = 12;
     static final int MAX_EVENTS = 12;
+    static final int MAX_CONFLICTS = 4;
     static final int MAX_ISSUES = 4;
     static final int MAX_MISSING = 8;
     static final int MAX_SEARCHES = 6;
     static final int MAX_SOURCES = 10;
     static final int MAX_NOTES_PER_ISSUE = 4;
+    /** Past this, the second model call is skipped so the whole analysis fits the client's wait. */
+    static final Duration SOURCE_MATCHING_BUDGET = Duration.ofSeconds(75);
 
-    static final String NOTICE = "AI assistance, not legal advice. LegalFact organises the information provided and "
-            + "points to official sources that may be relevant. It does not assess whether anyone has a claim. "
-            + "A licensed attorney should review it.";
+    static final String NOTICE = "AI assistance, not legal advice. Professional review required. LegalFact organises "
+            + "the information provided and points to official sources that may be relevant; it does not assess "
+            + "whether anyone has a claim.";
 
     private static final Pattern APPROXIMATE = Pattern.compile(
             "(?i)\\b(about|around|approximately|roughly|early|mid|late|last|ago|sometime|maybe|probably|or so|a few|several)\\b");
-    private static final Pattern NUMBER = Pattern.compile("\\d+");
-    private static final Pattern MONTH = Pattern.compile(
-            "(?i)\\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\b");
     private static final Pattern US = Pattern.compile(
             "(?i)^(us|usa|u\\.s\\.a?\\.?|united states(?: of america)?|america)$");
+    /** Model notes claiming federal law doesn't apply in a state: wrong, and not to be shown. */
+    private static final Pattern FEDERAL_EXCLUSION = Pattern.compile(
+            "(?i)(federal[^.]*\\b(exclud|omit|not (?:included|applicable|relevant|used)|different jurisdiction|another jurisdiction|outside)"
+                    + "|different jurisdiction|another jurisdiction)");
+    private static final Set<String> STOPWORDS = Set.of(
+            "person", "says", "said", "that", "they", "their", "them", "were", "with", "from", "this", "have", "been",
+            "also", "about", "after", "before", "when", "then", "there", "which", "what", "would", "could", "states");
+
+    /** Jurisdiction plus, when the model named a state the quote doesn't support, a note saying so. */
+    record JurisdictionResult(Jurisdiction jurisdiction, String note) {}
 
     private final LlmClient llm;
     private final EvidenceRetriever evidenceRetriever;
@@ -95,7 +112,7 @@ public class CaseIntelligenceService {
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, clock.getZone());
         String text = description.trim();
-        String input = " " + words(text) + " ";
+        String input = material(text);
 
         // 1. Intake: organise the description
         progress.stage(VerificationProgress.Stage.EXTRACTING_CLAIMS);
@@ -103,15 +120,23 @@ public class CaseIntelligenceService {
         CaseIntake intake = llm.generate(LegalPrompts.withNonce(LegalPrompts.INTAKE_SYSTEM, nonce),
                 LegalPrompts.intakeUser(nonce, text, today), CaseIntake.class);
         if (intake == null) {
-            intake = new CaseIntake(null, null, null, null, null, null, null);
+            intake = new CaseIntake(null, null, null, null, null, null, null, null);
         }
+        List<String> uncertainties = new ArrayList<>();
+        JurisdictionResult jr = jurisdiction(intake.jurisdiction(), text, input);
+        Jurisdiction jurisdiction = jr.jurisdiction();
+        if (jr.note() != null) {
+            uncertainties.add(jr.note());
+        }
+        boolean outsideUs = jurisdiction.status() == Jurisdiction.Status.OUTSIDE_US;
         List<Fact> facts = facts(intake.facts(), input);
         List<TimelineEvent> timeline = timeline(intake.timeline(), input);
-        Jurisdiction jurisdiction = jurisdiction(intake.jurisdiction(), input);
+        List<Conflict> conflicts = conflicts(intake.conflicts(), input);
         List<PracticeArea> practiceAreas = practiceAreas(intake.practiceAreas());
-        String summary = emptyToNull(AdviceLanguage.strip(clean(intake.summary(), 800)));
-        List<IssueToResearch> issueDrafts = issues(intake.issues());
-        List<MissingInformation> missing = missing(intake.missingInformation());
+        String summary = emptyToNull(modelText(intake.summary(), 800, input));
+        // Outside the US, topics and "missing" items would be law from the model's memory: leave them out.
+        List<IssueToResearch> issueDrafts = outsideUs ? List.of() : issues(intake.issues(), input);
+        List<MissingInformation> missing = outsideUs ? List.of() : missing(intake.missingInformation(), input);
         if (facts.isEmpty() && issueDrafts.isEmpty()) {
             throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "LegalFact couldn't find a legal situation to organise. Describe what happened, when, and where.");
@@ -119,10 +144,9 @@ public class CaseIntelligenceService {
         progress.claims(issueDrafts.stream().map(IssueToResearch::topic).toList());
 
         // 2. Official sources for each issue
-        List<String> uncertainties = new ArrayList<>();
         List<Evidence> evidence = List.of();
-        if (jurisdiction.status() == Jurisdiction.Status.OUTSIDE_US) {
-            uncertainties.add("LegalFact currently covers US law only, so no sources were retrieved.");
+        if (outsideUs) {
+            uncertainties.add("LegalFact currently covers US law only, so no legal topics or sources are shown.");
         } else if (!issueDrafts.isEmpty()) {
             if (jurisdiction.status() == Jurisdiction.Status.UNCERTAIN) {
                 uncertainties.add("The state isn't clear from the description, so only federal sources were searched.");
@@ -140,7 +164,10 @@ public class CaseIntelligenceService {
 
         // 3. Which sources bear on which issue
         Map<String, List<SourceNote>> notesByIssue = new LinkedHashMap<>();
-        if (!evidence.isEmpty()) {
+        Duration elapsed = Duration.ofNanos(System.nanoTime() - startedAt);
+        if (!evidence.isEmpty() && elapsed.compareTo(SOURCE_MATCHING_BUDGET) > 0) {
+            uncertainties.add("Sources were retrieved but there wasn't time to match them to topics; see the full list.");
+        } else if (!evidence.isEmpty()) {
             progress.stage(VerificationProgress.Stage.ASSESSING);
             String sourcesNonce = nonce();
             List<LegalPrompts.IssueLine> issueLines = new ArrayList<>();
@@ -155,13 +182,15 @@ public class CaseIntelligenceService {
                     SourceReview.class);
             notesByIssue = notes(review, evidence);
             if (review != null && review.uncertainties() != null) {
+                String everything = input + material(evidence.stream().map(e -> e.title() + " " + e.snippet()).toList()
+                        .toArray(String[]::new));
                 review.uncertainties().stream()
-                        .map(u -> AdviceLanguage.strip(clean(u, 300)))
-                        .filter(u -> !u.isBlank())
+                        .map(u -> modelText(u, 300, everything))
+                        .filter(u -> !u.isBlank() && !FEDERAL_EXCLUSION.matcher(u).find())
                         .limit(5)
                         .forEach(uncertainties::add);
             }
-        } else if (!issueDrafts.isEmpty() && jurisdiction.status() != Jurisdiction.Status.OUTSIDE_US) {
+        } else if (!issueDrafts.isEmpty() && !outsideUs) {
             uncertainties.add("No official sources addressing these topics were found.");
         }
 
@@ -179,32 +208,38 @@ public class CaseIntelligenceService {
 
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         // Counts only: the description and everything derived from it stay out of the logs.
-        log.info("Case intelligence done jurisdiction={} areas={} facts={} events={} issues={} sources={} durationMs={}",
-                jurisdiction.status(), practiceAreas, facts.size(), timeline.size(), issues.size(), sources.size(),
-                durationMs);
-        return new CaseIntelligence(now, practiceAreas, jurisdiction, summary, facts, timeline, issues, missing,
-                List.copyOf(new LinkedHashSet<>(uncertainties)), sources, NOTICE, evidenceRetriever.providerName(),
-                durationMs);
+        log.info("Case intelligence done jurisdiction={} areas={} facts={} events={} conflicts={} issues={} sources={} durationMs={}",
+                jurisdiction.status(), practiceAreas, facts.size(), timeline.size(), conflicts.size(), issues.size(),
+                sources.size(), durationMs);
+        return new CaseIntelligence(now, practiceAreas, jurisdiction, summary, facts, timeline, conflicts, issues,
+                missing, List.copyOf(new LinkedHashSet<>(uncertainties)), sources, notice(jurisdiction),
+                evidenceRetriever.providerName(), durationMs);
+    }
+
+    static String notice(Jurisdiction jurisdiction) {
+        return NOTICE + (jurisdiction.status() == Jurisdiction.Status.IDENTIFIED
+                ? " Consult a licensed attorney in " + jurisdiction.stateName() + "."
+                : " Consult a licensed attorney in the relevant jurisdiction.");
     }
 
     // ---------------------------------------------------------------- intake checks
 
-    /** Facts survive only if their quote is really in the description. */
+    /**
+     * Facts survive only if their quote is really in the description. A statement that strays from
+     * its quote (or from the description) is replaced by the quote itself.
+     */
     private static List<Fact> facts(List<StatedFact> stated, String input) {
         List<Fact> out = new ArrayList<>();
         if (stated == null) {
             return out;
         }
         for (StatedFact f : stated) {
-            if (f == null || !quoted(f.quote(), input)) {
-                continue;
+            if (f == null || !quoted(f.quote(), input) || AdviceLanguage.isAdvice(f.quote())) {
+                continue; // an advice-like "fact" is an injected instruction, not something that happened
             }
             String quote = clean(f.quote(), 300);
-            String statement = clean(f.statement(), 300);
-            if (statement.isBlank() || AdviceLanguage.isAdvice(statement)) {
-                statement = "The person says: \"" + quote + "\"";
-            }
-            out.add(new Fact(statement, quote, supportedDate(f.date(), input), Basis.USER_STATED));
+            out.add(new Fact(faithful(f.statement(), quote, input), quote, supportedDate(f.date(), input),
+                    Basis.USER_STATED));
             if (out.size() == MAX_FACTS) {
                 break;
             }
@@ -218,19 +253,15 @@ public class CaseIntelligenceService {
             return out;
         }
         for (StatedEvent e : stated) {
-            if (e == null || !quoted(e.quote(), input)) {
+            if (e == null || !quoted(e.quote(), input) || AdviceLanguage.isAdvice(e.quote())) {
                 continue;
             }
             String quote = clean(e.quote(), 300);
-            String event = clean(e.event(), 300);
-            if (event.isBlank() || AdviceLanguage.isAdvice(event)) {
-                event = quote;
-            }
             String date = supportedDate(e.date(), input);
             boolean approximate = e.approximate()
                     || (date != null && APPROXIMATE.matcher(date).find())
                     || APPROXIMATE.matcher(quote).find();
-            out.add(new TimelineEvent(date, approximate, event, quote, Basis.USER_STATED));
+            out.add(new TimelineEvent(date, approximate, faithful(e.event(), quote, input), quote, Basis.USER_STATED));
             if (out.size() == MAX_EVENTS) {
                 break;
             }
@@ -238,53 +269,85 @@ public class CaseIntelligenceService {
         return out;
     }
 
+    private static List<Conflict> conflicts(List<StatedConflict> stated, String input) {
+        List<Conflict> out = new ArrayList<>();
+        if (stated == null) {
+            return out;
+        }
+        for (StatedConflict c : stated) {
+            if (c == null || c.quotes() == null) {
+                continue;
+            }
+            List<String> quotes = c.quotes().stream().filter(q -> quoted(q, input)).map(q -> clean(q, 300))
+                    .distinct().limit(4).toList();
+            String what = modelText(c.description(), 250, input);
+            if (quotes.size() >= 2 && !what.isBlank()) {
+                out.add(new Conflict(what, quotes, Basis.AI_INTERPRETATION));
+            }
+            if (out.size() == MAX_CONFLICTS) {
+                break;
+            }
+        }
+        return out;
+    }
+
     /**
-     * A date is kept only if the description contains it: every number and month name in it, or the
-     * whole phrase for wording like "last spring". Otherwise the model made it up (or made it precise).
+     * The model's restatement if it stays with the person's words: no advice, no figures the
+     * description lacks, and most of its content words taken from the description. Else the quote.
+     */
+    static String faithful(String statement, String quote, String input) {
+        String s = clean(statement, 300);
+        List<String> content = Arrays.stream(words(s).split(" "))
+                .filter(w -> w.length() >= 4 && !STOPWORDS.contains(w))
+                .toList();
+        long found = content.stream().filter(w -> input.contains(" " + w + " ")).count();
+        boolean ok = !s.isBlank() && !AdviceLanguage.isAdvice(s) && Grounding.supported(s, input)
+                && (content.isEmpty() || found >= Math.ceil(content.size() * 0.6));
+        return ok ? s : "The person says: \"" + quote + "\"";
+    }
+
+    /**
+     * A date is kept only if the description contains it as written ("March 3", "about two weeks
+     * later"); otherwise the model made it up or made a vague date precise.
      */
     static String supportedDate(String date, String input) {
         String d = clean(date, 60);
-        if (d.isBlank()) {
-            return null;
-        }
-        boolean hasNumbersOrMonths = false;
-        Matcher numbers = NUMBER.matcher(d);
-        while (numbers.find()) {
-            hasNumbersOrMonths = true;
-            if (!input.contains(" " + numbers.group() + " ")) {
-                return null;
-            }
-        }
-        Matcher months = MONTH.matcher(d);
-        while (months.find()) {
-            hasNumbersOrMonths = true;
-            if (!input.contains(" " + months.group().toLowerCase(Locale.ROOT))) {
-                return null;
-            }
-        }
-        if (!hasNumbersOrMonths && !input.contains(" " + words(d) + " ")) {
-            return null;
-        }
-        return d;
+        String w = words(d);
+        return w.isEmpty() || !input.contains(" " + w + " ") ? null : d;
     }
 
-    /** Identified only with a quoted basis that is really in the description. US only for now. */
-    static Jurisdiction jurisdiction(JurisdictionGuess guess, String input) {
+    /**
+     * Identified only when the quoted basis is in the description and names the state (full name,
+     * or its capitalised code as in "Austin, TX"). A city alone isn't enough: the state is then
+     * uncertain, and a note says what the description mentions.
+     */
+    static JurisdictionResult jurisdiction(JurisdictionGuess guess, String text, String input) {
+        Jurisdiction uncertain = new Jurisdiction(Jurisdiction.Status.UNCERTAIN, null, null, null, null);
         if (guess == null) {
-            return new Jurisdiction(Jurisdiction.Status.UNCERTAIN, null, null, null, null);
+            return new JurisdictionResult(uncertain, null);
         }
         String country = clean(guess.country(), 60);
         String quote = clean(guess.basisQuote(), 200);
-        boolean quoted = quoted(quote, input);
+        String q = words(quote);
+        boolean quoted = q.length() >= 4 && input.contains(" " + q + " "); // a place name can be short
         boolean us = country.isBlank() || US.matcher(country).matches();
         if (!us && quoted) {
-            return new Jurisdiction(Jurisdiction.Status.OUTSIDE_US, country, null, null, quote);
+            return new JurisdictionResult(new Jurisdiction(Jurisdiction.Status.OUTSIDE_US, country, null, null, quote), null);
         }
         String state = UsStates.code(guess.state());
-        if (state != null && quoted) {
-            return new Jurisdiction(Jurisdiction.Status.IDENTIFIED, "US", state, UsStates.NAMES.get(state), quote);
+        if (state == null || !quoted) {
+            return new JurisdictionResult(new Jurisdiction(Jurisdiction.Status.UNCERTAIN,
+                    us && quoted ? "US" : null, null, null, null), null);
         }
-        return new Jurisdiction(Jurisdiction.Status.UNCERTAIN, us && quoted ? "US" : null, null, null, null);
+        String name = UsStates.NAMES.get(state);
+        boolean named = (" " + words(quote) + " ").contains(" " + words(name) + " ")
+                || Pattern.compile("\\b" + state + "\\b").matcher(quote).find();
+        if (!named) {
+            return new JurisdictionResult(new Jurisdiction(Jurisdiction.Status.UNCERTAIN, "US", null, null, quote),
+                    "The description mentions \"" + quote + "\" but doesn't name the state; confirm it (possibly "
+                            + name + ").");
+        }
+        return new JurisdictionResult(new Jurisdiction(Jurisdiction.Status.IDENTIFIED, "US", state, name, quote), null);
     }
 
     private static List<PracticeArea> practiceAreas(List<String> labels) {
@@ -298,15 +361,15 @@ public class CaseIntelligenceService {
         return areas.isEmpty() ? List.of(PracticeArea.OTHER) : List.copyOf(areas).subList(0, Math.min(2, areas.size()));
     }
 
-    private static List<IssueToResearch> issues(List<IssueToResearch> drafts) {
+    private static List<IssueToResearch> issues(List<IssueToResearch> drafts, String input) {
         List<IssueToResearch> out = new ArrayList<>();
         if (drafts == null) {
             return out;
         }
         for (IssueToResearch d : drafts) {
             String topic = d == null ? "" : clean(d.topic(), 150);
-            if (topic.isBlank() || AdviceLanguage.isAdvice(topic)) {
-                continue; // a "topic" that is really a conclusion is dropped
+            if (topic.isBlank() || AdviceLanguage.isAdvice(topic) || !Grounding.supported(topic, input)) {
+                continue; // a "topic" that is a conclusion, or cites law the description doesn't mention
             }
             List<String> queries = new ArrayList<>();
             if (d.searchQueries() != null) {
@@ -316,7 +379,7 @@ public class CaseIntelligenceService {
             if (queries.isEmpty()) {
                 queries.add(EvidenceRetriever.cleanQuery(topic));
             }
-            out.add(new IssueToResearch(topic, AdviceLanguage.strip(clean(d.note(), 300)), queries));
+            out.add(new IssueToResearch(topic, modelText(d.note(), 300, input), queries));
             if (out.size() == MAX_ISSUES) {
                 break;
             }
@@ -324,16 +387,17 @@ public class CaseIntelligenceService {
         return out;
     }
 
-    private static List<MissingInformation> missing(List<MissingItem> items) {
+    private static List<MissingInformation> missing(List<MissingItem> items, String input) {
         List<MissingInformation> out = new ArrayList<>();
         if (items == null) {
             return out;
         }
         for (MissingItem m : items) {
             String item = m == null ? "" : clean(m.item(), 200);
-            if (!item.isBlank()) {
-                out.add(new MissingInformation(item, emptyToNull(AdviceLanguage.strip(clean(m.whyItMatters(), 250)))));
+            if (item.isBlank() || AdviceLanguage.isAdvice(item) || !Grounding.supported(item, input)) {
+                continue;
             }
+            out.add(new MissingInformation(item, emptyToNull(modelText(m.whyItMatters(), 250, input))));
             if (out.size() == MAX_MISSING) {
                 break;
             }
@@ -385,50 +449,41 @@ public class CaseIntelligenceService {
                         || notes.stream().anyMatch(existing -> existing.sourceId().equals(sourceId))) {
                     continue;
                 }
-                notes.add(new SourceNote(sourceId, grounded(n.whatItSays(), e), grounded(n.relevance(), e),
-                        Basis.SOURCE_BACKED));
+                notes.add(new SourceNote(sourceId, grounded(n.whatItSays(), e), Basis.SOURCE_BACKED,
+                        grounded(n.relevance(), e), Basis.AI_INTERPRETATION));
             }
         }
         return out;
     }
 
     /**
-     * The model's words about a source, or null if they add advice or any number (a section, a figure,
-     * a deadline) that the source's own title, excerpt or URL doesn't contain.
+     * The model's words about a source, or null if they add advice or any figure, deadline or case name
+     * that the source's own title and excerpt don't contain.
      */
     static String grounded(String text, Evidence source) {
         String t = AdviceLanguage.strip(clean(text, 400));
-        if (t.isBlank()) {
-            return null;
-        }
-        String haystack = " " + words(source.title() + " " + source.snippet() + " " + source.url()) + " ";
-        Matcher numbers = NUMBER.matcher(t);
-        while (numbers.find()) {
-            if (!haystack.contains(" " + numbers.group() + " ")) {
-                return null;
-            }
-        }
-        return t;
+        return t.isBlank() || !Grounding.supported(t, material(source.title(), source.snippet())) ? null : t;
     }
 
     // ---------------------------------------------------------------- helpers
 
+    /** Model-written text with advice-like and ungrounded sentences removed (possibly empty). */
+    private static String modelText(String text, int max, String material) {
+        return Grounding.supportedSentences(AdviceLanguage.strip(clean(text, max)), material);
+    }
+
+    /** At least three words and 15 characters, found verbatim (ignoring punctuation) in the description. */
     private static boolean quoted(String quote, String input) {
         String q = words(quote == null ? "" : quote);
-        return q.length() >= 3 && input.contains(" " + q + " ");
+        return q.length() >= 15 && q.split(" ").length >= 3 && input.contains(" " + q + " ");
     }
 
     private static String describe(Jurisdiction j) {
         return switch (j.status()) {
-            case IDENTIFIED -> j.stateName() + ", United States";
+            case IDENTIFIED -> "United States: federal law applies, plus " + j.stateName() + " state law";
             case OUTSIDE_US -> j.country();
-            case UNCERTAIN -> "Uncertain (United States assumed only if stated; no state given)";
+            case UNCERTAIN -> "United States, state not known: federal law applies";
         };
-    }
-
-    /** Lower case, letters and digits only, single spaces: for "is this in the description" checks. */
-    static String words(String text) {
-        return text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
     }
 
     private static String clean(String text, int max) {

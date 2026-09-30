@@ -24,7 +24,16 @@ final class AdviceLanguage {
             + "|\\b(?:is|was|are|were) (?:clearly |definitely |plainly |obviously )?(?:illegal|unlawful)\\b"
             + "|\\b(?:violated|broke|breached) the law\\b"
             + "|\\bguarantee(?:d|s)?\\b"
-            + "|\\bthis (?:is|constitutes) (?:wrongful termination|retaliation|discrimination|harassment|fraud)\\b");
+            + "|\\bthis (?:is|constitutes) (?:wrongful termination|retaliation|discrimination|harassment|fraud)\\b"
+            // Applying the law to the person's facts (legal analysis, not information):
+            + "|\\b(?:rules?|deadlines?|laws?|requirements?|statutes?|protections?|rights) (?:were|was|have been|has been|had been) (?:violated|met|broken|breached|followed|satisfied|infringed)\\b"
+            + "|\\b(?:employer|landlord|company|business|they|he|she) (?:violated|broke|breached|infringed)\\b"
+            + "|\\btime[- ]barred\\b"
+            + "|\\b(?:calculate|estimate|recover|claim|seek|award(?:ed)?) (?:the |any |their |your )?(?:potential |possible |likely )?damages\\b"
+            + "|\\bstrength of (?:the |a |any |their |your )?(?:claim|case)s?\\b"
+            + "|\\bmeets? (?:the )?(?:legal )?(?:definitions?|standards?|elements?|tests?) (?:of|for)\\b"
+            + "|\\bstrengthen (?:the |their |your |a )?(?:factual )?(?:claim|case)s?\\b"
+            + "|\\b(?:grounds|basis) for (?:a |the )?(?:claim|lawsuit|suit|case|legal action)\\b");
 
     private static final Pattern SENTENCE_END = Pattern.compile("(?<=[.!?])\\s+");
 

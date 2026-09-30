@@ -94,6 +94,23 @@
   color: var(--text-2);
 }
 
+.legal-sublabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.legal-notice--end {
+  margin-top: 0;
+}
+
+.legal-type--news_or_report {
+  border-style: dashed;
+  color: var(--muted);
+}
+
 .legal-actions {
   margin-top: 0;
 }

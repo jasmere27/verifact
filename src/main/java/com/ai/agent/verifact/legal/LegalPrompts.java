@@ -37,6 +37,11 @@ final class LegalPrompts {
               "California Labor Code final paycheck timing").
             - Missing information: at most 8 items a professional would likely need that the description doesn't
               give (e.g. dates, the employer's size, written documents, whether a complaint was filed, the state).
+              whyItMatters says what a reviewer would learn from it, never whether rules were met or violated,
+              deadlines passed, or damages owed.
+            - Conflicts: where the description gives inconsistent versions (e.g. "fired" and "quit"), describe the
+              inconsistency neutrally with the exact quotes of each version. Empty if none.
+            - Don't state section numbers, figures, deadlines or case names that the description doesn't contain.
             - Keep the description's language for quotes.
             """;
 

@@ -37,7 +37,11 @@ const SOURCE_TYPE_LABEL: Record<LegalSourceType, string> = {
   REGULATION: "Regulation",
   OFFICIAL_GUIDANCE: "Agency guidance",
   GOVERNMENT: "Government",
+  NEWS_OR_REPORT: "News release / report",
 };
+
+/** States with curated official sources (mirrors backend `LegalSources.STATE`). */
+const STATES_WITH_SOURCES: Record<string, string> = { CA: "California" };
 
 function BasisChip({ basis }: { basis: Basis }) {
   return (
@@ -71,11 +75,40 @@ function SourceLink({ source }: { source: LegalSource }) {
   );
 }
 
+function SourceList({ sources }: { sources: LegalSource[] }) {
+  return (
+    <ol className="legal-sources">
+      {sources.map((s) => (
+        <li key={s.id}>
+          <p className="legal-source-head">
+            <span className="muted small">{s.id}</span>
+            <span className={`type-badge legal-type legal-type--${s.type.toLowerCase()}`}>{SOURCE_TYPE_LABEL[s.type]}</span>
+            <SourceLink source={s} />
+          </p>
+          <p className="legal-quote">“{s.excerpt}”</p>
+          <p className="muted small">
+            {s.domain}
+            {s.publishedDate ? ` · published ${s.publishedDate}` : ""} · retrieved {formatDateTime(s.retrievedAt)}
+          </p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export default function CaseReport({ result, onNewCase }: { result: CaseIntelligence; onNewCase: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => headingRef.current?.focus(), []);
   const sourcesById = new Map(result.sources.map((s) => [s.id, s]));
   const j = result.jurisdiction;
+  const outsideUs = j.status === "OUTSIDE_US";
+  const matchedIds = new Set(result.issues.flatMap((i) => i.sources.map((n) => n.sourceId)));
+  const matched = result.sources.filter((s) => matchedIds.has(s.id));
+  const unmatched = result.sources.filter((s) => !matchedIds.has(s.id));
+  const stateSources = j.state ? STATES_WITH_SOURCES[j.state] : undefined;
+  const searched = outsideUs
+    ? "No sources were searched: the situation is outside LegalFact's US coverage."
+    : `Searched: federal statutes, regulations and agency sites${stateSources ? `, plus ${stateSources} official sites` : ""}. Case law is not included yet.`;
 
   return (
     <article className="report legal-report" aria-labelledby="case-heading">
@@ -97,8 +130,11 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
             </dd>
           </div>
           <div>
-            <dt>Official sources found</dt>
-            <dd>{result.sources.length}</dd>
+            <dt>Sources retrieved</dt>
+            <dd>
+              {result.sources.length}
+              <span className="legal-basis">Official sites; not reviewed for applicability</span>
+            </dd>
           </div>
         </dl>
         <p className="legal-notice" role="note">
@@ -142,7 +178,7 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
         )}
       </Section>
 
-      <Section id="timeline-heading" title="Timeline">
+      <Section id="timeline-heading" title="Timeline (as described)">
         {result.timeline.length ? (
           <ol className="legal-timeline">
             {result.timeline.map((e, i) => (
@@ -152,7 +188,9 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
                   {e.date && e.approximate && <span className="legal-approx">approx.</span>}
                 </span>
                 <span className="legal-timeline-event">
-                  {e.event}
+                  <span>
+                    <BasisChip basis={e.basis} /> {e.event}
+                  </span>
                   <span className="legal-quote">“{e.userQuote}”</span>
                 </span>
               </li>
@@ -163,8 +201,29 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
         )}
       </Section>
 
+      {result.conflicts.length > 0 && (
+        <Section id="conflicts-heading" title="Inconsistencies to clarify">
+          <ul className="legal-list">
+            {result.conflicts.map((c, i) => (
+              <li key={i}>
+                <p className="legal-statement">
+                  <BasisChip basis={c.basis} /> {c.description}
+                </p>
+                {c.userQuotes.map((q) => (
+                  <p key={q} className="legal-quote">
+                    “{q}”
+                  </p>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
       <Section id="issues-heading" title="Topics a professional may want to review">
-        {result.issues.length ? (
+        {outsideUs ? (
+          <Empty>Legal topics aren&apos;t shown for situations outside the United States.</Empty>
+        ) : result.issues.length ? (
           <div className="claim-list">
             {result.issues.map((issue) => (
               <div key={issue.id} className="legal-issue">
@@ -175,6 +234,8 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
                   </p>
                 )}
                 {issue.sources.length ? (
+                  <>
+                  <p className="legal-sublabel">Potentially relevant sources</p>
                   <ul className="legal-source-notes">
                     {issue.sources.map((n) => {
                       const source = sourcesById.get(n.sourceId);
@@ -189,13 +250,19 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
                             <span className="muted small">{source.domain}</span>
                           </p>
                           <p className="legal-statement">
-                            <BasisChip basis={n.basis} /> {n.whatItSays ?? `Excerpt: “${source.excerpt}”`}
+                            <BasisChip basis={n.whatItSays ? n.whatItSaysBasis : "SOURCE_BACKED"} />{" "}
+                            {n.whatItSays ?? `Excerpt: “${source.excerpt}”`}
                           </p>
-                          {n.relevance && <p className="muted small">{n.relevance}</p>}
+                          {n.relevance && (
+                            <p className="legal-statement small">
+                              <BasisChip basis={n.relevanceBasis} /> {n.relevance}
+                            </p>
+                          )}
                         </li>
                       );
                     })}
                   </ul>
+                  </>
                 ) : (
                   <p className="muted small">No retrieved official source addressed this topic.</p>
                 )}
@@ -207,7 +274,7 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
         )}
       </Section>
 
-      <Section id="missing-heading" title="Missing information">
+      <Section id="missing-heading" title="Missing information: questions to ask">
         {result.missingInformation.length ? (
           <ul className="legal-list legal-missing">
             {result.missingInformation.map((m, i) => (
@@ -218,7 +285,11 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
             ))}
           </ul>
         ) : (
-          <Empty>Nothing obvious is missing, but a professional will likely have more questions.</Empty>
+          <Empty>
+            {outsideUs
+              ? "Not assessed for situations outside the United States."
+              : "Nothing obvious is missing, but a professional will likely have more questions."}
+          </Empty>
         )}
       </Section>
 
@@ -238,34 +309,30 @@ export default function CaseReport({ result, onNewCase }: { result: CaseIntellig
         </p>
       </Section>
 
-      <Section id="sources-heading" title="All official sources retrieved">
-        {result.sources.length ? (
-          <ol className="legal-sources">
-            {result.sources.map((s) => (
-              <li key={s.id}>
-                <p className="legal-source-head">
-                  <span className="muted small">{s.id}</span>
-                  <span className={`type-badge legal-type legal-type--${s.type.toLowerCase()}`}>
-                    {SOURCE_TYPE_LABEL[s.type]}
-                  </span>
-                  <SourceLink source={s} />
-                </p>
-                <p className="legal-quote">“{s.excerpt}”</p>
-                <p className="muted small">
-                  {s.domain}
-                  {s.publishedDate ? ` · published ${s.publishedDate}` : ""} · retrieved {formatDateTime(s.retrievedAt)}
-                </p>
-              </li>
-            ))}
-          </ol>
+      <Section id="sources-heading" title="Sources">
+        {matched.length ? (
+          <SourceList sources={matched} />
         ) : (
-          <Empty>No official sources were retrieved.</Empty>
+          <Empty>No retrieved source was matched to a topic.</Empty>
+        )}
+        {unmatched.length > 0 && (
+          <details className="collapsible">
+            <summary>
+              {unmatched.length} other source{unmatched.length === 1 ? "" : "s"} retrieved but not matched to a topic
+            </summary>
+            <div className="collapsible-body">
+              <SourceList sources={unmatched} />
+            </div>
+          </details>
         )}
         <p className="muted small">
-          Searched: federal statutes, regulations and agencies, plus California official sites. Case law is not
-          included yet. Took {formatDuration(result.durationMs)}.
+          {searched} Took {formatDuration(result.durationMs)}.
         </p>
       </Section>
+
+      <p className="legal-notice legal-notice--end" role="note">
+        <strong>{result.notice}</strong>
+      </p>
     </article>
   );
 }

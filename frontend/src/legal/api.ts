@@ -2,6 +2,9 @@ import { streamResult } from "../api";
 import type { StreamHandlers } from "../api";
 import type { CaseIntelligence } from "./types";
 
+/** Longer than a fact check (two model calls on long text), just under the server's 180 s stream limit. */
+const CASE_TIMEOUT_MS = 170_000;
+
 const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
 /** Defensive: guarantee the list fields exist so rendering never crashes on a partial payload. */
@@ -13,6 +16,7 @@ function normalize(raw: unknown): CaseIntelligence {
     jurisdiction: r.jurisdiction ?? { status: "UNCERTAIN", country: null, state: null, stateName: null, basisQuote: null },
     keyFacts: asArray(r.keyFacts),
     timeline: asArray(r.timeline),
+    conflicts: asArray<CaseIntelligence["conflicts"][number]>(r.conflicts).map((c) => ({ ...c, userQuotes: asArray(c.userQuotes) })),
     issues: asArray<CaseIntelligence["issues"][number]>(r.issues).map((i) => ({ ...i, sources: asArray(i.sources) })),
     missingInformation: asArray(r.missingInformation),
     uncertainties: asArray(r.uncertainties),
@@ -30,5 +34,6 @@ export function analyzeCaseStream(description: string, handlers: StreamHandlers,
     handlers,
     signal,
     normalize,
+    CASE_TIMEOUT_MS,
   );
 }

@@ -49,7 +49,7 @@ class LegalControllerTest {
                         "California", "Fresno, California"),
                 "The person says they were fired.",
                 List.of(new CaseIntelligence.Fact("Was fired", "I was fired", null, CaseIntelligence.Basis.USER_STATED)),
-                List.of(), List.of(), List.of(), List.of(), List.of(), CaseIntelligenceService.NOTICE, "tavily", 10));
+                List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), CaseIntelligenceService.NOTICE, "tavily", 10));
 
         mockMvc.perform(post("/api/v2/legal/case-intelligence").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"description\":\"" + DESCRIPTION + "\"}"))

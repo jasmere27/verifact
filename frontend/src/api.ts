@@ -97,17 +97,21 @@ const TIMEOUT_MESSAGE = "The check took too long to complete. Please try again i
 const OFFLINE_MESSAGE = "Couldn't reach VeriFact. Check your connection and try again.";
 
 /**
- * Run `work` with a 120 s overall timeout (covering the whole response, streamed or not).
+ * Run `work` with an overall timeout (default 120 s, covering the whole response, streamed or not).
  * If the caller's `signal` aborts, the AbortError is rethrown unchanged so callers can ignore it;
  * network failures and timeouts become ApiErrors.
  */
-async function withTimeout<T>(signal: AbortSignal | undefined, work: (signal: AbortSignal) => Promise<T>): Promise<T> {
+async function withTimeout<T>(
+  signal: AbortSignal | undefined,
+  work: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController();
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
   const onCallerAbort = () => controller.abort();
   if (signal?.aborted) controller.abort();
   signal?.addEventListener("abort", onCallerAbort);
@@ -222,6 +226,7 @@ export async function streamResult<T = VerificationResult>(
   handlers: StreamHandlers,
   signal?: AbortSignal,
   toResult: (raw: unknown) => T = (raw) => normalize(raw as VerificationResult) as T,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   return withTimeout(signal, async (timeoutSignal) => {
     const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -295,7 +300,7 @@ export async function streamResult<T = VerificationResult>(
     }
     if ("error" in final) throw final.error;
     return final.result;
-  });
+  }, timeoutMs);
 }
 
 /** `refresh: true` asks the server to run a new check instead of reusing a recent report for the same input. */

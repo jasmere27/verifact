@@ -10,7 +10,8 @@ import java.util.List;
  */
 public record CaseIntelligence(Instant createdAt, List<PracticeArea> practiceAreas, Jurisdiction jurisdiction,
                                String summary, List<Fact> keyFacts, List<TimelineEvent> timeline,
-                               List<Issue> issues, List<MissingInformation> missingInformation,
+                               List<Conflict> conflicts, List<Issue> issues,
+                               List<MissingInformation> missingInformation,
                                List<String> uncertainties, List<LegalSource> sources, String notice,
                                String searchProvider, long durationMs) {
 
@@ -37,11 +38,16 @@ public record CaseIntelligence(Instant createdAt, List<PracticeArea> practiceAre
 
     public record Issue(String id, String topic, String note, Basis basis, List<SourceNote> sources) {}
 
+    /** Where the person's account is inconsistent: a question for the reviewer to ask, not a finding. */
+    public record Conflict(String description, List<String> userQuotes, Basis basis) {}
+
     /**
-     * @param whatItSays the model's summary of the source; null if it failed the checks (the UI shows the excerpt)
-     * @param relevance  why a professional might consult it; null if it failed the checks
+     * @param whatItSays     the model's summary of the source (SOURCE_BACKED); null if it failed the checks
+     *                       (the UI shows the excerpt)
+     * @param relevance      why a professional might consult it (AI_INTERPRETATION); null if it failed the checks
      */
-    public record SourceNote(String sourceId, String whatItSays, String relevance, Basis basis) {}
+    public record SourceNote(String sourceId, String whatItSays, Basis whatItSaysBasis, String relevance,
+                             Basis relevanceBasis) {}
 
     public record MissingInformation(String item, String whyItMatters) {}
 

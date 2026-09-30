@@ -23,7 +23,14 @@ public final class LegalOutputs {
             List<StatedFact> facts,
             List<StatedEvent> timeline,
             List<IssueToResearch> issues,
-            List<MissingItem> missingInformation) {}
+            List<MissingItem> missingInformation,
+            List<StatedConflict> conflicts) {}
+
+    public record StatedConflict(
+            @JsonPropertyDescription("One neutral sentence naming what the description says inconsistently, e.g. \"Whether the person quit or was fired\"")
+            String description,
+            @JsonPropertyDescription("The exact words from the description for each version, copied verbatim (at least two)")
+            List<String> quotes) {}
 
     public record JurisdictionGuess(
             @JsonPropertyDescription("Country as stated or clearly implied, e.g. \"US\". Empty if not stated") String country,
@@ -51,7 +58,8 @@ public final class LegalOutputs {
 
     public record MissingItem(
             @JsonPropertyDescription("Information a professional would likely need that the description does not give") String item,
-            @JsonPropertyDescription("One short sentence on why it matters") String whyItMatters) {}
+            @JsonPropertyDescription("One short sentence on what a reviewer would learn from it. Never say whether rules were met or violated")
+            String whyItMatters) {}
 
     /** Step 2: which retrieved official sources bear on each issue. */
     public record SourceReview(List<IssueSources> issues, List<String> uncertainties) {}

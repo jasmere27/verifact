@@ -130,7 +130,7 @@ public class EvidenceRetriever {
         }
         if (failures == queries.size()) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Web search is unavailable right now, so VeriFact can't gather evidence. Please try again later.");
+                    "Web search is unavailable right now, so sources can't be gathered. Please try again later.");
         }
         return new ArrayList<>(byUrl.values());
     }

@@ -12,7 +12,12 @@ class AdviceLanguageTest {
     @ValueSource(strings = {
             "You have a strong case.", "You'll likely win this.", "You should sue your employer.",
             "You are entitled to back pay.", "Firing someone for complaining is illegal.",
-            "The landlord violated the law.", "This is retaliation.", "We guarantee results."})
+            "The landlord violated the law.", "This is retaliation.", "We guarantee results.",
+            "Shows whether Labor Code timing rules were violated.", "Needed to know if deadlines were met.",
+            "The claim may be time-barred.", "Needed to calculate damages.", "Photos strengthen factual claims.",
+            "The person appears to have grounds for a claim.", "Whether the employer violated overtime rules.",
+            "Needed to estimate potential damages.", "Written messages affect the strength of claims.",
+            "A reviewer could assess whether the statements meet legal definitions of harassment."})
     void adviceIsRecognised(String sentence) {
         assertThat(AdviceLanguage.isAdvice(sentence)).isTrue();
     }

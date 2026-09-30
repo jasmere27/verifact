@@ -1,6 +1,6 @@
 # LegalFact
 
-_Last updated: 2026-09-30. Status: planned — nothing built yet. Design decisions: ADR-12._
+_Last updated: 2026-09-30. Status: **L1 Case Intelligence MVP built** on branch `legalfact-mvp` (not deployed). Design decisions: ADR-12._
 
 ## Vision
 **LegalFact by VeriFact — AI-powered legal information and evidence intelligence.** A vertical on the
@@ -87,6 +87,23 @@ Pipeline (2 LLM calls, like VeriFact):
 5. **Output**: the Case Intelligence report + disclaimer. Not stored.
 Success criteria: zero fabricated citations and zero advice phrasing across the eval set;
 facts traceable to input; an attorney-style reviewer finds it faster to read than the raw text.
+
+## Current implementation (2026-09-30)
+- Backend `legal/` + `/api/v2/legal/case-intelligence(/stream)`; frontend `/legal` (`frontend/src/legal/`). Professional-facing copy.
+- Curated state sources: California only; other states get federal sources and an uncertainty note.
+- Live eval `CaseIntelligenceEvalIT` (7 hypothetical cases: CA employment, TX deposit, UK, injection with a fake citation and planted advice, multi-state, contradictory, vague) passes all invariants; outputs saved to `target/legal-eval/`. 55–76 s per case, ~3–4k completion tokens per call; frontend waits up to 170 s; the source-matching call is skipped after 75 s.
+- Deterministic guards (after legal + security/AI review):
+  - quotes ≥3 words/15 chars, verbatim in the input; statements must share most content words with the input, else shown as the quote; advice-like quotes dropped
+  - dates must appear as written (contiguous phrase, ordinals normalised)
+  - jurisdiction IDENTIFIED only if the quote is in the input and names the state (name or capitalised code); a city alone → Uncertain + a note
+  - OUTSIDE_US: facts/timeline only; no legal topics or missing-information items
+  - `Grounding`: no digits, number words or case names ("X v. Y") in model text unless in the input (intake fields) or the cited source's title/excerpt (source notes)
+  - `AdviceLanguage`: have a case / will win / should sue / entitled to / illegal / violated / rules were met or violated / time-barred / damages / strength of claims / meets legal definitions / grounds for a claim
+  - model uncertainties claiming federal law doesn't apply are dropped; the sources prompt says federal applies in every state
+  - allow-listed domains only; press releases/reports typed NEWS_OR_REPORT; citations validated; duplicate URLs (case) merged
+  - parse failures never carry model output into logs
+- Labels: facts/timeline USER_STATED; source summaries SOURCE_BACKED; relevance, topics, summary, conflicts AI_INTERPRETATION.
+- Report adds "Inconsistencies to clarify" (quotes of each version) and "Missing information: questions to ask"; unmatched sources are collapsed; notice top and bottom with "consult a licensed attorney in [state]".
 
 ## Privacy
 MVP stores nothing (result returned only; no share link). Storing cases requires auth (Supabase

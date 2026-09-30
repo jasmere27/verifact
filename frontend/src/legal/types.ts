@@ -19,7 +19,7 @@ export type PracticeArea =
 /** Where a statement comes from. */
 export type Basis = "USER_STATED" | "SOURCE_BACKED" | "AI_INTERPRETATION";
 
-export type LegalSourceType = "STATUTE" | "REGULATION" | "OFFICIAL_GUIDANCE" | "GOVERNMENT";
+export type LegalSourceType = "STATUTE" | "REGULATION" | "OFFICIAL_GUIDANCE" | "GOVERNMENT" | "NEWS_OR_REPORT";
 
 export interface Jurisdiction {
   status: "IDENTIFIED" | "UNCERTAIN" | "OUTSIDE_US";
@@ -48,9 +48,18 @@ export interface TimelineEvent {
 
 export interface SourceNote {
   sourceId: string;
-  /** Null if it failed the server's checks; show the source excerpt instead. */
+  /** What the source says (SOURCE_BACKED). Null if it failed the server's checks; show the excerpt instead. */
   whatItSays: string | null;
+  whatItSaysBasis: Basis;
+  /** Why a professional might consult it (AI_INTERPRETATION). */
   relevance: string | null;
+  relevanceBasis: Basis;
+}
+
+/** An inconsistency in the person's account: something to clarify, not a finding. */
+export interface Conflict {
+  description: string;
+  userQuotes: string[];
   basis: Basis;
 }
 
@@ -85,6 +94,7 @@ export interface CaseIntelligence {
   summary: string | null;
   keyFacts: Fact[];
   timeline: TimelineEvent[];
+  conflicts: Conflict[];
   issues: Issue[];
   missingInformation: MissingInformation[];
   uncertainties: string[];

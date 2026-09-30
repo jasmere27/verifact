@@ -33,6 +33,14 @@ for context; delete them once they stop being useful._
 
 14h. **Production OpenAI config (2026-09-30):** the account ran out of credits, then `OPEN_AI_API_KEY` on Render was saved with a trailing newline ("Unexpected char 0x0a … in Authorization value"). Fix in Render. Hardening to do: trim keys at startup; skip the image OCR fallback on quota/auth errors (both fail the same way, ~80 s wasted).
 
+14i. **LegalFact (MVP, branch `legalfact-mvp`):**
+   - Latency 55–76 s per case (two gpt-5-mini calls, ~3–4k completion tokens each, mostly reasoning). Frontend waits 170 s; call 2 skipped after 75 s. Options: lower reasoning effort for these calls; cancel work when the client disconnects (not done: the streamer keeps running).
+   - Coverage: only California has curated state sources; for CA cases the 10 source slots can fill with state pages and crowd out federal guidance (FLSA etc.). Consider reserving slots per level. No case law (CourtListener needs a commercial agreement).
+   - Guards are deterministic but regex-based: paraphrased advice ("appears to have grounds") can still slip through; keep growing `AdviceLanguageTest` from eval output.
+   - Search queries derived from the case (possibly with names) go to Tavily.
+   - Shares the per-IP rate limit with fact checks although a case costs ~2×; add a legal-specific quota before public launch.
+   - Wording not yet reviewed by a licensed attorney (required before any public launch).
+
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.

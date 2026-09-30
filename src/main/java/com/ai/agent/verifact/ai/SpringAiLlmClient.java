@@ -71,8 +71,12 @@ public class SpringAiLlmClient implements LlmClient {
         try {
             return parse(converter, text);
         } catch (RuntimeException e) {
+            // Not chained: a parser's message quotes the model output, which echoes the user's text, and
+            // error handlers log the cause.
             throw new LlmException(LlmException.Failure.UNUSABLE_OUTPUT,
-                    "The analysis service returned an unreadable result. Please try again.", e);
+                    "The analysis service returned an unreadable result. Please try again.",
+                    new IllegalStateException("Model output not parseable as " + type.getSimpleName()
+                            + " (" + e.getClass().getSimpleName() + ")"));
         }
     }
 
