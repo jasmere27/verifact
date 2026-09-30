@@ -155,13 +155,14 @@ function App() {
             <span>VeriFact</span>
           </Link>
           <div className="header-end">
-            {/* LegalFact stays unlisted (reachable at /legal) until its wording has had attorney review,
-                so the home page doesn't link to it; from /legal there is a way back. */}
-            {route.name === "legal" && (
-              <nav className="site-nav" aria-label="Site">
-                <Link href="/">← Back to Fact check</Link>
-              </nav>
-            )}
+            <nav className="site-nav" aria-label="Products">
+              <Link href="/" aria-current={route.name === "legal" ? undefined : "page"}>
+                Fact check
+              </Link>
+              <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
+                LegalFact
+              </Link>
+            </nav>
             <ThemeToggle />
           </div>
         </div>
@@ -189,6 +190,14 @@ function App() {
                   <span>See the evidence</span>
                 </li>
               </ol>
+              <Link href="/legal" className="legalfact-callout">
+                <span className="legalfact-callout-badge">New</span>
+                <span>
+                  <strong>LegalFact</strong> for legal professionals: turn a client&apos;s description into facts, a
+                  timeline and official sources.
+                </span>
+                <span aria-hidden="true">→</span>
+              </Link>
             </section>
 
             {check.status === "error" && (
