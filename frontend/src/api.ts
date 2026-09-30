@@ -1,7 +1,7 @@
 import { toSourceType } from "./sources";
 import type { SourcesFound, StageId, VerificationResult } from "./types";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(/\/+$/, "");
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(/\/+$/, "");
 
 /** Checks run two AI calls plus web searches (~10–40 s); leave generous headroom. */
 const REQUEST_TIMEOUT_MS = 120_000;

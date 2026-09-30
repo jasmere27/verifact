@@ -41,6 +41,8 @@ for context; delete them once they stop being useful._
    - Shares the per-IP rate limit with fact checks although a case costs ~2×; add a legal-specific quota before public launch.
    - Wording not yet reviewed by a licensed attorney. LegalFact is linked publicly since 2026-09-30 (owner's decision); get the review done soon.
 
+14k. **NewsFact (ADR-14):** saved reviews (`news_reviews`) kept indefinitely with no delete path; readable by anyone with the link; edit tokens live in one browser (lost token = read-only). Evidence is search snippets only. Add retention + delete before promoting.
+
 14j. **ResearchFact (MVP, ADR-13):**
    - Judgments are abstract-only; ~40% of works lack open abstracts (NO_ABSTRACT). PubMed lookup failures also surface as NO_ABSTRACT (not distinguished yet).
    - Outbound calls: up to ~50 sequential lookups per check (12 refs × Crossref/DataCite/OpenAlex/PubMed + searches); 50 s lookup budget; PubMed and Crossref list calls throttled per instance. No cache yet.

@@ -6,14 +6,20 @@ export type Route =
   | { name: "report"; id: string }
   | { name: "legal" }
   | { name: "research" }
+  | { name: "news" }
+  | { name: "newsWorkspace"; id: string }
   | { name: "notFound" };
 
+const NEWS_PATH = /^\/news\/([0-9a-fA-F-]{36})\/?$/;
 const REPORT_PATH = /^\/r\/([A-Za-z0-9-]{1,64})\/?$/;
 
 export function parseRoute(pathname: string): Route {
   if (pathname === "/" || pathname === "") return { name: "home" };
   if (pathname === "/legal" || pathname === "/legal/") return { name: "legal" };
   if (pathname === "/research" || pathname === "/research/") return { name: "research" };
+  if (pathname === "/news" || pathname === "/news/") return { name: "news" };
+  const news = NEWS_PATH.exec(pathname);
+  if (news) return { name: "newsWorkspace", id: news[1] };
   const match = REPORT_PATH.exec(pathname);
   if (match) return { name: "report", id: match[1] };
   return { name: "notFound" };
