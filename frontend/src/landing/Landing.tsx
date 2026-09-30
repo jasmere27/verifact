@@ -86,12 +86,35 @@ const PRODUCTS: Product[] = [
   {
     name: "ResearchFact",
     href: "/research",
-    tagline: "Check every citation before it's published.",
+    tagline: "Check every citation, and find real sources for your research.",
     audience: "Researchers, reviewers, journal editors and students.",
-    checks: ["Fabricated, mismatched and retracted references", "Does the cited paper support the claim?", "Research that reports a different finding"],
+    checks: ["Fabricated, mismatched and retracted references", "Does the cited paper support the claim?", "Student Research Mode: RRL, RRS, drafts and gaps"],
     cta: "Check citations",
     accent: "var(--accent-2)",
     icon: icon("M6 4h9l3 3v13H6V4zm9 0v3h3M9 11h6M9 14h6M9 17h4"),
+  },
+];
+
+const STUDENT_FEATURES = [
+  {
+    title: "RRL and RRS, found for you",
+    text: "Related literature and studies, local and foreign, theories, concepts, methods and recent work, each from a real scholarly record.",
+    d: "M11 4a7 7 0 105.2 11.7L20 19.5M8 11h6M11 8v6",
+  },
+  {
+    title: "Local studies, decided by data",
+    text: "“Local” means an author's institution is in your country, per OpenAlex. Philippines by default.",
+    d: "M12 21s-6-5.3-6-10a6 6 0 1112 0c0 4.7-6 10-6 10zm0-8a2 2 0 100-4 2 2 0 000 4z",
+  },
+  {
+    title: "Upload your draft",
+    text: "PDF, Word or PowerPoint. See which statements need a citation, check your reference list, and highlight any passage to find sources.",
+    d: "M7 3h7l5 5v13H7V3zm7 0v5h5M12 17v-6m-2.5 2.5L12 11l2.5 2.5",
+  },
+  {
+    title: "Gaps and your framework",
+    text: "Possible research gaps and framework variables, each tied to the sources you saved, and labelled as interpretation.",
+    d: "M4 19h16M6 16V9m6 7V5m6 11v-4",
   },
 ];
 
@@ -143,6 +166,11 @@ const PRINCIPLES = [
 
 const USE_CASES = [
   {
+    who: "Students",
+    what: "Build your RRL and RRS from real, verifiable studies, check your draft's citations, and see gaps before your defense.",
+    href: "/research",
+  },
+  {
     who: "Newsrooms",
     what: "Run a story through NewsFact before publishing: every figure, date and quote checked, with a desk review trail.",
     href: "/news",
@@ -179,7 +207,11 @@ const FAQ = [
   },
   {
     q: "Is my text stored?",
-    a: "VeriFact reports are saved so you can share their link, and NewsFact reviews are saved so your desk can work on them; anyone with the link can view them. LegalFact and ResearchFact store nothing. Text you submit is processed by our AI provider to run the check.",
+    a: "VeriFact reports are saved so you can share their link, and NewsFact reviews are saved so your desk can work on them; anyone with the link can view them. Student Research Mode workspaces (saved sources, notes and the text extracted from an uploaded draft, never the file) are kept until you delete them, or 90 days after your last change. LegalFact and the ResearchFact citation check store nothing. Text you submit is processed by our AI provider.",
+  },
+  {
+    q: "Does Student Research Mode write my paper?",
+    a: "No. It finds and organises real sources, points out statements that need a citation, and suggests possible gaps, all tied to studies you can open and read. It never invents papers, authors or DOIs, marks anything it can't verify as \"Unverified\", and never writes your text for you.",
   },
   {
     q: "Can it be wrong?",
@@ -190,6 +222,47 @@ const FAQ = [
     a: "All four products are free during early access, with fair-use limits and no sign-up. Team features and pricing are being shaped with our first pilot customers.",
   },
 ];
+
+/** Illustration of a workspace (static, not real data). */
+function StudentPreview() {
+  return (
+    <div className="lp-sp" role="img" aria-label="Example Student Research Mode workspace: related studies with verification badges, and a draft statement that needs a citation">
+      <div className="lp-hero-card-head">
+        <span className="lp-dot" />
+        <span className="lp-dot" />
+        <span className="lp-dot" />
+        <span className="lp-hero-card-title">Example workspace</span>
+      </div>
+      <p className="lp-sp-topic">Flipped classroom and Grade 11 mathematics achievement</p>
+      <div className="lp-sp-tabs" aria-hidden="true">
+        <span className="is-active">Find sources</span>
+        <span>My draft</span>
+        <span>Gaps &amp; framework</span>
+      </div>
+      <div className="lp-sp-card">
+        <div className="lp-sp-badges">
+          <span className="lp-sp-badge lp-sp-badge--ok">Verified in OpenAlex</span>
+          <span className="lp-sp-badge">Local</span>
+          <span className="lp-sp-badge lp-sp-badge--muted">article</span>
+        </div>
+        <p className="lp-sp-title">A flipped-classroom study in a Philippine senior high school</p>
+        <p className="lp-sp-quote">Abstract: “…improved the mathematics achievement of senior high students…”</p>
+      </div>
+      <div className="lp-sp-card lp-sp-card--dim">
+        <div className="lp-sp-badges">
+          <span className="lp-sp-badge lp-sp-badge--ok">Verified in OpenAlex</span>
+          <span className="lp-sp-badge">Foreign</span>
+          <span className="lp-sp-badge lp-sp-badge--warn">Theory: unverified suggestion</span>
+        </div>
+        <p className="lp-sp-title">A meta-analysis of flipped learning across school levels</p>
+      </div>
+      <div className="lp-sp-flag">
+        <span className="lp-sp-badge lp-sp-badge--bad">Needs a citation</span>
+        <span>“Most students score higher when lessons are flipped.”</span>
+      </div>
+    </div>
+  );
+}
 
 function Reveal({ children, className = "", as = "div", delay = 0 }: { children: ReactNode; className?: string; as?: "div" | "section" | "li"; delay?: number }) {
   const Tag = as;
@@ -256,7 +329,7 @@ export default function Landing() {
               Explore the products
             </a>
           </div>
-          <p className="lp-hero-note">No sign-up. Four products for news, law, research and everyday claims.</p>
+          <p className="lp-hero-note">No sign-up. Four products for news, law, research and everyday claims, plus Student Research Mode.</p>
         </div>
         <HeroCard />
       </section>
@@ -297,6 +370,42 @@ export default function Landing() {
             </Reveal>
           ))}
         </ul>
+      </section>
+
+      {/* Student Research Mode */}
+      <section id="students" className="lp-section lp-student" aria-labelledby="lp-student-heading">
+        <div className="lp-student-grid">
+          <Reveal className="lp-student-copy">
+            <p className="lp-kicker">
+              <span className="lp-new">New</span> ResearchFact · Student Research Mode
+            </p>
+            <h2 id="lp-student-heading">Your thesis research, with sources you can actually cite.</h2>
+            <p className="lp-section-lede">
+              For senior high, college and graduate students. Every study comes from a scholarly index, with a link to the
+              original, and anything that can&apos;t be verified is clearly marked.
+            </p>
+            <ul className="lp-student-features">
+              {STUDENT_FEATURES.map((f) => (
+                <li key={f.title}>
+                  <span className="lp-student-icon">{icon(f.d)}</span>
+                  <span>
+                    <strong>{f.title}</strong>
+                    {f.text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="lp-hero-ctas">
+              <Link href="/research" className="button button--primary lp-cta">
+                Start a research workspace
+              </Link>
+              <span className="lp-student-note">Free · no sign-up · delete any time</span>
+            </div>
+          </Reveal>
+          <Reveal className="lp-student-visual" delay={120}>
+            <StudentPreview />
+          </Reveal>
+        </div>
       </section>
 
       {/* How it works */}

@@ -1,3 +1,4 @@
+import Brand from "./components/BrandMark";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage, verifyFileStream, verifyTextStream } from "./api";
 import type { StreamHandlers } from "./api";
@@ -147,17 +148,7 @@ function App() {
       <header className="site-header">
         <div className="site-header-inner">
           <Link href="/" className="wordmark" aria-label="VeriFact home">
-            <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">
-              <defs>
-                <linearGradient id="wordmark-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#2b4fd6" />
-                  <stop offset="1" stopColor="#0d7a84" />
-                </linearGradient>
-              </defs>
-              <rect x="1" y="1" width="22" height="22" rx="6" fill="url(#wordmark-grad)" />
-              <path d="M6.5 12.3l3.4 3.4 7.6-7.9" fill="none" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <span>VeriFact</span>
+            <Brand />
           </Link>
           <div className="header-end">
             <nav className="site-nav" aria-label="Products">
@@ -275,9 +266,10 @@ function App() {
       <footer className="site-footer">
         <div className="site-footer-inner">
           <div className="site-footer-brand">
-            <p>
-              <strong>VeriFact</strong>: evidence intelligence.
-            </p>
+            <Link href="/" className="wordmark wordmark--footer" aria-label="VeriFact home">
+              <Brand size={26} />
+            </Link>
+            <p>Evidence intelligence.</p>
             <p>An aid for checking claims against published sources, not a final authority.</p>
           </div>
           <nav className="site-footer-links" aria-label="Footer">

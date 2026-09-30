@@ -455,6 +455,13 @@
   background: var(--surface);
 }
 
+/* Students (first) spans the row, so five cards don't leave one alone. */
+.lp-use:first-child {
+  grid-column: 1 / -1;
+  border: 2px solid transparent;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--brand-grad) border-box;
+}
+
 /* Pricing */
 
 .lp-plans {
@@ -603,6 +610,223 @@
 .lp-final-ctas {
   justify-content: center;
   margin-top: 12px;
+}
+
+/* ---------- Student Research Mode spotlight ---------- */
+
+.lp-student {
+  position: relative;
+}
+
+.lp-student::before {
+  content: "";
+  position: absolute;
+  inset: 40px -40px 0;
+  z-index: -1;
+  border-radius: 32px;
+  background:
+    radial-gradient(60% 70% at 85% 40%, color-mix(in srgb, #0d9488 14%, transparent), transparent 70%),
+    radial-gradient(50% 60% at 10% 20%, color-mix(in srgb, #4f46e5 12%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+.lp-student-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: 56px;
+}
+
+.lp-student-copy h2 {
+  margin-top: 12px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.8rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.lp-student-copy .lp-section-lede {
+  margin-top: 14px;
+}
+
+.lp-new {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-grad);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.lp-student-features {
+  list-style: none;
+  padding: 0;
+  margin-top: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.lp-student-features li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  color: var(--text-2);
+  font-size: 0.97rem;
+  line-height: 1.5;
+}
+
+.lp-student-features strong {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lp-student-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-2) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent-2) 25%, var(--line));
+  color: var(--accent-2);
+}
+
+.lp-student-note {
+  align-self: center;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.lp-sp {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.lp-sp::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: 21px;
+  background: linear-gradient(135deg, #4f46e5, #0d9488);
+  opacity: 0.3;
+  filter: blur(30px);
+}
+
+.lp-sp-topic {
+  font-family: var(--display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.lp-sp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.lp-sp-tabs span {
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.lp-sp-tabs .is-active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.08);
+}
+
+.lp-sp-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.lp-sp-card--dim {
+  opacity: 0.82;
+}
+
+.lp-sp-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.lp-sp-badge {
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.75;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.lp-sp-badge--ok { color: var(--v-supported); border-color: color-mix(in srgb, var(--v-supported) 45%, transparent); }
+.lp-sp-badge--warn { color: var(--v-misleading); border-color: color-mix(in srgb, var(--v-misleading) 45%, transparent); }
+.lp-sp-badge--bad { color: var(--v-contradicted); border-color: color-mix(in srgb, var(--v-contradicted) 45%, transparent); }
+.lp-sp-badge--muted { color: var(--muted); }
+
+.lp-sp-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.lp-sp-quote {
+  padding-left: 10px;
+  border-left: 2px solid var(--line-strong);
+  font-family: var(--display);
+  font-size: 0.92rem;
+  color: var(--text-2);
+}
+
+.lp-sp-flag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--v-contradicted) 45%, var(--line));
+  border-radius: 12px;
+  font-family: var(--display);
+  font-size: 0.92rem;
+  color: var(--text-2);
+}
+
+@media (max-width: 900px) {
+  .lp-student-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+  .lp-student::before {
+    inset: 40px 0 0;
+  }
 }
 
 /* ---------- Responsive ---------- */
