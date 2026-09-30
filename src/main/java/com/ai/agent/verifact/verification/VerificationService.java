@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.fetch.FetchFailedException;
@@ -14,6 +15,7 @@ import com.ai.agent.verifact.verification.ModelOutputs.Assessment;
 import com.ai.agent.verifact.verification.ModelOutputs.ClaimExtraction;
 import com.ai.agent.verifact.verification.ModelOutputs.ClaimVerdict;
 import com.ai.agent.verifact.verification.ModelOutputs.ExtractedClaim;
+import com.ai.agent.verifact.verification.ModelOutputs.ImageExtraction;
 import com.google.common.net.InternetDomainName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,6 +49,7 @@ import java.util.regex.Pattern;
  *
  * <pre>
  * content ─► [LLM 1] extract claims + queries ─► search (bounded) ─► evidence E1..En
+ *            (for an image, LLM 1 reads the image itself; OCR is the fallback)
  *         ─► [LLM 2] per-claim verdict citing evidence IDs ─► validate ─► persist
  * </pre>
  *
@@ -71,6 +75,23 @@ public class VerificationService {
             "(?i)\\b(?:site|inurl|allinurl|intitle|allintitle|intext|allintext|filetype|ext|related|cache|link|info|source|before|after|daterange):\\S*");
     private static final Pattern EXCLUSION_TERM = Pattern.compile("(^|\\s)-\\S+");
     private static final Pattern EVIDENCE_REF = Pattern.compile("\\bE\\d+\\b");
+    /** A vision failure slower than this is not retried with OCR (see {@link #verifyImage}). */
+    static final Duration VISION_FALLBACK_BUDGET = Duration.ofSeconds(30);
+
+    /**
+     * Words that would turn the model's neutral reading of an image into a judgement shown under
+     * VeriFact's name. The image is untrusted and can steer the model, so such fields are dropped.
+     */
+    private static final Pattern JUDGEMENT_WORDS = Pattern.compile(
+            "(?i)(verif|confirm|authentic|genuine|fake|hoax|debunk|fact.?check|accurate|legit|\\btrue\\b|\\bfalse\\b|100\\s*%|reliable|trustworth)");
+
+    private static final String OCR_SOURCE_DESCRIPTION = "text extracted by OCR from an image a user uploaded";
+
+    private static final Pattern QUOTE_ATTRIBUTION = Pattern.compile(
+            "(?i)\\b(said|says|stated|claimed|wrote|tweeted|quoted)\\b|[\"“”]");
+
+    static final String IMAGE_LIMITATION =
+            "VeriFact checks what the image says. It can't tell whether the image itself was edited or taken out of context.";
     private static final String NOT_ESTABLISHED = "The sources found don't clearly establish this claim either way.";
 
     /** Result of checking the model's assessment against the evidence rules. */
@@ -144,13 +165,56 @@ public class VerificationService {
                 page.url(), progress, inputHash);
     }
 
+    /**
+     * An uploaded image. With {@code image} set, a vision model reads it (text, visible context and
+     * claims in one call); if that step fails, or {@code image} is null (vision disabled), the image's
+     * OCR text is checked like pasted text instead.
+     *
+     * @param image   the upload prepared for the model, or null to use OCR only
+     * @param ocrText runs OCR on the upload; only called when falling back
+     */
+    public VerificationResult verifyImage(String fileName, ImageInput image, Supplier<String> ocrText,
+                                          VerificationProgress progress) {
+        long startedAt = System.nanoTime();
+        if (image != null) {
+            Instant visionStartedAt = clock.instant();
+            progress.stage(VerificationProgress.Stage.EXTRACTING_CLAIMS);
+            ImageExtraction extraction = null;
+            try {
+                extraction = llm.generateWithImage(VerificationPrompts.IMAGE_EXTRACTION_SYSTEM,
+                        VerificationPrompts.imageExtractionUser(today()), image, ImageExtraction.class);
+            } catch (ApiException e) {
+                // Fall back only on a quick failure (model rejects images, unreadable output). A slow one is
+                // usually a timeout or outage: retrying on the OCR path would blow the time budget and the
+                // user's 120 s wait, and likely fail the same way.
+                Duration spent = Duration.between(visionStartedAt, clock.instant());
+                if (e.getStatus() != HttpStatus.BAD_GATEWAY || spent.compareTo(VISION_FALLBACK_BUDGET) > 0) {
+                    throw e;
+                }
+                // Cause type only: a parse error's message can contain the model's transcription of the image.
+                log.warn("Vision step failed after {} ms (cause={}), falling back to OCR", spent.toMillis(),
+                        e.getCause() == null ? "-" : e.getCause().getClass().getSimpleName());
+            }
+            if (extraction != null) {
+                List<ExtractedClaim> claims = requireClaims(dropRestatements(cleanClaims(extraction.claims())));
+                String visibleText = truncate(extraction.visibleText() == null ? "" : extraction.visibleText().trim(),
+                        maxContentChars);
+                return complete(startedAt, InputType.IMAGE, displayName(fileName, "Uploaded image"), visibleText,
+                        imageContext(extraction), claims, null, progress, null);
+            }
+        }
+        // Timed from the start, so a failed vision attempt counts towards the reported duration.
+        return run(startedAt, InputType.IMAGE, displayName(fileName, "Uploaded image"), ocrText.get(),
+                OCR_SOURCE_DESCRIPTION, null, progress, null);
+    }
+
     public VerificationResult verifyImageText(String fileName, String ocrText) {
         return verifyImageText(fileName, ocrText, VerificationProgress.NONE);
     }
 
     public VerificationResult verifyImageText(String fileName, String ocrText, VerificationProgress progress) {
         return run(InputType.IMAGE, displayName(fileName, "Uploaded image"), ocrText,
-                "text extracted by OCR from an image a user uploaded", null, progress, null);
+                OCR_SOURCE_DESCRIPTION, null, progress, null);
     }
 
     public VerificationResult verifyAudioTranscript(String fileName, String transcript) {
@@ -170,9 +234,13 @@ public class VerificationService {
      */
     VerificationResult run(InputType inputType, String displayInput, String rawContent, String sourceDescription,
                            String sourceUrl, VerificationProgress progress, String inputHash) {
-        long startedAt = System.nanoTime();
-        Instant now = clock.instant();
-        LocalDate today = LocalDate.ofInstant(now, clock.getZone());
+        return run(System.nanoTime(), inputType, displayInput, rawContent, sourceDescription, sourceUrl, progress,
+                inputHash);
+    }
+
+    private VerificationResult run(long startedAt, InputType inputType, String displayInput, String rawContent,
+                                   String sourceDescription, String sourceUrl, VerificationProgress progress,
+                                   String inputHash) {
         String content = truncate(rawContent.trim(), maxContentChars);
 
         // 1. Claims and queries
@@ -180,14 +248,18 @@ public class VerificationService {
         String nonce = nonce();
         ClaimExtraction extraction = llm.generate(
                 VerificationPrompts.withNonce(VerificationPrompts.EXTRACTION_SYSTEM, nonce),
-                VerificationPrompts.extractionUser(nonce, sourceDescription, content, today),
+                VerificationPrompts.extractionUser(nonce, sourceDescription, content, today()),
                 ClaimExtraction.class);
-        List<ExtractedClaim> claims = cleanClaims(extraction);
-        if (claims.isEmpty()) {
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "VeriFact couldn't find a specific factual claim to check. "
-                            + "Try stating it directly, e.g. \"The Eiffel Tower is 330 metres tall.\"");
-        }
+        List<ExtractedClaim> claims = requireClaims(cleanClaims(extraction == null ? null : extraction.claims()));
+        return complete(startedAt, inputType, displayInput, content, null, claims, sourceUrl, progress, inputHash);
+    }
+
+    /** Steps 2 and 3, shared by every input type once claims are known: evidence, assessment, validation, save. */
+    private VerificationResult complete(long startedAt, InputType inputType, String displayInput, String content,
+                                        ImageContext imageContext, List<ExtractedClaim> claims, String sourceUrl,
+                                        VerificationProgress progress, String inputHash) {
+        Instant now = clock.instant();
+        LocalDate today = LocalDate.ofInstant(now, clock.getZone());
 
         // 2. Evidence
         List<String> claimTexts = claims.stream().map(ExtractedClaim::claim).toList();
@@ -237,12 +309,16 @@ public class VerificationService {
             }
         }
 
+        if (inputType == InputType.IMAGE) {
+            limitations.add(IMAGE_LIMITATION);
+        }
+
         OverallVerdict overall = OverallVerdict.of(assessments.stream().map(ClaimAssessment::verdict).toList());
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         VerificationResult result = new VerificationResult(
                 UUID.randomUUID(), now, inputType, truncate(displayInput, 2000),
                 truncate(content, CHECKED_TEXT_EXCERPT_CHARS), overall, summary, assessments, evidence,
-                List.copyOf(new LinkedHashSet<>(limitations)), searchProvider.name(), durationMs);
+                List.copyOf(new LinkedHashSet<>(limitations)), searchProvider.name(), durationMs, imageContext);
 
         log.info("Verification done id={} inputType={} claims={} evidence={} overall={} durationMs={}",
                 result.id(), inputType, assessments.size(), evidence.size(), overall, durationMs);
@@ -250,12 +326,45 @@ public class VerificationService {
         return result;
     }
 
-    private List<ExtractedClaim> cleanClaims(ClaimExtraction extraction) {
+    /**
+     * Vision models sometimes return a statement twice: "X" and "physicists confirm X". Checking both
+     * turns a clear verdict into MIXED (the attribution usually can't be sourced). Keeps one: the
+     * attributed version for real quotes ("[name] said X"), where who said it is the point, else plain X.
+     */
+    static List<ExtractedClaim> dropRestatements(List<ExtractedClaim> claims) {
+        List<ExtractedClaim> kept = new ArrayList<>(claims);
+        for (ExtractedClaim inner : claims) {
+            for (ExtractedClaim wrapper : claims) {
+                String in = " " + words(inner.claim()) + " ";
+                String out = " " + words(wrapper.claim()) + " ";
+                if (inner == wrapper || in.isBlank() || out.length() <= in.length() || !out.contains(in)) {
+                    continue;
+                }
+                kept.remove(QUOTE_ATTRIBUTION.matcher(wrapper.claim()).find() ? inner : wrapper);
+            }
+        }
+        return kept;
+    }
+
+    private static String words(String text) {
+        return text.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").trim();
+    }
+
+    private static List<ExtractedClaim> requireClaims(List<ExtractedClaim> claims) {
+        if (claims.isEmpty()) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "VeriFact couldn't find a specific factual claim to check. "
+                            + "Try stating it directly, e.g. \"The Eiffel Tower is 330 metres tall.\"");
+        }
+        return claims;
+    }
+
+    private List<ExtractedClaim> cleanClaims(List<ExtractedClaim> extracted) {
         List<ExtractedClaim> claims = new ArrayList<>();
-        if (extraction == null || extraction.claims() == null) {
+        if (extracted == null) {
             return claims;
         }
-        for (ExtractedClaim c : extraction.claims()) {
+        for (ExtractedClaim c : extracted) {
             String text = cleanText(c == null ? null : c.claim(), 500);
             if (text.isBlank()) {
                 continue;
@@ -598,6 +707,26 @@ public class VerificationService {
 
     private static String displayName(String fileName, String fallback) {
         return fileName == null || fileName.isBlank() ? fallback : cleanText(fileName, 200);
+    }
+
+    /**
+     * The model's reading of the image, normalised. It's shown to readers as context, so it is
+     * length-capped, and a field that passes judgement (e.g. "verified by Reuters") is dropped.
+     */
+    static ImageContext imageContext(ImageExtraction extraction) {
+        return new ImageContext(ImageContext.Kind.parse(extraction.imageKind()),
+                neutral(cleanText(extraction.shownSource(), 120)),
+                neutral(cleanText(extraction.shownDate(), 60)),
+                neutral(cleanText(extraction.description(), 400)));
+    }
+
+    private static String neutral(String text) {
+        return text.isBlank() || JUDGEMENT_WORDS.matcher(text).find() || text.toLowerCase(Locale.ROOT).contains("verifact")
+                ? null : text;
+    }
+
+    private LocalDate today() {
+        return LocalDate.ofInstant(clock.instant(), clock.getZone());
     }
 
     private static String nonce() {

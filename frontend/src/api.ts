@@ -79,6 +79,7 @@ function normalize(raw: VerificationResult): VerificationResult {
       sourceType: toSourceType(e?.sourceType),
     })),
     limitations: asArray(raw.limitations),
+    imageContext: raw.imageContext && typeof raw.imageContext === "object" ? raw.imageContext : null,
   };
 }
 

@@ -19,7 +19,10 @@ GlobalExceptionHandler → RFC 9457 problem+json with requestId for every error
 ## v2 verification pipeline (`verification/VerificationService`, ADR-3/4/7)
 
 ```
-input ─► text | link → SafeUrlFetcher (UrlGuard every hop) | image → ImageOcrService | audio → VoiceToTextTool
+input ─► text | link → SafeUrlFetcher (UrlGuard every hop) | audio → VoiceToTextTool
+      │  image → ImageOcrService.prepareForVision (decode, ≤2048px, re-encode JPEG: no metadata)
+      │        ─► LlmClient #1 (vision) ImageExtraction: visible text, imageContext, claims ─► search (below)
+      │        on 502 (or VISION_ENABLED=false) → ImageOcrService OCR text ─► text path
       ─► truncate (MAX_CONTENT_CHARS)
       ─► LlmClient #1  ClaimExtraction   (≤3 claims, ≤2 queries each; no tools; nonce-delimited content)
              no claims → 422

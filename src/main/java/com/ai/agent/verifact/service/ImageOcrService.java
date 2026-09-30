@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.service;
 
+import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.common.ApiException;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
@@ -9,12 +10,21 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageOutputStream;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -30,8 +40,11 @@ public class ImageOcrService {
      */
     static final long MAX_PIXELS = 16_000_000L;
 
-    /** Decoded images and Tesseract are memory-heavy; cap how many run at once. */
+    /** Decoded images (for OCR or vision) are memory-heavy; cap how many are processed at once. */
     private final Semaphore ocrSlots = new Semaphore(2);
+    /** Longest side sent to a vision model; providers downscale beyond this anyway, so more only costs upload time. */
+    static final int MAX_VISION_SIDE = 2048;
+
     static final String UNSUPPORTED_MESSAGE = "Unsupported image. Upload a JPEG, PNG, GIF, BMP, or TIFF file.";
 
     private final String tessdataPath;
@@ -42,6 +55,30 @@ public class ImageOcrService {
 
     /** Decodes the upload in memory (no temp files) and returns the text Tesseract finds in it. */
     public String extractText(byte[] imageBytes) {
+        acquireSlot();
+        try {
+            return ocr(decode(imageBytes));
+        } finally {
+            ocrSlots.release();
+        }
+    }
+
+    /**
+     * Prepares an upload for a vision model: validates and decodes it like OCR does, scales it down to
+     * at most {@value #MAX_VISION_SIDE}px on the longest side, and re-encodes it as JPEG. Re-encoding
+     * means the model only ever sees plain pixels in a format it accepts (BMP/TIFF become JPEG, only
+     * the first frame of a GIF is kept) and drops metadata such as GPS location.
+     */
+    public ImageInput prepareForVision(byte[] imageBytes) {
+        acquireSlot();
+        try {
+            return new ImageInput(toJpeg(scaleDown(decode(imageBytes), MAX_VISION_SIDE)), "image/jpeg");
+        } finally {
+            ocrSlots.release();
+        }
+    }
+
+    private void acquireSlot() {
         boolean acquired;
         try {
             acquired = ocrSlots.tryAcquire(10, TimeUnit.SECONDS);
@@ -52,11 +89,44 @@ public class ImageOcrService {
         if (!acquired) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "VeriFact is busy reading other images. Please try again.");
         }
+    }
+
+    /** Draws the image onto an opaque RGB canvas (JPEG has no transparency), shrinking it if needed. */
+    static BufferedImage scaleDown(BufferedImage image, int maxSide) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        double scale = Math.min(1.0, (double) maxSide / Math.max(width, height));
+        int targetWidth = Math.max(1, (int) Math.round(width * scale));
+        int targetHeight = Math.max(1, (int) Math.round(height * scale));
+        BufferedImage out = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = out.createGraphics();
         try {
-            return ocr(decode(imageBytes));
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, targetWidth, targetHeight);
+            g.drawImage(image, 0, 0, targetWidth, targetHeight, null);
         } finally {
-            ocrSlots.release();
+            g.dispose();
         }
+        return out;
+    }
+
+    private static byte[] toJpeg(BufferedImage image) {
+        ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ImageOutputStream output = ImageIO.createImageOutputStream(bytes)) {
+            ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(0.88f); // small text in screenshots stays sharp
+            writer.setOutput(output);
+            writer.write(null, new IIOImage(image, null, null), param);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } finally {
+            writer.dispose();
+        }
+        return bytes.toByteArray();
     }
 
     private String ocr(BufferedImage image) {

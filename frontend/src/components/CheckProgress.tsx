@@ -18,12 +18,18 @@ function stagesFor(submission: Submission): Stage[] {
       reading = { id: "READING_INPUT", title: "Opening the link", detail: "Fetching the article at that address." };
     }
   } else if (submission.mode === "image") {
-    reading = { id: "READING_INPUT", title: "Reading the image", detail: "Pulling the text out of your screenshot or photo." };
+    reading = { id: "READING_INPUT", title: "Preparing the image", detail: "Checking the file and getting it ready to read." };
   } else {
     reading = { id: "READING_INPUT", title: "Transcribing the audio", detail: "Turning the speech into text." };
   }
   const rest: Stage[] = [
-    { id: "EXTRACTING_CLAIMS", title: "Finding the claims", detail: "Picking out the specific statements that can be checked." },
+    submission.mode === "image"
+      ? {
+          id: "EXTRACTING_CLAIMS",
+          title: "Reading the image",
+          detail: "Reading its text and context, and picking out the statements that can be checked.",
+        }
+      : { id: "EXTRACTING_CLAIMS", title: "Finding the claims", detail: "Picking out the specific statements that can be checked." },
     { id: "SEARCHING", title: "Searching the web", detail: "Looking for fact-checks, news and reference sources." },
     { id: "ASSESSING", title: "Weighing the evidence", detail: "Comparing what the sources say and noting what's uncertain." },
   ];

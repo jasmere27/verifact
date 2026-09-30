@@ -19,6 +19,20 @@ public final class ModelOutputs {
 
     public record ExtractedClaim(String claim, List<String> searchQueries) {}
 
+    /** Step 1 for images: what the image shows, plus the same claims-and-queries as {@link ClaimExtraction}. */
+    public record ImageExtraction(
+            @JsonPropertyDescription("The legible text in the image, top to bottom, verbatim and in its original language, up to about 1500 characters. Empty if none")
+            String visibleText,
+            @JsonPropertyDescription("Exactly one of: SOCIAL_MEDIA_POST, NEWS_HEADLINE, ARTICLE, CHART, MEME, PHOTO, DOCUMENT, OTHER")
+            String imageKind,
+            @JsonPropertyDescription("The account, person, outlet or organisation the image presents as its author or source, exactly as written in the image. Empty if none is written")
+            String shownSource,
+            @JsonPropertyDescription("A date or time written in the image, exactly as written. Empty if none")
+            String shownDate,
+            @JsonPropertyDescription("One or two neutral sentences on what the image shows. Do not judge whether it is true or genuine")
+            String description,
+            List<ExtractedClaim> claims) {}
+
     /** Step 2: evidence-based assessment of the extracted claims. */
     public record Assessment(String summary, List<ClaimVerdict> claims, List<String> limitations) {}
 

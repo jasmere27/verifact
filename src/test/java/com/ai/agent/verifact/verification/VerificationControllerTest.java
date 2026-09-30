@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.model.InputType;
 import com.ai.agent.verifact.service.ImageOcrService;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
@@ -19,6 +20,8 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,7 +64,7 @@ class VerificationControllerTest {
                         List.of(), List.of("E1"))),
                 List.of(new Evidence("E1", "https://a.example/1", "a.example", "Title", "Snippet", null,
                         Instant.parse("2026-09-30T12:00:01Z"), SourceType.NEWS)),
-                List.of("Only two sources."), "tavily", 1234);
+                List.of("Only two sources."), "tavily", 1234, null);
     }
 
     @Test
@@ -96,14 +99,18 @@ class VerificationControllerTest {
     }
 
     @Test
-    void imageIsOcrdThenVerified() throws Exception {
-        when(imageOcrService.extractText(any())).thenReturn("OCR text");
-        when(service.verifyImageText("post.png", "OCR text")).thenReturn(sample());
+    void imageIsPreparedForTheVisionModelThenVerified() throws Exception {
+        ImageInput prepared = new ImageInput(new byte[]{9}, "image/jpeg");
+        when(imageOcrService.prepareForVision(any())).thenReturn(prepared);
+        when(service.verifyImage(eq("post.png"), same(prepared), any(), eq(VerificationProgress.NONE))).thenReturn(sample());
 
         mockMvc.perform(multipart("/api/v2/verifications/image")
                         .file(new MockMultipartFile("file", "post.png", "image/png", new byte[]{1})))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()));
+                .andExpect(jsonPath("$.id").value(ID.toString()))
+                .andExpect(jsonPath("$.imageContext").isEmpty());
+        // OCR only runs if the service falls back to it.
+        verify(imageOcrService, never()).extractText(any());
     }
 
     @Test

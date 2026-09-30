@@ -55,7 +55,7 @@ class VerificationStreamerTest {
     private static VerificationResult result() {
         return new VerificationResult(UUID.fromString("6f1c1a8e-2b3c-4d5e-8f90-1a2b3c4d5e6f"),
                 Instant.parse("2026-09-30T12:00:00Z"), InputType.TEXT, "claim", "claim", OverallVerdict.SUPPORTED,
-                "ok", List.of(), List.of(), List.of(), "fake", 5);
+                "ok", List.of(), List.of(), List.of(), "fake", 5, null);
     }
 
     private String stream(String json) throws Exception {

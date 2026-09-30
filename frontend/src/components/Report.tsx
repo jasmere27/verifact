@@ -3,7 +3,7 @@ import type { ReactNode, SyntheticEvent } from "react";
 import { formatDate, formatDateTime, formatDuration, formatPublishedDate, formatRelative, plural, safeHttpUrl } from "../format";
 import { buildReply, heroStrength, reportUrl } from "../share";
 import { avatarLetter, avatarSlot, byTypePriority, domainOf, isSocial, sourceTypeMeta, toSourceType } from "../sources";
-import type { ClaimAssessment, Evidence, VerificationResult } from "../types";
+import type { ClaimAssessment, Evidence, ImageContext, ImageKind, VerificationResult } from "../types";
 import { INPUT_TYPE_LABEL, strengthMeta, verdictMeta } from "../verdicts";
 import FeedbackPrompt from "./FeedbackPrompt";
 import Link from "./Link";
@@ -278,6 +278,51 @@ function Collapsible({ summary, children }: { summary: string; children: ReactNo
   );
 }
 
+const IMAGE_KIND_LABEL: Record<ImageKind, string> = {
+  SOCIAL_MEDIA_POST: "Social media post",
+  NEWS_HEADLINE: "News headline",
+  ARTICLE: "Article",
+  CHART: "Chart",
+  MEME: "Meme",
+  PHOTO: "Photo",
+  DOCUMENT: "Document",
+  OTHER: "Image",
+};
+
+/**
+ * What the image visibly shows. Shown after the claims and labelled as an unchecked automated reading:
+ * it's whatever the image presents about itself, and the image can try to steer it.
+ */
+function ImageContextSection({ context }: { context: ImageContext }) {
+  const facts: [string, string][] = [["Type", IMAGE_KIND_LABEL[context.kind] ?? "Image"]];
+  if (context.shownSource) facts.push(["Shown as from", context.shownSource]);
+  if (context.shownDate) facts.push(["Date shown", context.shownDate]);
+  return (
+    <section className="report-section" aria-labelledby="image-heading">
+      <h2 id="image-heading">About the image</h2>
+      <div className="image-context">
+        {context.description && (
+          <p>
+            <span className="image-context-label">Automated description (not checked): </span>
+            {context.description}
+          </p>
+        )}
+        <dl className="about-list">
+          {facts.map(([term, value]) => (
+            <div key={term}>
+              <dt>{term}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="muted small">
+          As it appears in the image. Names and dates shown in an image aren&apos;t proof of who made it or when.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /* ---------- Report ---------- */
 
 export interface ReuseInfo {
@@ -415,6 +460,8 @@ export default function Report({ result, reuse }: { result: VerificationResult; 
         </section>
       )}
 
+      {result.imageContext && <ImageContextSection context={result.imageContext} />}
+
       <section className="report-section" aria-labelledby="limits-heading">
         <h2 id="limits-heading">What remains uncertain</h2>
         {result.limitations.length ? (
@@ -446,7 +493,7 @@ export default function Report({ result, reuse }: { result: VerificationResult; 
             )}
           </Collapsible>
           {result.checkedText?.trim() && (
-            <Collapsible summary="Text that was analysed (excerpt)">
+            <Collapsible summary={result.imageContext ? "Text read from the image (excerpt)" : "Text that was analysed (excerpt)"}>
               <p className="prewrap">{result.checkedText}</p>
             </Collapsible>
           )}

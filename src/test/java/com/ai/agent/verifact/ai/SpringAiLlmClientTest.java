@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -101,5 +102,22 @@ class SpringAiLlmClientTest {
                     assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
                     assertThat(e.getMessage()).doesNotContain("sk-secret");
                 });
+    }
+
+    @Test
+    void imagesAreAttachedToTheUserMessage() {
+        SpringAiLlmClient client = clientReplying("{\"claims\":[]}");
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, 1, 2};
+
+        client.generateWithImage("system", "Today's date: 2026-09-30", new ImageInput(jpeg, "image/jpeg"),
+                ClaimExtraction.class);
+
+        Message user = lastPrompt.get().getInstructions().get(1);
+        assertThat(user).isInstanceOf(UserMessage.class);
+        assertThat(user.getText()).isEqualTo("Today's date: 2026-09-30");
+        assertThat(((UserMessage) user).getMedia()).singleElement().satisfies(media -> {
+            assertThat(media.getMimeType().toString()).isEqualTo("image/jpeg");
+            assertThat(media.getDataAsByteArray()).isEqualTo(jpeg);
+        });
     }
 }

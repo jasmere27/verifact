@@ -43,6 +43,7 @@ _Last updated: 2026-09-30 (Phase 0a). Base path `/api/v1`. No authentication yet
 ## v2 — structured verification (current; used by the frontend)
 - `POST /api/v2/verifications` JSON `{"input": "..."}` (≤10,000 chars; a single http(s) token is fetched as a link)
 - `POST /api/v2/verifications/image` multipart `file` · `POST /api/v2/verifications/audio` multipart `file`
+- Images (2026-09-30): read by a vision model when `VISION_ENABLED` (default true); OCR is the fallback. Same upload limits and errors as before (`413`/`415` on bad uploads; `503` only when the OCR fallback is needed and unavailable).
 - `GET /api/v2/verifications/{id}` → stored report (404 problem+json if unknown/malformed). Not rate limited.
 - All three POSTs are rate limited like v1. Typical latency 10–40 s.
 - Errors: `400` blank/unsafe link/bad upload · `413` · `415` · `422` link unreadable **or no checkable claim** · `429` · `502` AI failure/unparseable output · `503` search unavailable (never answers from model memory).
@@ -54,8 +55,14 @@ type EvidenceStrength = "STRONG" | "MODERATE" | "LIMITED";
 interface Evidence { id: string; url: string; domain: string; title: string; snippet: string; publishedDate: string | null; retrievedAt: string; }
 interface ClaimAssessment { id: string; text: string; verdict: Verdict; evidenceStrength: EvidenceStrength; explanation: string; supportingEvidenceIds: string[]; contradictingEvidenceIds: string[]; }
 interface VerificationResult { id: string; createdAt: string; inputType: "TEXT"|"URL"|"IMAGE"|"AUDIO"; input: string; checkedText: string;
-  overallVerdict: OverallVerdict; summary: string; claims: ClaimAssessment[]; evidence: Evidence[]; limitations: string[]; searchProvider: string; durationMs: number; }
+  overallVerdict: OverallVerdict; summary: string; claims: ClaimAssessment[]; evidence: Evidence[]; limitations: string[]; searchProvider: string; durationMs: number;
+  imageContext: ImageContext | null; }
+// Added 2026-09-30 (additive, non-breaking). Only on images read by the vision model; null otherwise and absent on older reports.
+// Model-read context, never evidence: values are as shown in the image, length-capped (source 120, date 60, description 400).
+interface ImageContext { kind: "SOCIAL_MEDIA_POST"|"NEWS_HEADLINE"|"ARTICLE"|"CHART"|"MEME"|"PHOTO"|"DOCUMENT"|"OTHER";
+  shownSource: string | null; shownDate: string | null; description: string | null; }
 ```
+For images, `checkedText` is the text the vision model read (or its description if the image has no text); with the OCR fallback it's the OCR text. Image reports always include the limitation that VeriFact can't tell whether the image was edited.
 Guarantees: every evidence ID referenced by a claim exists in `evidence`; SUPPORTED/PARTLY cite ≥1 supporting, CONTRADICTED cites ≥1 contradicting; evidence URLs are http(s); at most 3 claims and 10 evidence items. `publishedDate` format varies by provider.
 
 ### Streaming (used by the frontend)

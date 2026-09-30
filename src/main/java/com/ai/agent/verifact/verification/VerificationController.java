@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.service.ImageOcrService;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
@@ -42,17 +43,20 @@ public class VerificationController {
     private final ImageOcrService imageOcrService;
     private final VoiceToTextTool voiceToText;
     private final int maxInputChars;
+    private final boolean visionEnabled;
 
     public VerificationController(VerificationService verificationService, VerificationStreamer streamer,
                                   VerificationStore store,
                                   ImageOcrService imageOcrService, VoiceToTextTool voiceToText,
-                                  @Value("${app.input.max-chars:10000}") int maxInputChars) {
+                                  @Value("${app.input.max-chars:10000}") int maxInputChars,
+                                  @Value("${app.vision.enabled:true}") boolean visionEnabled) {
         this.verificationService = verificationService;
         this.streamer = streamer;
         this.store = store;
         this.imageOcrService = imageOcrService;
         this.voiceToText = voiceToText;
         this.maxInputChars = maxInputChars;
+        this.visionEnabled = visionEnabled;
     }
 
     @PostMapping
@@ -78,7 +82,7 @@ public class VerificationController {
         noProxyBuffering(response);
         return streamer.start(progress -> {
             progress.stage(VerificationProgress.Stage.READING_INPUT);
-            return verificationService.verifyImageText(name, imageOcrService.extractText(bytes), progress);
+            return verifyImage(name, bytes, progress);
         });
     }
 
@@ -113,8 +117,13 @@ public class VerificationController {
 
     @PostMapping("/image")
     public VerificationResult verifyImage(@RequestParam("file") MultipartFile file) {
-        String text = imageOcrService.extractText(read(file, "No image uploaded."));
-        return verificationService.verifyImageText(file.getOriginalFilename(), text);
+        return verifyImage(file.getOriginalFilename(), read(file, "No image uploaded."), VerificationProgress.NONE);
+    }
+
+    /** Vision model first (when enabled), OCR as the fallback; see {@link VerificationService#verifyImage}. */
+    private VerificationResult verifyImage(String fileName, byte[] bytes, VerificationProgress progress) {
+        ImageInput image = visionEnabled ? imageOcrService.prepareForVision(bytes) : null;
+        return verificationService.verifyImage(fileName, image, () -> imageOcrService.extractText(bytes), progress);
     }
 
     @PostMapping("/audio")

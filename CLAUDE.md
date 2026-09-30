@@ -17,7 +17,7 @@ The main session acts as orchestrator for a team of specialist subagents. Protoc
 
 ## Project overview
 
-VeriFact verifies claims submitted as text, a link, an image (OCR), or audio (speech-to-text). The v2 pipeline extracts claims with an LLM, searches the web itself, has the LLM judge each claim only against the retrieved evidence, validates the citations server-side, and returns a structured report. A React/Vite frontend lives in `frontend/`. Results are persisted to Supabase Postgres.
+VeriFact verifies claims submitted as text, a link, an image (read by a vision model, OCR fallback), or audio (speech-to-text). The v2 pipeline extracts claims with an LLM, searches the web itself, has the LLM judge each claim only against the retrieved evidence, validates the citations server-side, and returns a structured report. A React/Vite frontend lives in `frontend/`. Results are persisted to Supabase Postgres.
 
 ## Stack
 
@@ -34,6 +34,7 @@ export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH
 ./mvnw clean package                # build jar (run `clean` after dependency changes; incremental builds hide errors)
 ./mvnw spring-boot:run              # needs .env values exported (see .env.example)
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=VerificationEvalIT   # live eval (costs money)
+RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=ImageVisionEvalIT    # live image check (costs money)
 
 cd frontend && npm ci && npm run build && npm run lint
 ```
@@ -43,7 +44,7 @@ cd frontend && npm ci && npm run build && npm run lint
 - `verification/` — **the product**: API v2 (`VerificationController`), the pipeline (`VerificationService`: extract claims → search → cited assessment → server-side validation), prompts, DTOs, JSON report persistence (`VerificationStore`).
 - `ai/` — `LlmClient` seam and `SpringAiLlmClient` (plain messages, JSON parsing, usage logging).
 - `controller/` — deprecated v1: `AiController` (`/api/v1/isFakeNews`, `/analyzeImage`, `/analyzeAudio`), `HistoryController` (disabled unless `HISTORY_API_ENABLED`).
-- `service/AiService` — (v1) builds the prompt, calls the model with tools `dateTimeTool` + `webSearchTool`, maps failures to `ApiException`, persists results. `ImageOcrService` decodes/validates images and runs Tesseract. `FactCheckResponseParser` regex-extracts fields from the model's markdown.
+- `service/AiService` — (v1) builds the prompt, calls the model with tools `dateTimeTool` + `webSearchTool`, maps failures to `ApiException`, persists results. `ImageOcrService` decodes/validates images, prepares them for the vision model (scaled, re-encoded JPEG), and runs Tesseract for the fallback. `FactCheckResponseParser` regex-extracts fields from the model's markdown.
 - `search/` — `SearchProvider` interface, `TavilySearchProvider`, `GoogleCustomSearchProvider` (legacy), `SearchConfig` (selection via `SEARCH_PROVIDER`).
 - `tool/` — Spring AI `@Tool`s given to the model: `WebSearchTool`, `DateTimeTool`. `VoiceToTextTool` is a plain service (not a model tool).
 - `fetch/` — `UrlGuard` + `SafeUrlFetcher`: the only way the server fetches user-supplied URLs.

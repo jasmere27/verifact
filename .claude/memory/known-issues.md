@@ -17,7 +17,7 @@ for context; delete them once they stop being useful._
 ## Medium
 8. **DNS rebinding** window between `UrlGuard` resolution and Jsoup's own connect-time resolution. Fix needs an HTTP client with a pluggable resolver or connecting by IP.
 9. Rate limits are in-memory: reset on restart, per instance. Fine for one instance.
-10. Images: OCR only; the model never sees the image (prompt now says so honestly).
+10. Images (vision, ADR-11): the image eval is 6 synthetic screenshots (`ImageVisionEvalIT`); grow it with real ones (👎 feedback on image reports). Defences against text in the image steering the model are prompt-level plus a judgement-word filter on the displayed context. A quick vision failure falls back to OCR (up to 3 LLM calls). Spring AI exposes no image `detail` setting. Image checks can't detect edited or out-of-context images (every image report says so).
 11. `/history` JSON is Spring's `PageImpl` serialization (unstable per Spring Data); revisit when history returns with accounts.
 12. Render `plan: starter` is paid; free tier (512 MB, sleeps after 15 min) is tight for JVM + Tesseract.
 13. Local dev environment: JDK 21 installed at `~/.local/jdks/` (not on PATH by default); no Docker, so the Docker image build is untested locally.

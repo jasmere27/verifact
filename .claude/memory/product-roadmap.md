@@ -25,7 +25,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☐ Search/result caching for repeated claims
 
 ## Phase 3 — Multimodal
-- ☐ Image: vision model reads screenshot directly (claims + visible context), OCR fallback
+- ◐ Image: vision model reads screenshot directly (claims + visible context), OCR fallback — built 2026-09-30 (ADR-11); live check passing; needs deploy
 - ☐ Audio: transcription via the configured AI provider; language support
 - ☐ (Later) reverse image search / metadata signals; video only if clear demand
 

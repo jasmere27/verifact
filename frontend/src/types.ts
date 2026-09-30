@@ -31,6 +31,26 @@ export interface ClaimAssessment {
   contradictingEvidenceIds: string[];
 }
 
+export type ImageKind =
+  | "SOCIAL_MEDIA_POST"
+  | "NEWS_HEADLINE"
+  | "ARTICLE"
+  | "CHART"
+  | "MEME"
+  | "PHOTO"
+  | "DOCUMENT"
+  | "OTHER";
+
+/** What an uploaded image visibly shows, as read by the vision model. Context only, not evidence. */
+export interface ImageContext {
+  kind: ImageKind;
+  /** Account, person or outlet the image presents as its source, as written in it. */
+  shownSource: string | null;
+  /** A date written in the image, as written. */
+  shownDate: string | null;
+  description: string | null;
+}
+
 export interface VerificationResult {
   id: string;
   /** ISO instant. */
@@ -48,6 +68,8 @@ export interface VerificationResult {
   limitations: string[];
   searchProvider: string;
   durationMs: number;
+  /** Only for images read by the vision model; null for everything else and for older reports. */
+  imageContext: ImageContext | null;
 }
 
 /** Pipeline stages reported by the streaming endpoints, in order (some may be skipped). */

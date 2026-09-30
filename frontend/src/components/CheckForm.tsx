@@ -20,7 +20,7 @@ const FILE_RULES = {
     types: ["image/jpeg", "image/png", "image/gif", "image/bmp", "image/tiff"],
     extensions: /\.(jpe?g|png|gif|bmp|tiff?)$/i,
     prompt: "Choose an image",
-    hint: "A screenshot or photo containing a claim. JPEG, PNG, GIF, BMP or TIFF, up to 10 MB.",
+    hint: "A screenshot or photo containing a claim. JPEG, PNG, GIF, BMP or TIFF, up to 10 MB. The image is sent to our AI provider to be read; it isn't stored.",
     typeError: "That file isn't a supported image. Use JPEG, PNG, GIF, BMP or TIFF.",
   },
   audio: {

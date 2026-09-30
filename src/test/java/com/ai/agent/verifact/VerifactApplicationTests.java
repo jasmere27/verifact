@@ -42,7 +42,7 @@ class VerifactApplicationTests {
                 java.util.List.of(new com.ai.agent.verifact.verification.Evidence("E1", "https://a.example/1",
                         "a.example", "Title", "Snippet", null, java.time.Instant.parse("2026-09-30T12:00:01Z"),
                         com.ai.agent.verifact.verification.SourceType.NEWS)),
-                java.util.List.of("Limitation"), "tavily", 42);
+                java.util.List.of("Limitation"), "tavily", 42, null);
 
         verificationStore.save(result);
 
@@ -79,7 +79,7 @@ class VerifactApplicationTests {
                 java.util.UUID.randomUUID(), java.time.Instant.parse("2026-09-30T12:00:00Z"),
                 com.ai.agent.verifact.model.InputType.TEXT, "claim", "claim",
                 com.ai.agent.verifact.verification.OverallVerdict.SUPPORTED, "s", java.util.List.of(),
-                java.util.List.of(), java.util.List.of(), "fake", 1);
+                java.util.List.of(), java.util.List.of(), "fake", 1, null);
         String hash = "a".repeat(64);
         verificationStore.save(result, hash);
 
@@ -97,7 +97,7 @@ class VerifactApplicationTests {
         verificationStore.save(new com.ai.agent.verifact.verification.VerificationResult(
                 id, java.time.Instant.now(), com.ai.agent.verifact.model.InputType.TEXT, "c", "c",
                 com.ai.agent.verifact.verification.OverallVerdict.CONTRADICTED, "s", java.util.List.of(),
-                java.util.List.of(), java.util.List.of(), "fake", 1));
+                java.util.List.of(), java.util.List.of(), "fake", 1, null));
         long before = feedbackRepository.count();
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders

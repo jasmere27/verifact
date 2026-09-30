@@ -1049,6 +1049,22 @@
   color: var(--muted);
 }
 
+/* What the vision model saw in an uploaded image. */
+.image-context {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+.image-context-label {
+  font-weight: 600;
+  color: var(--text);
+}
+
 .manual-copy {
   display: grid;
   gap: 6px;
