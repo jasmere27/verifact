@@ -72,7 +72,7 @@ export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck }
         <p className="muted">
           There&apos;s no report at this link. It may have been mistyped, or the report may no longer be stored.
         </p>
-        <Link href="/" className="button button--primary">
+        <Link href="/check" className="button button--primary">
           Check a claim
         </Link>
       </section>
@@ -94,7 +94,7 @@ export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck }
         >
           Try again
         </button>
-        <Link href="/" className="button button--secondary">
+        <Link href="/check" className="button button--secondary">
           Back to VeriFact
         </Link>
       </div>

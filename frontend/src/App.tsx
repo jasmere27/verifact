@@ -8,6 +8,7 @@ import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
+import Landing from "./landing/Landing";
 import LegalPage from "./legal/LegalPage";
 import ResearchPage from "./research/ResearchPage";
 import NewsPage from "./news/NewsPage";
@@ -52,11 +53,11 @@ function App() {
   const [lastRouteName, setLastRouteName] = useState(route.name);
   if (route.name !== lastRouteName) {
     setLastRouteName(route.name);
-    if (route.name !== "home" && check.status !== "idle") setCheck({ status: "idle" });
-    if (route.name === "home" && reused) setReused(null);
+    if (route.name !== "check" && check.status !== "idle") setCheck({ status: "idle" });
+    if (route.name === "check" && reused) setReused(null);
   }
   useEffect(() => {
-    if (route.name === "home") return;
+    if (route.name === "check") return;
     controllerRef.current?.abort();
     controllerRef.current = null;
   }, [route.name]);
@@ -124,7 +125,7 @@ function App() {
 
   /** "Check again now" on a reused report: run the same text or link again, bypassing reuse. */
   function recheck(input: string) {
-    navigate("/");
+    navigate("/check");
     void runCheck({ mode: "text", text: input }, true);
   }
 
@@ -159,11 +160,8 @@ function App() {
           </Link>
           <div className="header-end">
             <nav className="site-nav" aria-label="Products">
-              <Link
-                href="/"
-                aria-current={["legal", "research", "news", "newsWorkspace"].includes(route.name) ? undefined : "page"}
-              >
-                Fact check
+              <Link href="/check" aria-current={route.name === "check" || route.name === "report" ? "page" : undefined}>
+                VeriFact
               </Link>
               <Link href="/news" aria-current={route.name === "news" || route.name === "newsWorkspace" ? "page" : undefined}>
                 NewsFact
@@ -180,8 +178,10 @@ function App() {
         </div>
       </header>
 
-      <main id="main" className="main">
-        {route.name === "home" && (
+      <main id="main" className={route.name === "landing" ? "main main--wide" : "main"}>
+        {route.name === "landing" && <Landing />}
+
+        {route.name === "check" && (
           <>
             <section className="intro" aria-labelledby="page-heading">
               <h1 id="page-heading">Saw something viral? <span className="headline-accent">Check it first.</span></h1>
@@ -202,30 +202,6 @@ function App() {
                   <span>See the evidence</span>
                 </li>
               </ol>
-              <Link href="/legal" className="legalfact-callout">
-                <span className="legalfact-callout-badge">New</span>
-                <span>
-                  <strong>LegalFact</strong> for legal professionals: turn a client&apos;s description into facts, a
-                  timeline and official sources.
-                </span>
-                <span aria-hidden="true">→</span>
-              </Link>
-              <Link href="/news" className="legalfact-callout">
-                <span className="legalfact-callout-badge">New</span>
-                <span>
-                  <strong>NewsFact</strong> for newsrooms: check every claim and quote in a story, then review it as a
-                  desk.
-                </span>
-                <span aria-hidden="true">→</span>
-              </Link>
-              <Link href="/research" className="legalfact-callout">
-                <span className="legalfact-callout-badge">New</span>
-                <span>
-                  <strong>ResearchFact</strong> for researchers and editors: check that every citation exists, isn&apos;t
-                  retracted, and says what the text claims.
-                </span>
-                <span aria-hidden="true">→</span>
-              </Link>
             </section>
 
             {check.status === "error" && (
@@ -294,10 +270,34 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        <p>
-          <strong>VeriFact</strong> — Verify Truth, Fight the False.
+        <div className="site-footer-inner">
+          <div className="site-footer-brand">
+            <p>
+              <strong>VeriFact</strong>: evidence intelligence.
+            </p>
+            <p>An aid for checking claims against published sources, not a final authority.</p>
+          </div>
+          <nav className="site-footer-links" aria-label="Footer">
+            <div>
+              <p className="site-footer-heading">Products</p>
+              <Link href="/check">VeriFact</Link>
+              <Link href="/news">NewsFact</Link>
+              <Link href="/legal">LegalFact</Link>
+              <Link href="/research">ResearchFact</Link>
+            </div>
+            <div>
+              <p className="site-footer-heading">Learn</p>
+              <a href="/#how">How it works</a>
+              <a href="/#trust">Evidence &amp; trust</a>
+              <a href="/#pricing">Pricing</a>
+              <a href="/#faq">FAQ</a>
+            </div>
+          </nav>
+        </div>
+        <p className="site-footer-legal">
+          LegalFact provides legal information, not legal advice. Results can be wrong: check the linked sources before
+          acting on them.
         </p>
-        <p>An aid for checking claims against published sources — not a final authority.</p>
       </footer>
 
       <div className="visually-hidden" aria-live="polite" aria-atomic="true">
