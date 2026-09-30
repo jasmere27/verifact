@@ -10,7 +10,7 @@ real, maintainable, eventually monetizable product run by one developer.
 
 ## Repository
 - GitHub: `jasmere27/verifact`. Local: `verifactRelive/verifact/` (the parent folder is not a repo).
-- **Branches:** everything is merged into `main` via PR #1 (2026-09-30, merge `cf1a30e`). Work on feature branches and open PRs with `gh`.
+- **Branches:** work on feature branches and open PRs with `gh`; the user merges (merging without review is blocked for Claude). PR #1 (foundation) and PR #2 (LegalFact MVP, merge `1914930`) are merged into `main`.
 - **Toolchain:** JDK 21 (Temurin) at `~/.local/jdks/jdk-21*` — not on PATH; use `export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH` before `./mvnw`. Node 24 available. No Docker. GitHub CLI at `~/.local/bin/gh`, logged in as `jasmere27` and set up as the git credential helper.
 - **Claude Code:** start sessions from the `verifact/` directory so `.claude/agents/` register as agent types. From a parent folder they don't load; fall back to a general-purpose agent told to follow the agent file.
 

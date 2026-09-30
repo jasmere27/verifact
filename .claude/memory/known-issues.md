@@ -31,9 +31,9 @@ for context; delete them once they stop being useful._
 14f. Feedback has no admin view yet — query `verification_feedback` in Supabase. Worth a tiny internal page once volume grows; 👎 reports with comments are the best source of new eval cases.
 14g. Link previews depend on the backend answering within 4 s; on the free plan a sleeping backend means the first share of a link may show the generic preview (crawlers cache it).
 
-14h. **Production OpenAI config (2026-09-30):** the account ran out of credits, then `OPEN_AI_API_KEY` on Render was saved with a trailing newline ("Unexpected char 0x0a … in Authorization value"). Fix in Render. Hardening to do: trim keys at startup; skip the image OCR fallback on quota/auth errors (both fail the same way, ~80 s wasted).
+14h. **Production OpenAI config (2026-09-30):** the account ran out of credits, then `OPEN_AI_API_KEY` on Render was saved with a trailing newline. Resolved by deploy `1914930`: keys are trimmed at startup and the image OCR fallback is skipped on provider/quota/auth errors. The Render value itself still has the newline (harmless now); clean it next time the key is rotated. Keep auto-recharge or a budget alert on OpenAI so credits don't run out silently.
 
-14i. **LegalFact (MVP, branch `legalfact-mvp`):**
+14i. **LegalFact (MVP, deployed unlisted at /legal on 2026-09-30):**
    - Latency 55–76 s per case (two gpt-5-mini calls, ~3–4k completion tokens each, mostly reasoning). Frontend waits 170 s; call 2 skipped after 75 s. Options: lower reasoning effort for these calls; cancel work when the client disconnects (not done: the streamer keeps running).
    - Coverage: only California has curated state sources; for CA cases the 10 source slots can fill with state pages and crowd out federal guidance (FLSA etc.). Consider reserving slots per level. No case law (CourtListener needs a commercial agreement).
    - Guards are deterministic but regex-based: paraphrased advice ("appears to have grounds") can still slip through; keep growing `AdviceLanguageTest` from eval output.

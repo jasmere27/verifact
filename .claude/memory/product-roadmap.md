@@ -25,7 +25,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☐ Search/result caching for repeated claims
 
 ## Phase 3 — Multimodal
-- ◐ Image: vision model reads screenshot directly (claims + visible context), OCR fallback — built 2026-09-30 (ADR-11); live check passing; needs deploy
+- ◐ Image: vision model reads screenshot directly (claims + visible context), OCR fallback — deployed 2026-09-30 (ADR-11)
 - ☐ Audio: transcription via the configured AI provider; language support
 - ☐ (Later) reverse image search / metadata signals; video only if clear demand
 
@@ -35,7 +35,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 
 ## LegalFact vertical (planned 2026-09-30 — see legalfact.md, ADR-12)
 - ☐ L0: design sign-off, 10–15 hypothetical case eval set (vague, contradictory, multi-state, non-US, injection)
-- ◐ L1: Case Intelligence MVP (US, employment tuned; allow-listed official sources; not stored) — built on `legalfact-mvp`, live eval passing; needs review fixes, attorney wording review, deploy
+- ◐ L1: Case Intelligence MVP (US, employment tuned; allow-listed official sources; not stored) — deployed 2026-09-30 **unlisted** at https://verifact-blf.pages.dev/legal (PR #2); needs attorney wording review before linking it publicly
 - ☐ L2: Evidence pack (source metadata, export/print with disclaimer)
 - ☐ L3: Accounts + saved cases (needs Phase 4 auth, retention, delete)
 - ☐ L4: Legal content audit (articles → potentially outdated/unsupported claims)
