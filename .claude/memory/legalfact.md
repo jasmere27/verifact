@@ -1,6 +1,6 @@
 # LegalFact
 
-_Last updated: 2026-09-30. Status: **L1 Case Intelligence MVP deployed, unlisted** (PR #2, 2026-09-30): https://verifact-blf.pages.dev/legal — reachable by URL, not linked from the header until attorney review. Design decisions: ADR-12._
+_Last updated: 2026-09-30. Status: **L1 Case Intelligence MVP deployed and linked** from the VeriFact header and home page (owner decision 2026-09-30, PR #4): https://verifact-blf.pages.dev/legal. Attorney review of the wording is still pending: the not-legal-advice notice stays on the form and every report. Design decisions: ADR-12._
 
 ## Vision
 **LegalFact by VeriFact — AI-powered legal information and evidence intelligence.** A vertical on the

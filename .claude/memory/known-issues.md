@@ -39,7 +39,7 @@ for context; delete them once they stop being useful._
    - Guards are deterministic but regex-based: paraphrased advice ("appears to have grounds") can still slip through; keep growing `AdviceLanguageTest` from eval output.
    - Search queries derived from the case (possibly with names) go to Tavily.
    - Shares the per-IP rate limit with fact checks although a case costs ~2×; add a legal-specific quota before public launch.
-   - Wording not yet reviewed by a licensed attorney (required before any public launch).
+   - Wording not yet reviewed by a licensed attorney. LegalFact is linked publicly since 2026-09-30 (owner's decision); get the review done soon.
 
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
