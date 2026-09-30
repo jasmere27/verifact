@@ -97,6 +97,18 @@
             <version>1.23.2</version>
         </dependency>
         
+        <!-- ResearchFact Student Mode: text extraction from uploaded PDF / DOCX / PPTX (in memory, capped) -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.5.1</version>
+        </dependency>
+
         <!-- Guava: public-suffix-aware registrable domains for counting independent sources -->
         <dependency>
             <groupId>com.google.guava</groupId>

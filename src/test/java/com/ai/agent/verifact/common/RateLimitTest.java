@@ -127,6 +127,22 @@ class RateLimitTest {
                 .as("check quota untouched").isEqualTo(200);
     }
 
+    @Test
+    void draftUploadsAndInsightsCountLikeChecksButRemovingADraftIsALightWrite() throws Exception {
+        RateLimitFilter filter = new RateLimitFilter(1, 100, 100, false, 10, new JsonMapper());
+        String ws = "/api/v2/research/workspaces/6f1c1a8e-2b3c-4d5e-8f90-1a2b3c4d5e6f";
+
+        assertThat(call(filter, ws + "/insights", "1.1.1.1", null).getStatus()).isEqualTo(200);
+        assertThat(call(filter, ws + "/draft", "1.1.1.1", null).getStatus()).isEqualTo(429);
+
+        MockHttpServletRequest delete = new MockHttpServletRequest("DELETE", ws + "/draft");
+        delete.setRequestURI(ws + "/draft");
+        delete.setRemoteAddr("1.1.1.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(delete, response, new MockFilterChain());
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
     private static MockHttpServletResponse call(RateLimitFilter filter, String path, String ip, String forwardedFor)
             throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", path);

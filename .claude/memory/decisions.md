@@ -105,3 +105,9 @@ Only record decisions with real tradeoffs.
 - Workspaces (`research_workspaces`, Flyway V5) reuse the NewsFact pattern via the new shared `common/EditTokens`: UUID link = read, edit token (SHA-256 stored) = write. Saving a source **re-fetches it server-side** by key, so clients can't inject fabricated metadata; a nightly job deletes workspaces 90 days after the last change; explicit delete endpoint.
 - APA references are formatted client-side from index metadata, with a "check against the paper" note.
 - Phases 2 (file upload and analysis: PDF/DOCX/TXT/PPTX) and 3 (gaps, conceptual frameworks) are not built yet.
+- **Addendum 2026-10-01 (phases 2-3):**
+  - Drafts: `DocumentExtractor` (PDFBox 3 / POI 5; type from magic bytes, in memory, 10 MB, 60 pages / 80 slides / 60k chars, 25 s timeout, 2 concurrent, POI zip-bomb limits). Only the extracted text and analysis are stored, in the workspace JSON.
+  - `DraftAnalysisService`: one quick model pass (summary, concepts, uncited claims), all checked against the draft's words; the reference check reuses the existing citation check on a generated excerpt instead of a new pipeline.
+  - `ResearchInsightsService`: coverage counted in code; gaps must cite saved sources; relations need verbatim abstract quotes; framework variables are VERIFIED only if a saved source names them.
+  - Discovery, draft reading and insights use `LlmClient.generateQuick` (reasoning effort low) for latency.
+  - A live run found the citation check VERIFYING a fabricated reference on title overlap alone: title matching now requires the shorter title's words to be present (one miss allowed at 6+ words).

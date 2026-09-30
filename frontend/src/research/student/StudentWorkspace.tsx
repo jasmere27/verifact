@@ -6,6 +6,8 @@ import { navigate } from "../../router";
 import { apa } from "./apa";
 import { addSource, deleteWorkspace, discover, getWorkspace, savedToken, updateWorkspace } from "./api";
 import type { Category, Discovery, Folder, FoundSource, SavedSource, Workspace } from "./types";
+import DraftTab from "./DraftTab";
+import InsightsTab from "./InsightsTab";
 import "./student.css";
 
 const CATEGORIES: { value: Category; label: string; hint: string }[] = [
@@ -42,7 +44,16 @@ const DEFAULT_FOLDER: Partial<Record<Category, Folder>> = {
   FOR_TEXT: "EVIDENCE",
 };
 
-type Tab = "discover" | "sources" | "citations" | "notes";
+type Tab = "discover" | "draft" | "sources" | "insights" | "citations" | "notes";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "discover", label: "Find sources" },
+  { value: "draft", label: "My draft" },
+  { value: "sources", label: "My sources" },
+  { value: "insights", label: "Gaps & framework" },
+  { value: "citations", label: "Citations" },
+  { value: "notes", label: "Notes" },
+];
 
 function SourceCard({
   s,
@@ -150,13 +161,14 @@ export default function StudentWorkspace({ id }: { id: string }) {
   }, []);
 
   const run = useCallback(
-    async (category: Category, label: string) => {
+    async (category: Category, label: string, passage: string | null = null) => {
       if (!ws) return;
       setBusy(label);
       setProblem(null);
       setResult(null);
+      const forText = category === "FOR_TEXT" || category === "SUPPORTING" || category === "CONTRADICTING";
       try {
-        setResult(await discover(ws.topic, category, category === "FOR_TEXT" || category === "SUPPORTING" || category === "CONTRADICTING" ? text : null, ws.country));
+        setResult(await discover(ws.topic, category, forText ? (passage ?? text) : null, ws.country));
       } catch (err) {
         setProblem(errorMessage(err).message);
       } finally {
@@ -248,9 +260,9 @@ export default function StudentWorkspace({ id }: { id: string }) {
             : "Read-only: only the browser that created this workspace can change it."}
         </p>
         <div className="mode-tabs" role="tablist" aria-label="Workspace">
-          {(["discover", "sources", "citations", "notes"] as Tab[]).map((t) => (
-            <button key={t} type="button" role="tab" className="mode-tab" aria-selected={tab === t} onClick={() => setTab(t)}>
-              {t === "discover" ? "Find sources" : t === "sources" ? `My sources (${ws.sources.length})` : t === "citations" ? "Citations" : "Notes"}
+          {TABS.map((t) => (
+            <button key={t.value} type="button" role="tab" className="mode-tab" aria-selected={tab === t.value} onClick={() => setTab(t.value)}>
+              {t.value === "sources" ? `${t.label} (${ws.sources.length})` : t.label}
             </button>
           ))}
         </div>
@@ -369,6 +381,22 @@ export default function StudentWorkspace({ id }: { id: string }) {
           )}
         </section>
       )}
+
+      {tab === "draft" && (
+        <DraftTab
+          ws={ws}
+          token={token}
+          busy={Boolean(busy)}
+          onWorkspace={setWs}
+          onSearch={(category, passage, label) => {
+            setText(passage);
+            setTab("discover");
+            void run(category, label, passage);
+          }}
+        />
+      )}
+
+      {tab === "insights" && <InsightsTab ws={ws} token={token} onWorkspace={setWs} />}
 
       {tab === "sources" && (
         <section className="report-section" aria-label="My sources">

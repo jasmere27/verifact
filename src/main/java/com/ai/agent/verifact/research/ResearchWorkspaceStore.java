@@ -40,7 +40,12 @@ public class ResearchWorkspaceStore {
     static final int MAX_NOTE_CHARS = 1_000;
 
     /** What's stored as JSON (id and timestamps live in columns). */
-    record Data(String topic, String field, String country, List<SavedSource> sources, String notes) {}
+    record Data(String topic, String field, String country, List<SavedSource> sources, String notes, Draft draft, Insights insights) {
+
+        Data withSources(List<SavedSource> s) {
+            return new Data(topic, field, country, s, notes, draft, insights);
+        }
+    }
 
     public record SourceOrder(String key, Folder folder, String studentNote) {}
 
@@ -63,7 +68,7 @@ public class ResearchWorkspaceStore {
     public ResearchWorkspace.View create(String topic, String field, String country) {
         String token = EditTokens.newToken();
         Instant now = clock.instant();
-        Data data = new Data(topic(topic), cap(field, 120), country(country), List.of(), null);
+        Data data = new Data(topic(topic), cap(field, 120), country(country), List.of(), null, null, null);
         UUID id = UUID.randomUUID();
         repository.save(new ResearchWorkspaceRecord(id, now.atOffset(ZoneOffset.UTC), now.plus(RETENTION).atOffset(ZoneOffset.UTC),
                 jsonMapper.writeValueAsString(data), EditTokens.hash(token)));
@@ -96,7 +101,7 @@ public class ResearchWorkspaceStore {
         Data next = new Data(update.topic() == null ? data.topic() : topic(update.topic()),
                 update.field() == null ? data.field() : cap(update.field(), 120),
                 update.country() == null ? data.country() : country(update.country()),
-                kept, update.notes() == null ? data.notes() : cap(update.notes(), MAX_NOTES_CHARS));
+                kept, update.notes() == null ? data.notes() : cap(update.notes(), MAX_NOTES_CHARS), data.draft(), data.insights());
         return save(record, next);
     }
 
@@ -134,7 +139,27 @@ public class ResearchWorkspaceStore {
         Discovery.FoundSource found = ResearchDiscoveryService.toSource(work, why, quote, quote == null ? null : s.stance(), data.country());
         List<SavedSource> sources = new ArrayList<>(data.sources());
         sources.add(new SavedSource(found.key(), s.folder() == null ? Folder.OTHER : s.folder(), found, null, clock.instant()));
-        return save(record, new Data(data.topic(), data.field(), data.country(), sources, data.notes()));
+        return save(record, data.withSources(sources));
+    }
+
+    /** Checks the token before any expensive work (reading a file, calling the model). */
+    public ResearchWorkspace editable(UUID id, String token) {
+        return view(owned(id, token));
+    }
+
+    /** Replaces the draft (null removes it). */
+    @Transactional
+    public ResearchWorkspace setDraft(UUID id, String token, Draft draft) {
+        ResearchWorkspaceRecord record = owned(id, token);
+        Data d = data(record);
+        return save(record, new Data(d.topic(), d.field(), d.country(), d.sources(), d.notes(), draft, d.insights()));
+    }
+
+    @Transactional
+    public ResearchWorkspace setInsights(UUID id, String token, Insights insights) {
+        ResearchWorkspaceRecord record = owned(id, token);
+        Data d = data(record);
+        return save(record, new Data(d.topic(), d.field(), d.country(), d.sources(), d.notes(), d.draft(), insights));
     }
 
     @Transactional
@@ -170,7 +195,7 @@ public class ResearchWorkspaceStore {
 
     private Data data(ResearchWorkspaceRecord r) {
         Data d = jsonMapper.readValue(r.getDataJson(), Data.class);
-        return new Data(d.topic(), d.field(), d.country(), d.sources() == null ? List.of() : d.sources(), d.notes());
+        return new Data(d.topic(), d.field(), d.country(), d.sources() == null ? List.of() : d.sources(), d.notes(), d.draft(), d.insights());
     }
 
     private ResearchWorkspace view(ResearchWorkspaceRecord r) {
@@ -178,7 +203,7 @@ public class ResearchWorkspaceStore {
     }
 
     private static ResearchWorkspace view(UUID id, Instant created, Instant updated, Instant expires, Data d) {
-        return new ResearchWorkspace(id, created, updated, expires, d.topic(), d.field(), d.country(), d.sources(), d.notes());
+        return new ResearchWorkspace(id, created, updated, expires, d.topic(), d.field(), d.country(), d.sources(), d.notes(), d.draft(), d.insights());
     }
 
     static ApiException notFound() {

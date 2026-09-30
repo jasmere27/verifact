@@ -70,4 +70,48 @@ export interface Workspace {
   country: string | null;
   sources: SavedSource[];
   notes: string | null;
+  draft: Draft | null;
+  insights: Insights | null;
+}
+
+export interface Draft {
+  fileName: string | null;
+  kind: "PDF" | "DOCX" | "PPTX" | "TXT";
+  pages: number;
+  chars: number;
+  truncated: boolean;
+  uploadedAt: string;
+  text: string;
+  summary: string | null;
+  concepts: string[];
+  needsCitation: { quote: string; why: string | null }[];
+  referenceEntries: number;
+  inTextCitations: number;
+  citationCheckText: string | null;
+  limitations: string[];
+}
+
+export type GapKind = "POPULATION" | "SETTING" | "METHOD" | "VARIABLE" | "TIME" | "EVIDENCE" | "OTHER";
+export type RelationKind = "SAME_FOCUS" | "SAME_METHOD" | "DIFFERENT_SETTING" | "SUPPORTS" | "CONTRADICTS" | "BACKGROUND";
+export type Role = "INDEPENDENT" | "DEPENDENT" | "MEDIATOR" | "MODERATOR" | "CONTEXT";
+
+export interface Insights {
+  generatedAt: string;
+  basedOnSources: number;
+  coverage: {
+    total: number;
+    local: number;
+    foreign: number;
+    withAbstract: number;
+    oldestYear: number | null;
+    newestYear: number | null;
+    lastFiveYears: number;
+    reviews: number;
+    retracted: number;
+  };
+  gaps: { statement: string; kind: GapKind; basis: string[] }[];
+  relations: { key: string; title: string; kind: RelationKind; how: string; quote: string }[];
+  framework: { name: string; role: Role; sourceKeys: string[]; verification: "VERIFIED" | "UNVERIFIED" }[];
+  limitations: string[];
+  notice: string;
 }

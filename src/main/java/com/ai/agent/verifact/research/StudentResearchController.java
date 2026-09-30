@@ -11,7 +11,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 import java.util.UUID;
 
@@ -26,10 +30,17 @@ public class StudentResearchController {
 
     private final ResearchDiscoveryService discovery;
     private final ResearchWorkspaceStore store;
+    private final DocumentExtractor extractor;
+    private final DraftAnalysisService drafts;
+    private final ResearchInsightsService insights;
 
-    public StudentResearchController(ResearchDiscoveryService discovery, ResearchWorkspaceStore store) {
+    public StudentResearchController(ResearchDiscoveryService discovery, ResearchWorkspaceStore store, DocumentExtractor extractor,
+                                     DraftAnalysisService drafts, ResearchInsightsService insights) {
         this.discovery = discovery;
         this.store = store;
+        this.extractor = extractor;
+        this.drafts = drafts;
+        this.insights = insights;
     }
 
     @PostMapping("/discover")
@@ -69,6 +80,36 @@ public class StudentResearchController {
     public ResearchWorkspace addSource(@PathVariable("id") String id, @RequestHeader(value = "X-Edit-Token", required = false) String token,
                                        @RequestBody(required = false) ResearchWorkspaceStore.NewSource source) {
         return store.addSource(uuid(id), token, source);
+    }
+
+    /** Upload a draft (PDF, DOCX, PPTX, TXT; 10 MB). Only the extracted text and analysis are kept. */
+    @PostMapping("/workspaces/{id}/draft")
+    public ResearchWorkspace uploadDraft(@PathVariable("id") String id, @RequestHeader(value = "X-Edit-Token", required = false) String token,
+                                         @RequestParam("file") MultipartFile file) {
+        UUID uuid = uuid(id);
+        store.editable(uuid, token); // before reading the file or calling the model
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The file couldn't be read. Please try again.");
+        }
+        Draft draft = drafts.analyze(file.getOriginalFilename(), extractor.extract(bytes));
+        return store.setDraft(uuid, token, draft);
+    }
+
+    @DeleteMapping("/workspaces/{id}/draft")
+    public ResearchWorkspace deleteDraft(@PathVariable("id") String id, @RequestHeader(value = "X-Edit-Token", required = false) String token) {
+        return store.setDraft(uuid(id), token, null);
+    }
+
+    /** Gaps, relations and framework variables from the saved sources' abstracts. */
+    @PostMapping("/workspaces/{id}/insights")
+    public ResearchWorkspace generateInsights(@PathVariable("id") String id,
+                                              @RequestHeader(value = "X-Edit-Token", required = false) String token) {
+        UUID uuid = uuid(id);
+        ResearchWorkspace ws = store.editable(uuid, token);
+        return store.setInsights(uuid, token, insights.generate(ws));
     }
 
     @DeleteMapping("/workspaces/{id}")

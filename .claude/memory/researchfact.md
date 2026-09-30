@@ -56,3 +56,15 @@ abstracts (PubMed fallback), no OVERSTATED status.
 - Backend: `ResearchDiscoveryService`, `DiscoveryPrompts`, `ResearchWorkspaceStore`, `StudentResearchController`; OpenAlex search needs `OPENALEX_API_KEY` (anonymous search is paused; $0.001/search, single-work lookups free).
 - Integrity rules: no source from the model; relevance only with a verbatim abstract quote; claim-mode lists a source only when its stance is backed by a quote; unverified leads are labelled "Unverified suggestion"; retracted works flagged "don't cite".
 - Next: Phase 2 upload/analysis, Phase 3 gaps/frameworks; validation experiment E7.
+
+## Student Mode phases 2-3 (2026-10-01)
+- **My draft tab:** upload PDF/DOCX/PPTX/TXT, then:
+  - AI summary (numbers checked against the draft) and key concepts (click to search)
+  - "statements that may need a citation" (verbatim, uncited), each with Find sources / Supporting / Contradicting
+  - "Check my citations" (existing check on the reference list + cited sentences)
+  - highlight-to-search on the draft text
+- **Gaps & framework tab:** coverage counts, possible gaps (AI interpretation + basis sources), framework variables (named in sources / unverified), how each saved study relates (with abstract quote). Needs ≥3 saved sources with abstracts.
+- **Live runs (local, gpt-5-mini, reasoning effort low):**
+  - Draft analysis: 15.7 s; found all 4 planted uncited claims, with no false positives on cited sentences.
+  - Insights: 31 s.
+  - Citation check on the draft excerpt: ~100 s; the fabricated reference is NOT_FOUND after the title-matching fix.

@@ -57,9 +57,9 @@ class ResearchDiscoveryServiceTest {
         }
     }
 
-    static final class FakeLlm implements LlmClient {
-        final List<String> systemPrompts = new ArrayList<>();
-        final List<String> userMessages = new ArrayList<>();
+    static class FakeLlm implements LlmClient {
+        final List<String> systemPrompts = java.util.Collections.synchronizedList(new ArrayList<>());
+        final List<String> userMessages = java.util.Collections.synchronizedList(new ArrayList<>());
         SearchPlan plan = new SearchPlan(List.of("flipped classroom mathematics achievement"), List.of());
         RelevanceReview review = new RelevanceReview(List.of());
 
@@ -194,5 +194,35 @@ class ResearchDiscoveryServiceTest {
 
         assertThat(llm.systemPrompts.get(0)).contains("UNTRUSTED").contains("You never name");
         assertThat(llm.userMessages.get(0)).containsPattern("<<<INPUT_[0-9a-f]{32}>>>");
+    }
+
+    @Test
+    void relevanceIsReviewedInSmallBatchesAndOneFailedBatchOnlyLosesExplanations() {
+        List<DiscoveredWork> works = new ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            works.add(work("10.1/w" + i, "Flipped classroom study number " + i, "Flipped classroom abstract number " + i + " about mathematics."));
+        }
+        index.answer = c -> works;
+        java.util.concurrent.atomic.AtomicInteger reviews = new java.util.concurrent.atomic.AtomicInteger();
+        LlmClient flaky = new FakeLlm() {
+            @Override
+            public <T> T generate(String systemPrompt, String userMessage, Class<T> type) {
+                if (type == RelevanceReview.class && userMessage.contains("study number 8")) {
+                    reviews.incrementAndGet();
+                    throw new IllegalStateException("provider down");
+                }
+                if (type == RelevanceReview.class) {
+                    reviews.incrementAndGet();
+                }
+                return super.generate(systemPrompt, userMessage, type);
+            }
+        };
+        ResearchDiscoveryService s = new ResearchDiscoveryService(flaky, index, Clock.fixed(Instant.parse("2026-09-30T12:00:00Z"), ZoneOffset.UTC));
+
+        Discovery d = s.discover(Category.RRL, TOPIC, null, null);
+
+        assertThat(reviews.get()).isEqualTo(3);
+        assertThat(d.sources()).isNotEmpty();
+        assertThat(d.limitations()).anySatisfy(l -> assertThat(l).contains("Relevance couldn't be checked"));
     }
 }
