@@ -43,7 +43,7 @@ Revenue $0, no validated demand yet. Order of work (P = priority):
 - Deferred until validated demand: accounts/teams, billing, public API, SSO, dashboards, consumer legal routing.
 
 ## NewsFact (ADR-14, newsfact.md)
-- ☑ N1: story check (typed claims, quote verification in code, context issues, conflicts) + review workspace + report (2026-09-30)
+- ☑ N1: story check (typed claims, quote verification in code, context issues, conflicts) + review workspace + report (deployed 2026-09-30)
 - ☐ E6: validate with newsroom editors / fact-check desks before accounts or pricing
 - ☐ Retention + delete for saved reviews; accounts/teams only after demand
 
