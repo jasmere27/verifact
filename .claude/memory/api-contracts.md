@@ -163,3 +163,11 @@ Guarantees: every excerpt is the source's own words (≤300 chars); a verdict ot
 - **Check history (ADR-20, 2026-10-01):** checks (`POST /api/v2/verifications`, `/stream`, `/image/stream`, `/audio/stream`) sent with a valid bearer token add the report to the account's history and, if the request created the report, set `verifications.owner_id`. `DELETE /api/v2/verifications/{id}` also succeeds for that owner (with or without `X-Edit-Token`). Deleting the account deletes the reports it owns (FK cascade).
 - `GET /api/v2/me/checks` → `[{id, checkedAt, overallVerdict, label, yours}]`, newest first, ≤100; `yours` = this account created the report. 401 signed out.
 - `DELETE /api/v2/me/checks/{id}` → 204: removes from the history only (the report stays); unknown ids are ignored; malformed → 404.
+
+## ResearchFact capstone projects (ADR-21, 2026-10-02; signed in, owner only)
+- `GET /api/v2/me/projects` → `[{id, title, updatedAt, deletesAt, sources, questions, percent}]` (≤50, newest first). `POST` `{title, field, country}` → `ResearchProject` (≤20 per account). `POST /import` `{workspaceId, editToken}` copies a quick workspace.
+- `GET|PUT|DELETE /api/v2/me/projects/{id}`; PUT `{title?, field?, country?, notes?, questions?: [{id?, text}] (≤10, ≤400 chars), gaps?: [{id?, statement, sourceKeys}] (≤20, keys must be in the library)}`; lists replace; removing a question unlinks it from the library.
+- Library: `POST /{id}/library` `{key, folder, relevance, relevanceQuote, stance, questionId}` (re-fetched from the index; 404 if not found; ≤300 items) · `PUT /{id}/library` `{key, folder?, status? TO_READ|READ|CITED, note?, keyFindings?, method? (≤3,000 chars), questionIds?}` · `DELETE /{id}/library?key=…` (keys are DOIs with "/", so never in the path).
+- `POST|DELETE /{id}/draft` (multipart `file`, same limits as workspaces), `POST /{id}/insights` (≥3 sources with abstracts). Rate limits: draft/insights count like checks; other writes use the light limiter.
+- `ResearchProject` includes `progress {percent, milestones[{id,label,done,detail}]}` and `nextSteps [{id, priority HIGH|MEDIUM|LOW, title, detail, action, category, questionId, basis}]`, computed by `ProjectAdvisor`.
+

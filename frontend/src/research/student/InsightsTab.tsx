@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { errorMessage } from "../../api";
 import { formatDateTime } from "../../format";
-import { generateInsights } from "./api";
-import type { GapKind, RelationKind, Role, Workspace } from "./types";
+import type { GapKind, Insights, RelationKind, Role } from "./types";
 
 const GAP_LABEL: Record<GapKind, string> = {
   POPULATION: "Population",
@@ -31,19 +30,32 @@ const ROLE_LABEL: Record<Role, string> = {
   CONTEXT: "Context",
 };
 
-export default function InsightsTab({ ws, token, onWorkspace }: { ws: Workspace; token: string | null; onWorkspace: (w: Workspace) => void }) {
+/** Gaps, relations and framework from saved sources; shared by quick workspaces and capstone projects. */
+export default function InsightsTab({
+  insights,
+  sources,
+  country,
+  canEdit,
+  onGenerate,
+}: {
+  insights: Insights | null;
+  /** Saved sources (key and title), to name the sources each insight rests on. */
+  sources: { key: string; title: string }[];
+  country: string | null;
+  canEdit: boolean;
+  onGenerate: () => Promise<void>;
+}) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const insights = ws.insights;
-  const titles = new Map(ws.sources.map((s) => [s.key, s.source.title]));
+  const titles = new Map(sources.map((s) => [s.key, s.title]));
   const title = (key: string) => titles.get(key) ?? key;
 
   async function run() {
-    if (!token) return;
+    if (!canEdit) return;
     setBusy(true);
     setProblem(null);
     try {
-      onWorkspace(await generateInsights(ws.id, token));
+      await onGenerate();
     } catch (err) {
       setProblem(errorMessage(err).message);
     } finally {
@@ -51,12 +63,12 @@ export default function InsightsTab({ ws, token, onWorkspace }: { ws: Workspace;
     }
   }
 
-  const button = token && (
+  const button = canEdit && (
     <div className="row">
-      <button type="button" className="button button--primary button--small" disabled={busy || ws.sources.length < 3} onClick={() => void run()}>
+      <button type="button" className="button button--primary button--small" disabled={busy || sources.length < 3} onClick={() => void run()}>
         {busy ? "Reading your saved sources… (about 30–60 seconds)" : insights ? "Update insights" : "Generate insights"}
       </button>
-      {ws.sources.length < 3 && <span className="muted small">Save at least 3 sources first.</span>}
+      {sources.length < 3 && <span className="muted small">Save at least 3 sources first.</span>}
     </div>
   );
 
@@ -85,7 +97,7 @@ export default function InsightsTab({ ws, token, onWorkspace }: { ws: Workspace;
               <li>
                 <strong>{insights.coverage.total}</strong> saved
               </li>
-              {ws.country && (
+              {country && (
                 <>
                   <li>
                     <strong>{insights.coverage.local}</strong> local

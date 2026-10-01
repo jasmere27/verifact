@@ -234,7 +234,7 @@ function DeleteSection({ email, onDeleted }: { email: string; onDeleted: () => v
     <form className="card account-section account-danger auth-form" onSubmit={(e) => void submit(e)}>
       <h2 className="account-section-title">Delete account</h2>
       <p className="small">
-        This permanently deletes your account, your check history and the VeriFact reports you created while signed in (their
+        This permanently deletes your account, your capstone projects, your check history and the VeriFact reports you created while signed in (their
         links stop working). NewsFact reviews and research workspaces aren&apos;t linked to your account; they&apos;re deleted 90
         days after their last change.
         It can&apos;t be undone.

@@ -1,48 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { errorMessage } from "../../api";
 import Link from "../../components/Link";
 import { formatDateTime, safeHttpUrl } from "../../format";
+import { useAuth } from "../../auth/useAuth";
 import { navigate } from "../../router";
+import { importWorkspace } from "../projects/api";
 import { apa } from "./apa";
-import { addSource, deleteWorkspace, discover, getWorkspace, savedToken, updateWorkspace } from "./api";
-import type { Category, Discovery, Folder, FoundSource, SavedSource, Workspace } from "./types";
+import { addSource, deleteDraft, deleteWorkspace, generateInsights, getWorkspace, savedToken, updateWorkspace, uploadDraft } from "./api";
+import type { Folder, FoundSource, SavedSource, Workspace } from "./types";
 import DraftTab from "./DraftTab";
+import { FOLDERS } from "./categories";
+import FindSources from "./FindSources";
+import type { SearchRequest } from "./FindSources";
 import InsightsTab from "./InsightsTab";
 import "./student.css";
-
-const CATEGORIES: { value: Category; label: string; hint: string }[] = [
-  { value: "RRL", label: "Related literature (RRL)", hint: "Reviews and key works on your topic" },
-  { value: "RRS", label: "Related studies (RRS)", hint: "Empirical studies, last 10 years" },
-  { value: "LOCAL", label: "Local studies", hint: "An author from your country" },
-  { value: "FOREIGN", label: "Foreign studies", hint: "No author from your country" },
-  { value: "THEORIES", label: "Theories & frameworks", hint: "Suggested, then verified in the literature" },
-  { value: "CONCEPTS", label: "Key concepts", hint: "Concepts to define, with sources" },
-  { value: "METHODS", label: "Research methods", hint: "Designs used for questions like yours" },
-  { value: "RECENT", label: "Recent studies", hint: "Last 5 years" },
-];
-
-const FOLDERS: { value: Folder; label: string }[] = [
-  { value: "RRL", label: "RRL" },
-  { value: "RRS", label: "RRS" },
-  { value: "THEORY", label: "Theory / framework" },
-  { value: "CONCEPT", label: "Concept" },
-  { value: "METHOD", label: "Method" },
-  { value: "EVIDENCE", label: "Supporting evidence" },
-  { value: "OTHER", label: "Other" },
-];
-
-const DEFAULT_FOLDER: Partial<Record<Category, Folder>> = {
-  RRL: "RRL",
-  RRS: "RRS",
-  LOCAL: "RRS",
-  FOREIGN: "RRS",
-  THEORIES: "THEORY",
-  CONCEPTS: "CONCEPT",
-  METHODS: "METHOD",
-  RECENT: "RRS",
-  SUPPORTING: "EVIDENCE",
-  FOR_TEXT: "EVIDENCE",
-};
 
 type Tab = "discover" | "draft" | "sources" | "insights" | "citations" | "notes";
 
@@ -55,96 +26,17 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "notes", label: "Notes" },
 ];
 
-function SourceCard({
-  s,
-  saved,
-  canSave,
-  defaultFolder,
-  onSave,
-}: {
-  s: FoundSource;
-  saved: boolean;
-  canSave: boolean;
-  defaultFolder: Folder;
-  onSave: (folder: Folder) => void;
-}) {
-  const [folder, setFolder] = useState<Folder>(defaultFolder);
-  const href = s.url ? safeHttpUrl(s.url) : null;
-  return (
-    <li className="st-card">
-      <div className="st-card-badges">
-        <span className={`st-badge ${s.verification === "VERIFIED" ? "st-badge--ok" : "st-badge--warn"}`}>
-          {s.verification === "VERIFIED" ? "Verified in OpenAlex" : "Unverified"}
-        </span>
-        {s.local && <span className="st-badge">Local</span>}
-        {!s.local && s.countries.length > 0 && <span className="st-badge st-badge--muted">{s.countries.join(", ")}</span>}
-        {s.type && <span className="st-badge st-badge--muted">{s.type.replace(/-/g, " ")}</span>}
-        {s.stance && <span className={`st-badge ${s.stance === "SUPPORTS" ? "st-badge--ok" : "st-badge--bad"}`}>{s.stance === "SUPPORTS" ? "Supports" : "Contradicts"}</span>}
-        {s.retracted && <span className="st-badge st-badge--bad">Retracted: don&apos;t cite</span>}
-      </div>
-      <p className="st-title">
-        {href ? (
-          <a href={href} target="_blank" rel="noopener noreferrer nofollow">
-            {s.title}
-          </a>
-        ) : (
-          s.title
-        )}
-      </p>
-      <p className="muted small">
-        {[s.authors.join(", "), s.year, s.venue].filter(Boolean).join(" · ")}
-        {s.citedByCount != null ? ` · cited ${s.citedByCount.toLocaleString()}×` : ""}
-        {s.doi ? ` · doi:${s.doi}` : ""}
-      </p>
-      {s.relevance && s.relevanceQuote ? (
-        <div className="st-why">
-          <p>
-            <span className="st-why-label">Why it&apos;s relevant (AI reading):</span> {s.relevance}
-          </p>
-          <p className="st-quote">Abstract: “{s.relevanceQuote}”</p>
-        </div>
-      ) : (
-        <p className="muted small">{s.hasAbstract ? "Relevance not confirmed from the abstract; read it to judge." : "No abstract available; read the paper to judge relevance."}</p>
-      )}
-      {canSave && (
-        <div className="st-save">
-          {saved ? (
-            <span className="small">Saved ✓</span>
-          ) : (
-            <>
-              <label className="visually-hidden" htmlFor={`f-${s.key}`}>
-                Save to
-              </label>
-              <select id={`f-${s.key}`} value={folder} onChange={(e) => setFolder(e.target.value as Folder)} className="st-select">
-                {FOLDERS.map((f) => (
-                  <option key={f.value} value={f.value}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="button button--secondary button--small" onClick={() => onSave(folder)}>
-                Save
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </li>
-  );
-}
-
 export default function StudentWorkspace({ id }: { id: string }) {
   const [ws, setWs] = useState<Workspace | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("discover");
-  const [result, setResult] = useState<Discovery | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [text, setText] = useState("");
+  const [request, setRequest] = useState<SearchRequest | null>(null);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("");
   const [copied, setCopied] = useState(false);
   const token = savedToken(id);
+  const { session, enabled } = useAuth();
+  const [moving, setMoving] = useState(false);
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -159,24 +51,6 @@ export default function StudentWorkspace({ id }: { id: string }) {
   useEffect(() => () => {
     if (noteTimer.current) clearTimeout(noteTimer.current);
   }, []);
-
-  const run = useCallback(
-    async (category: Category, label: string, passage: string | null = null) => {
-      if (!ws) return;
-      setBusy(label);
-      setProblem(null);
-      setResult(null);
-      const forText = category === "FOR_TEXT" || category === "SUPPORTING" || category === "CONTRADICTING";
-      try {
-        setResult(await discover(ws.topic, category, forText ? (passage ?? text) : null, ws.country));
-      } catch (err) {
-        setProblem(errorMessage(err).message);
-      } finally {
-        setBusy(null);
-      }
-    },
-    [ws, text],
-  );
 
   if (error) {
     return (
@@ -233,6 +107,19 @@ export default function StudentWorkspace({ id }: { id: string }) {
     }, 2500);
   }
 
+  /** Copies this workspace into a capstone project on the signed-in account. */
+  async function moveToAccount() {
+    if (!token) return;
+    setMoving(true);
+    try {
+      const project = await importWorkspace(id, token);
+      navigate(`/research/p/${project.id}`);
+    } catch (err) {
+      setStatus(errorMessage(err).message);
+      setMoving(false);
+    }
+  }
+
   async function remove() {
     if (!token || !window.confirm("Delete this workspace and everything in it? This can't be undone.")) return;
     try {
@@ -259,6 +146,20 @@ export default function StudentWorkspace({ id }: { id: string }) {
             ? `Saved on our server. Deleted automatically on ${formatDateTime(ws.expiresAt)} unless you keep working on it (90 days after your last change). Only this browser can edit it; anyone with the link can view it.`
             : "Read-only: only the browser that created this workspace can change it."}
         </p>
+        {editable && enabled && (
+          <p className="small st-move">
+            {session ? (
+              <button type="button" className="button button--primary button--small" disabled={moving} onClick={() => void moveToAccount()}>
+                {moving ? "Moving…" : "Make it a capstone project on my account"}
+              </button>
+            ) : (
+              <>
+                <Link href={`/signin?next=${encodeURIComponent(`/research/w/${id}`)}`}>Sign in</Link> to turn this into a capstone
+                project: research questions, an evidence library, progress and next steps, on any device.
+              </>
+            )}
+          </p>
+        )}
         <div className="mode-tabs" role="tablist" aria-label="Workspace">
           {TABS.map((t) => (
             <button key={t.value} type="button" role="tab" className="mode-tab" aria-selected={tab === t.value} onClick={() => setTab(t.value)}>
@@ -272,131 +173,39 @@ export default function StudentWorkspace({ id }: { id: string }) {
       </header>
 
       {tab === "discover" && (
-        <section className="report-section" aria-label="Find sources">
-          <div className="st-grid">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                className="st-action"
-                disabled={Boolean(busy) || ((c.value === "LOCAL" || c.value === "FOREIGN") && !ws.country)}
-                onClick={() => void run(c.value, c.label)}
-              >
-                <strong>{c.label}</strong>
-                <span>{c.hint}</span>
-              </button>
-            ))}
-          </div>
-          <div className="card st-text">
-            <label htmlFor="st-text" className="st-why-label">
-              A paragraph or claim from your paper
-            </label>
-            <textarea
-              id="st-text"
-              className="text-input"
-              rows={4}
-              maxLength={3000}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. Flipped classrooms improve students' mathematics achievement."
-            />
-            <div className="row">
-              {(
-                [
-                  ["FOR_TEXT", "Find sources for this"],
-                  ["SUPPORTING", "Studies that support it"],
-                  ["CONTRADICTING", "Studies that contradict it"],
-                ] as [Category, string][]
-              ).map(([cat, label]) => (
-                <button
-                  key={cat}
-                  type="button"
-                  className="button button--secondary button--small"
-                  disabled={Boolean(busy) || text.trim().length < 15}
-                  onClick={() => void run(cat, label)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="muted small">
-              To check whether a citation you already have supports a statement, use{" "}
-              <Link href="/research">the citation check</Link>.
-            </p>
-          </div>
-
-          {busy && (
-            <div className="card state-card" role="status">
-              <span className="spinner" aria-hidden="true" />
-              <p>Searching OpenAlex: {busy}… (usually 15–40 seconds)</p>
-            </div>
-          )}
-          {problem && (
-            <div className="alert" role="alert">
-              <p>{problem}</p>
-            </div>
-          )}
-          {result && !busy && (
-            <div className="st-results">
-              <p className="muted small">
-                Searched: {result.searches.map((s) => `“${s}”`).join(", ")} · {result.sources.length} source
-                {result.sources.length === 1 ? "" : "s"}
-              </p>
-              {result.leads.length > 0 && (
-                <ul className="st-leads">
-                  {result.leads.map((l) => (
-                    <li key={l.name}>
-                      <span className={`st-badge ${l.verification === "VERIFIED" ? "st-badge--ok" : "st-badge--warn"}`}>
-                        {l.verification === "VERIFIED" ? "Found in the literature" : "Unverified suggestion"}
-                      </span>{" "}
-                      <strong>{l.name}</strong>
-                      {l.verification === "VERIFIED" && (
-                        <span className="muted small"> · named by {l.sourceKeys.length} source{l.sourceKeys.length === 1 ? "" : "s"} below</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <ul className="st-list">
-                {result.sources.map((s) => (
-                  <SourceCard
-                    key={s.key}
-                    s={s}
-                    saved={savedKeys.has(s.key)}
-                    canSave={editable}
-                    defaultFolder={DEFAULT_FOLDER[result.category] ?? "OTHER"}
-                    onSave={(f) => void save(s, f)}
-                  />
-                ))}
-              </ul>
-              {result.limitations.length > 0 && (
-                <ul className="limitations">
-                  {result.limitations.map((l) => (
-                    <li key={l}>{l}</li>
-                  ))}
-                </ul>
-              )}
-              <p className="research-disclaimer">{result.notice}</p>
-            </div>
-          )}
-        </section>
+        <FindSources
+          topic={ws.topic}
+          country={ws.country}
+          savedKeys={savedKeys}
+          canSave={editable}
+          request={request}
+          onSave={(src, folder) => void save(src, folder)}
+        />
       )}
 
       {tab === "draft" && (
         <DraftTab
-          ws={ws}
-          token={token}
-          busy={Boolean(busy)}
-          onWorkspace={setWs}
+          draft={ws.draft}
+          canEdit={editable}
+          busy={false}
+          onUpload={async (file) => setWs(await uploadDraft(id, token!, file))}
+          onRemove={async () => setWs(await deleteDraft(id, token!))}
           onSearch={(category, passage, label) => {
-            setText(passage);
             setTab("discover");
-            void run(category, label, passage);
+            setRequest({ category, label, text: passage, nonce: Date.now() });
           }}
         />
       )}
 
-      {tab === "insights" && <InsightsTab ws={ws} token={token} onWorkspace={setWs} />}
+      {tab === "insights" && (
+        <InsightsTab
+          insights={ws.insights}
+          sources={ws.sources.map((s) => ({ key: s.key, title: s.source.title }))}
+          country={ws.country}
+          canEdit={editable}
+          onGenerate={async () => setWs(await generateInsights(id, token!))}
+        />
+      )}
 
       {tab === "sources" && (
         <section className="report-section" aria-label="My sources">

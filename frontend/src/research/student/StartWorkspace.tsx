@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { errorMessage } from "../../api";
 import { navigate } from "../../router";
+import { useAuth } from "../../auth/useAuth";
+import Link from "../../components/Link";
+import { createProject } from "../projects/api";
 import { createWorkspace } from "./api";
 
-/** The ResearchFact page's main action: topic → a saved Student Research Mode workspace. */
+/**
+ * The ResearchFact page's main action: topic → signed in, a capstone project on the account (ADR-21); signed out,
+ * a quick workspace kept in this browser.
+ */
 export default function StartWorkspace() {
+  const { session, enabled } = useAuth();
+  const signedIn = Boolean(session);
   const [topic, setTopic] = useState("");
   const [field, setField] = useState("");
   const [country, setCountry] = useState("PH");
@@ -19,8 +27,13 @@ export default function StartWorkspace() {
     setBusy(true);
     setProblem(null);
     try {
-      const w = await createWorkspace(topic.trim(), field.trim(), country || null);
-      navigate(`/research/w/${w.id}`);
+      if (signedIn) {
+        const p = await createProject(topic.trim(), field.trim(), country || null);
+        navigate(`/research/p/${p.id}`);
+      } else {
+        const w = await createWorkspace(topic.trim(), field.trim(), country || null);
+        navigate(`/research/w/${w.id}`);
+      }
     } catch (err) {
       setProblem(errorMessage(err).message);
       setBusy(false);
@@ -78,9 +91,22 @@ export default function StartWorkspace() {
         </p>
       )}
       <button type="submit" className="button button--primary rf-start-button" disabled={busy}>
-        {busy ? "Creating your workspace…" : "Start my research workspace"}
+        {busy ? "Creating…" : signedIn ? "Start my capstone project" : "Start my research workspace"}
       </button>
-      <p className="rf-start-note">Free · no sign-up · deleted after 90 days without changes, or whenever you choose</p>
+      {signedIn ? (
+        <p className="rf-start-note">Saved to your account · research questions, evidence library, progress and next steps</p>
+      ) : (
+        <p className="rf-start-note">
+          Free · no sign-up · kept 90 days in this browser.
+          {enabled && (
+            <>
+              {" "}
+              <Link href="/signin?next=/research">Sign in</Link> to make it a capstone project you can open on any device for a whole
+              school year.
+            </>
+          )}
+        </p>
+      )}
     </form>
   );
 }

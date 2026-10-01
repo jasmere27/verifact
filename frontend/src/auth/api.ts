@@ -48,7 +48,7 @@ async function token(): Promise<string> {
 }
 
 /** Calls the API as the signed-in user; on a 401 refreshes the session once and retries. */
-async function authed(path: string, init: RequestInit = {}): Promise<Response> {
+export async function authed(path: string, init: RequestInit = {}): Promise<Response> {
   const send = (accessToken: string) =>
     fetch(`${API_BASE_URL}${path}`, {
       ...init,

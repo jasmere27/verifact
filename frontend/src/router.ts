@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact), `/news`, `/privacy`, `/terms`, `/install`, and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
+/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact, with `/research/w/{id}` workspaces and `/research/p/{id}` capstone projects), `/news`, `/privacy`, `/terms`, `/install`, and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
 export type Route =
   | { name: "landing" }
   | { name: "check" }
@@ -8,6 +8,7 @@ export type Route =
   | { name: "legal" }
   | { name: "research" }
   | { name: "researchWorkspace"; id: string }
+  | { name: "researchProject"; id: string }
   | { name: "news" }
   | { name: "newsWorkspace"; id: string }
   | { name: "signIn" }
@@ -31,6 +32,7 @@ const AUTH_ROUTES: Record<string, Route["name"]> = {
 };
 
 const RESEARCH_WORKSPACE_PATH = /^\/research\/w\/([0-9a-fA-F-]{36})\/?$/;
+const RESEARCH_PROJECT_PATH = /^\/research\/p\/([0-9a-fA-F-]{36})\/?$/;
 const NEWS_PATH = /^\/news\/([0-9a-fA-F-]{36})\/?$/;
 const REPORT_PATH = /^\/r\/([A-Za-z0-9-]{1,64})\/?$/;
 
@@ -44,6 +46,8 @@ export function parseRoute(pathname: string): Route {
   if (pathname === "/terms" || pathname === "/terms/") return { name: "terms" };
   const workspace = RESEARCH_WORKSPACE_PATH.exec(pathname);
   if (workspace) return { name: "researchWorkspace", id: workspace[1] };
+  const project = RESEARCH_PROJECT_PATH.exec(pathname);
+  if (project) return { name: "researchProject", id: project[1] };
   if (pathname === "/news" || pathname === "/news/") return { name: "news" };
   const news = NEWS_PATH.exec(pathname);
   if (news) return { name: "newsWorkspace", id: news[1] };

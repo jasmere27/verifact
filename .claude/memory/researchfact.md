@@ -71,3 +71,10 @@ abstracts (PubMed fallback), no OVERSTATED status.
 - Production smoke test 2026-10-01: discovery 142 s → 44 s after PR #10; draft upload 22 s; insights 12 s; auth/delete OK.
   - The low-effort planner once returned "please resubmit the topic outside the protected markers" as a query, and three off-topic papers were shown.
   - Fixed: queries must share a distinctive word with the topic; results in non-name modes must too (whatever the model said); the plan prompt now says the delimited text is the topic.
+
+## Capstone projects (ADR-21, Phase 1, 2026-10-02)
+- Signed-in students: "Start my capstone project" on `/research` → `/research/p/{id}`; "My capstone projects" list; quick workspaces get "Make it a capstone project on my account".
+- Tabs: Next steps (progress checklist + "What should I do next?") · Questions (per-RQ coverage, "Find studies for RQn") · Library (filters by RQ/section/status/local/foreign/retracted; key findings, method, how you'll use it, linked RQs) · Find sources (shared `FindSources`, save with an RQ link) · Gaps & framework (own gap statements + existing insights) · My draft (shared `DraftTab`) · Citations · Notes.
+- Shared frontend pieces: `research/student/FindSources.tsx`, `categories.ts`, prop-driven `DraftTab`/`InsightsTab`.
+- Next phases: see ADR-21.
+

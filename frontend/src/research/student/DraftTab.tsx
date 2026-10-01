@@ -4,8 +4,7 @@ import { formatDateTime, plural } from "../../format";
 import { checkResearchStream } from "../api";
 import ResearchReport from "../ResearchReport";
 import type { ResearchCheck } from "../types";
-import { deleteDraft, uploadDraft } from "./api";
-import type { Category, Workspace } from "./types";
+import type { Category, Draft } from "./types";
 
 const ACCEPT = ".pdf,.docx,.pptx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain";
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -28,17 +27,20 @@ function SearchButtons({ text, onSearch, disabled }: { text: string; onSearch: S
   );
 }
 
+/** The uploaded draft and its analysis; shared by quick workspaces and capstone projects (they supply the upload/remove calls). */
 export default function DraftTab({
-  ws,
-  token,
+  draft,
+  canEdit,
   busy,
-  onWorkspace,
+  onUpload,
+  onRemove,
   onSearch,
 }: {
-  ws: Workspace;
-  token: string | null;
+  draft: Draft | null;
+  canEdit: boolean;
   busy: boolean;
-  onWorkspace: (w: Workspace) => void;
+  onUpload: (file: File) => Promise<void>;
+  onRemove: () => Promise<void>;
   onSearch: Search;
 }) {
   const [uploading, setUploading] = useState(false);
@@ -49,10 +51,9 @@ export default function DraftTab({
   });
   const input = useRef<HTMLInputElement>(null);
   const textBox = useRef<HTMLDivElement>(null);
-  const draft = ws.draft;
 
   async function upload(file: File | undefined) {
-    if (!file || !token) return;
+    if (!file || !canEdit) return;
     if (file.size > MAX_BYTES) {
       setProblem("The file is larger than 10 MB.");
       return;
@@ -61,7 +62,7 @@ export default function DraftTab({
     setProblem(null);
     setCheck({ status: "idle" });
     try {
-      onWorkspace(await uploadDraft(ws.id, token, file));
+      await onUpload(file);
     } catch (err) {
       setProblem(errorMessage(err).message);
     } finally {
@@ -71,9 +72,9 @@ export default function DraftTab({
   }
 
   async function remove() {
-    if (!token || !window.confirm("Remove the draft's text and analysis from this workspace?")) return;
+    if (!canEdit || !window.confirm("Remove the draft's text and analysis?")) return;
     try {
-      onWorkspace(await deleteDraft(ws.id, token));
+      await onRemove();
       setCheck({ status: "idle" });
     } catch (err) {
       setProblem(errorMessage(err).message);
@@ -97,7 +98,7 @@ export default function DraftTab({
     setSelection(text.length >= 15 ? text.slice(0, 3000) : "");
   }
 
-  const picker = token && (
+  const picker = canEdit && (
     <div className="card st-upload">
       <label htmlFor="st-file" className="st-why-label">
         {draft ? "Replace with a newer version" : "Upload your draft: PDF, Word (.docx), PowerPoint (.pptx) or .txt, up to 10 MB"}
@@ -155,7 +156,7 @@ export default function DraftTab({
             uploaded {formatDateTime(draft.uploadedAt)}
           </span>
         </p>
-        {token && (
+        {canEdit && (
           <button type="button" className="text-button" onClick={() => void remove()}>
             Remove draft
           </button>

@@ -3,7 +3,6 @@ package com.ai.agent.verifact.research;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.common.EditTokens;
 import com.ai.agent.verifact.common.Retention;
-import com.ai.agent.verifact.evidence.Grounding;
 import com.ai.agent.verifact.research.ResearchWorkspace.Folder;
 import com.ai.agent.verifact.research.ResearchWorkspace.SavedSource;
 import org.slf4j.Logger;
@@ -55,13 +54,13 @@ public class ResearchWorkspaceStore {
     public record NewSource(String key, Folder folder, String relevance, String relevanceQuote, Discovery.Stance stance) {}
 
     private final ResearchWorkspaceRepository repository;
-    private final ScholarlyIndex index;
+    private final SourceVerifier verifier;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
-    public ResearchWorkspaceStore(ResearchWorkspaceRepository repository, ScholarlyIndex index, JsonMapper jsonMapper, Clock clock) {
+    public ResearchWorkspaceStore(ResearchWorkspaceRepository repository, SourceVerifier verifier, JsonMapper jsonMapper, Clock clock) {
         this.repository = repository;
-        this.index = index;
+        this.verifier = verifier;
         this.jsonMapper = jsonMapper;
         this.clock = clock;
     }
@@ -123,21 +122,7 @@ public class ResearchWorkspaceStore {
         if (data.sources().size() >= MAX_SOURCES) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "This workspace already has " + MAX_SOURCES + " sources.");
         }
-        DiscoveredWork work;
-        try {
-            work = index.work(s.key().trim()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
-                    "That source couldn't be found in OpenAlex, so it can't be saved as verified."));
-        } catch (ScholarlyIndex.ScholarlyIndexUnavailableException e) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "The research database is unavailable; try saving again shortly.", e);
-        }
-        String abs = work.work().abstractText();
-        String quote = abs == null ? null : ResearchCheckService.verbatim(s.relevanceQuote(), abs, data.topic());
-        String why = quote == null ? null : cap(s.relevance(), 300);
-        if (why != null && !Grounding.supported(why, Grounding.material(data.topic(), quote, work.work().title()))) {
-            why = null;
-            quote = null;
-        }
-        Discovery.FoundSource found = ResearchDiscoveryService.toSource(work, why, quote, quote == null ? null : s.stance(), data.country());
+        Discovery.FoundSource found = verifier.verify(s.key(), s.relevance(), s.relevanceQuote(), s.stance(), data.topic(), data.country());
         List<SavedSource> sources = new ArrayList<>(data.sources());
         sources.add(new SavedSource(found.key(), s.folder() == null ? Folder.OTHER : s.folder(), found, null, clock.instant()));
         return save(record, data.withSources(sources));
@@ -211,7 +196,7 @@ public class ResearchWorkspaceStore {
         return new ApiException(HttpStatus.NOT_FOUND, "That workspace doesn't exist, was deleted, or expired after 90 days without changes.");
     }
 
-    private static String topic(String t) {
+    static String topic(String t) {
         String s = cap(t, 300);
         if (s == null || s.length() < 5) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Enter your research topic or title.");
@@ -219,7 +204,7 @@ public class ResearchWorkspaceStore {
         return s;
     }
 
-    private static String country(String c) {
+    static String country(String c) {
         if (c == null || c.isBlank()) {
             return null;
         }
@@ -230,7 +215,7 @@ public class ResearchWorkspaceStore {
         return v;
     }
 
-    private static String cap(String s, int max) {
+    static String cap(String s, int max) {
         if (s == null || s.isBlank()) {
             return null;
         }

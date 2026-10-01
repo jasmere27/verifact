@@ -9,7 +9,7 @@ const PRODUCTS: { href: string; label: string; hint: string; current: Route["nam
   { href: "/check", label: "VeriFact", hint: "Check a post, link or screenshot", current: ["check", "report"] },
   { href: "/news", label: "NewsFact", hint: "Review a news story claim by claim", current: ["news", "newsWorkspace"] },
   { href: "/legal", label: "LegalFact", hint: "Find official legal sources", current: ["legal"] },
-  { href: "/research", label: "ResearchFact", hint: "Check citations and research a topic", current: ["research", "researchWorkspace"] },
+  { href: "/research", label: "ResearchFact", hint: "Check citations and research a topic", current: ["research", "researchWorkspace", "researchProject"] },
 ];
 
 /**

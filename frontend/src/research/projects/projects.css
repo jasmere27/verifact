@@ -1,0 +1,329 @@
+/* ---------- ResearchFact capstone projects (ADR-21) ---------- */
+
+/* Many tabs: scroll sideways on phones instead of overflowing. */
+.pj-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.pj-tabs .mode-tab {
+  flex: none;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.88rem;
+}
+
+.pj-empty {
+  padding: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+
+/* Progress */
+.pj-progress {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.pj-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.pj-progress-head strong {
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.pj-bar {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.pj-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-grad);
+  transition: width 300ms ease;
+}
+
+.pj-bar--thin {
+  height: 6px;
+}
+
+.pj-milestones {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.pj-milestones li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  color: var(--text-2);
+}
+
+.pj-tick {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line-strong);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--on-accent);
+}
+
+.pj-milestones li.is-done .pj-tick {
+  background: var(--v-supported);
+  border-color: var(--v-supported);
+}
+
+/* Next steps */
+.pj-overview h2 {
+  margin-top: 8px;
+}
+
+.pj-steps {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.pj-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.pj-step--high {
+  border-left-color: var(--v-contradicted);
+}
+
+.pj-step--medium {
+  border-left-color: var(--v-misleading);
+}
+
+.pj-step--low {
+  border-left-color: var(--accent-2);
+}
+
+.pj-step-body {
+  flex: 1 1 260px;
+  display: grid;
+  gap: 2px;
+}
+
+.pj-step-priority {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pj-step-title {
+  font-weight: 600;
+}
+
+.pj-step-detail {
+  font-size: 0.9rem;
+  color: var(--text-2);
+}
+
+/* Questions and gaps */
+.pj-questions,
+.pj-gaps {
+  padding-left: 1.4em;
+  display: grid;
+  gap: 14px;
+}
+
+.pj-question,
+.pj-gap {
+  display: grid;
+  gap: 8px;
+}
+
+.pj-question-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.pj-coverage {
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--v-supported) 40%, var(--line));
+  border-radius: 999px;
+  background: none;
+  color: var(--v-supported);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.pj-coverage.is-low {
+  border-color: color-mix(in srgb, var(--v-misleading) 45%, var(--line));
+  color: var(--v-misleading);
+}
+
+.pj-gap-sources summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-2);
+}
+
+.pj-gap-sources {
+  display: grid;
+  gap: 4px;
+}
+
+/* Library */
+.pj-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pj-item {
+  display: grid;
+  gap: 8px;
+}
+
+.pj-item-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.pj-item-controls label,
+.pj-field {
+  display: grid;
+  gap: 4px;
+}
+
+.pj-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pj-links legend {
+  float: left;
+  margin-right: 6px;
+}
+
+.pj-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.pj-check--block {
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+
+.pj-notes {
+  display: grid;
+  gap: 8px;
+}
+
+.pj-notes summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.pj-notes[open] {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+/* Project list on /research */
+.pj-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pj-list h2 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.3rem;
+}
+
+.pj-list ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.pj-list-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.pj-list-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.pj-list-title {
+  font-weight: 600;
+}
+
+.st-move {
+  margin-top: 4px;
+}
+
+/* Short fields: the app's default text box is sized for long pastes. */
+.pj-question textarea,
+.pj-gap textarea,
+.pj-field textarea {
+  min-height: 0;
+  resize: vertical;
+}
