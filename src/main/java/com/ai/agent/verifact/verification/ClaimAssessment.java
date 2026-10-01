@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.core.assess.Verdict;
 import java.util.List;
 
 /**

@@ -1,7 +1,8 @@
 package com.ai.agent.verifact.verification;
 
-import com.ai.agent.verifact.evidence.Evidence;
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.core.assess.Verdict;
+import com.ai.agent.verifact.evidence.Evidence;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;

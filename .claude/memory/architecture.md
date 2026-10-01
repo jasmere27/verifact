@@ -39,6 +39,20 @@ input ─► text | link → SafeUrlFetcher (UrlGuard every hop) | audio → Voi
 - Provider/model: Spring AI OpenAI starter (`SPRING_AI_OPENAI_CHAT_MODEL`), `max-retries=1`, `timeout=60s`.
 - Prompts: `verification/VerificationPrompts`.
 
+## Evidence Intelligence Core (`core/`, ADR-17)
+Shared, product-neutral, stateless helpers; products depend on it, never the reverse (`CoreBoundaryTest`).
+```
+product service (prompt + model output schema of its own)
+   ─► core.claims.ClaimGrounder(candidates, input, ClaimProfile)   claims must quote the input
+   ─► evidence.EvidenceRetriever                                    (already shared)
+   ─► core.provenance.QuoteVerifier                                 quoted words found word for word
+   ─► core.assess.EvidenceAssessor(claim, ReviewCandidate, sources) verbatim citations, verdict gate,
+                                                                    flag gate, conflict, grounded explanation
+   ─► product result (own records, storage, wording)
+```
+Built so far (steps 0-4): provenance, claims, assess; NewsFact migrated. Planned: source passages + page dates
+(`sources/`), timeline, source comparison, report model; VeriFact Investigation workspace on the core.
+
 ## Legacy v1 (deprecated)
 `AiService` → one PromptTemplate, the model calls `WebSearchTool`/`DateTimeTool` itself, returns markdown; `FactCheckResponseParser` regex-extracts fields into `fact_check_results`.
 

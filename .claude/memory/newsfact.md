@@ -25,6 +25,8 @@ sources → editor decisions (confirmed / needs work / disputed + notes) → rep
   chapters; earliest upload among relevant results is marked (not proof of original). No downloads, no
   transcripts (YouTube only lets owners download captions); key frames = YouTube's automatic thumbnails.
   Stored in `NewsCheck.videos` (null for older checks). No key (`YOUTUBE_API_KEY` blank) = section says it's off.
+- Shared core (ADR-17): claim grounding, quote check, citation/verdict rules live in `core/`; NewsFact keeps its prompts,
+  output schemas, review workflow, storage and videos. `NewsCheckGoldenTest` pins its behaviour.
 - Workspaces: `news_reviews` (V4): check + review JSON, SHA-256 of a random 256-bit edit token (shown once, kept in
   the creator's browser). Read by id (unguessable UUID); review changes need `X-Edit-Token`. Saving failures are
   errors (unlike VeriFact's best-effort report saving).

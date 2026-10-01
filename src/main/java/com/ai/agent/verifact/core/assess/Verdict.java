@@ -1,4 +1,4 @@
-package com.ai.agent.verifact.verification;
+package com.ai.agent.verifact.core.assess;
 
 import java.util.Locale;
 
