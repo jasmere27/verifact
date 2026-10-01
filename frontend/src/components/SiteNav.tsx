@@ -3,6 +3,7 @@ import type { Route } from "../router";
 import { usePathname } from "../router";
 import Link from "./Link";
 import ShareSite from "./ShareSite";
+import { useInstall } from "../install";
 
 const PRODUCTS: { href: string; label: string; hint: string; current: Route["name"][] }[] = [
   { href: "/check", label: "VeriFact", hint: "Check a post, link or screenshot", current: ["check", "report"] },
@@ -17,6 +18,7 @@ const PRODUCTS: { href: string; label: string; hint: string; current: Route["nam
  */
 export default function SiteNav({ route }: { route: Route["name"] }) {
   const pathname = usePathname();
+  const { installed } = useInstall();
   const [openOn, setOpenOn] = useState<string | null>(null);
   const open = openOn === pathname;
   const navId = useId();
@@ -53,6 +55,11 @@ export default function SiteNav({ route }: { route: Route["name"] }) {
           </Link>
         ))}
         <div className="site-nav-share">
+          {!installed && (
+            <Link href="/install" className="button button--primary button--small" aria-current={route === "install" ? "page" : undefined}>
+              Install the app
+            </Link>
+          )}
           <ShareSite className="button button--secondary button--small" label="Share VeriFact with friends" />
         </div>
       </nav>
