@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.awt.LinearGradientPaint;
+import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Ellipse2D;
@@ -39,7 +41,7 @@ public class OgImages {
                 new Card("contradicted", "Contradicted", "The sources found say otherwise.", new Color(0xb0261c), "cross"),
                 new Card("insufficient_evidence", "Not enough evidence", "The sources found don't settle it either way.", new Color(0x545b66), "question"),
                 new Card("mixed", "Mixed results", "The claims checked received different verdicts.", new Color(0x6a4596), "mixed"),
-                new Card("default", "Check claims against the evidence", "Paste a claim or link. See what the sources say.", ACCENT, "check"),
+                new Card("default", "Check claims against the evidence", "Paste a post, link or screenshot. See what the sources say.", ACCENT, "check"),
         };
         Font serifBold = Font.createFont(Font.TRUETYPE_FONT, new File(SERIF_BOLD));
         Font sans = Font.createFont(Font.TRUETYPE_FONT, new File(SANS));
@@ -48,6 +50,28 @@ public class OgImages {
             ImageIO.write(render(c, serifBold, sans, sansBold), "png", new File(out, c.file() + ".png"));
             System.out.println("wrote og/" + c.file() + ".png");
         }
+    }
+
+    static final Color[] BRAND = {new Color(0x4f46e5), new Color(0x2563eb), new Color(0x0d9488)};
+
+    /** favicon.svg: gradient rounded square (1..31 of a 32-unit box) with a white "V" and dot. */
+    static void drawLogo(Graphics2D g, double x, double y, double size) {
+        Graphics2D l = (Graphics2D) g.create();
+        double s = size / 30.0;
+        l.translate(x - s, y - s);
+        l.scale(s, s);
+        l.setPaint(new LinearGradientPaint(2, 2, 30, 30, new float[]{0f, 0.55f, 1f}, BRAND));
+        l.fill(new RoundRectangle2D.Double(1, 1, 30, 30, 18, 18));
+        l.setPaint(new RadialGradientPaint(9f, 6f, 18f, new float[]{0f, 1f},
+                new Color[]{new Color(255, 255, 255, 107), new Color(255, 255, 255, 0)}));
+        l.fill(new RoundRectangle2D.Double(1, 1, 30, 30, 18, 18));
+        l.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        l.setColor(new Color(255, 255, 255, 153));
+        l.draw(new java.awt.geom.Line2D.Double(9, 10, 15.4, 22.6));
+        l.setColor(Color.WHITE);
+        l.draw(new java.awt.geom.Line2D.Double(15.4, 22.6, 22.3, 9.9));
+        l.fill(new Ellipse2D.Double(23 - 2.8, 8.8 - 2.8, 5.6, 5.6));
+        l.dispose();
     }
 
     static BufferedImage render(Card c, Font serifBold, Font sans, Font sansBold) {
@@ -62,20 +86,15 @@ public class OgImages {
         g.setColor(c.color());
         g.fillRect(0, 0, 18, H);
 
-        // Brand: logo mark + wordmark
+        // Brand: the "V" logo mark (frontend/public/favicon.svg, drawn at 52 px) + wordmark
         int bx = 80, by = 64;
-        g.setColor(ACCENT);
-        g.fill(new RoundRectangle2D.Double(bx, by, 52, 52, 12, 12));
-        g.setColor(Color.WHITE);
-        g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        Path2D tick = new Path2D.Double();
-        tick.moveTo(bx + 14, by + 27);
-        tick.lineTo(bx + 23, by + 36);
-        tick.lineTo(bx + 39, by + 18);
-        g.draw(tick);
-        g.setColor(TEXT);
+        drawLogo(g, bx, by, 52);
         g.setFont(sansBold.deriveFont(38f));
-        g.drawString("VeriFact", bx + 70, by + 40);
+        g.setColor(TEXT);
+        g.drawString("Veri", bx + 70, by + 40);
+        int factX = bx + 70 + g.getFontMetrics().stringWidth("Veri");
+        g.setPaint(new LinearGradientPaint(factX, 0, factX + 90, 0, new float[]{0f, 0.5f, 1f}, BRAND));
+        g.drawString("Fact", factX, by + 40);
 
         // Verdict icon
         int ix = 80, iy = 210, is = 150;
