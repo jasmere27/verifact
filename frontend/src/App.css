@@ -254,7 +254,8 @@
 
 .site-footer-links {
   display: flex;
-  gap: 48px;
+  flex-wrap: wrap;
+  gap: 20px 48px;
 }
 
 .site-footer-links div {

@@ -129,6 +129,10 @@
   font-size: 0.9rem;
 }
 
+.auth-agree {
+  margin: 0;
+}
+
 /* Header */
 
 .account-signin {

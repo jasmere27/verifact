@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact), `/news`, and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
+/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact), `/news`, `/privacy`, `/terms`, and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
 export type Route =
   | { name: "landing" }
   | { name: "check" }
@@ -16,6 +16,8 @@ export type Route =
   | { name: "resetPassword" }
   | { name: "authCallback" }
   | { name: "account" }
+  | { name: "privacy" }
+  | { name: "terms" }
   | { name: "notFound" };
 
 const AUTH_ROUTES: Record<string, Route["name"]> = {
@@ -36,6 +38,8 @@ export function parseRoute(pathname: string): Route {
   if (pathname === "/check" || pathname === "/check/") return { name: "check" };
   if (pathname === "/legal" || pathname === "/legal/") return { name: "legal" };
   if (pathname === "/research" || pathname === "/research/") return { name: "research" };
+  if (pathname === "/privacy" || pathname === "/privacy/") return { name: "privacy" };
+  if (pathname === "/terms" || pathname === "/terms/") return { name: "terms" };
   const workspace = RESEARCH_WORKSPACE_PATH.exec(pathname);
   if (workspace) return { name: "researchWorkspace", id: workspace[1] };
   if (pathname === "/news" || pathname === "/news/") return { name: "news" };
