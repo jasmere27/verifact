@@ -144,3 +144,11 @@ Only record decisions with real tradeoffs.
 - Alternatives rejected: anyone-with-the-link delete (shared links are public); a token in the response body (contract + stored JSON change); per-product retention periods (harder to explain in the policy).
 - Changing the period means changing `Retention.PERIOD`, the frontend's `RETENTION_DAYS`/NewsFact text, and the Privacy Policy together.
 
+## ADR-20 — Account check history and report ownership (ADR-18 phase C, VeriFact reports only)
+**Accepted** · 2026-10-01 (owner request: "save checks to your account"; also clear the browser list on sign-out)
+- Signed-in checks send the bearer token. `account_checks` (V9; RLS in V10) holds each account's history: every report the user checked, including reused ones, with label and verdict copied at check time. `verifications.owner_id` marks the account whose request created the report (same "created during this request" rule as edit tokens, ADR-19), so it can delete it from any device.
+- Cascades do the bookkeeping: report deleted (retention or owner) → its history rows go; account deleted → its history and the reports it owns go (`owner_id ON DELETE CASCADE`). Reused reports owned by someone else stay.
+- Ownership is per user, not per organisation: the history is personal; team sharing waits for teams (ADR-18 phase "later").
+- Signing out clears this browser's recent-checks list and report edit tokens (shared school computers). Signed in, the page shows the account history instead of the browser list and stops adding to the browser list.
+- Not yet: NewsFact reviews and research workspaces stay edit-token only (not linked to accounts); claiming older browser-made reports into an account.
+

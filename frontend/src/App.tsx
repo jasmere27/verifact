@@ -1,6 +1,6 @@
 import Brand from "./components/BrandMark";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { errorMessage, verifyFileStream, verifyTextStream } from "./api";
+import { ApiError, errorMessage, verifyFileStream, verifyTextStream } from "./api";
 import type { StreamHandlers } from "./api";
 import CheckForm from "./components/CheckForm";
 import type { Submission } from "./components/CheckForm";
@@ -10,6 +10,9 @@ import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
 import AccountMenu from "./auth/AccountMenu";
+import { accessToken, getMyChecks, refreshedAccessToken, removeMyCheck } from "./auth/api";
+import type { MyCheck } from "./auth/api";
+import { useAuth } from "./auth/useAuth";
 import { AccountPage } from "./auth/AccountPage";
 import { AuthCallbackPage, ForgotPasswordPage, ResetPasswordPage, SignInPage, SignUpPage } from "./auth/AuthPages";
 import { authEnabled } from "./auth/client";
@@ -27,7 +30,7 @@ import type { RecentCheck } from "./recent";
 import { newEditToken, saveReportToken } from "./reportTokens";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
 import type { Route } from "./router";
-import type { SourcesFound, StageId, VerificationResult } from "./types";
+import type { OverallVerdict, SourcesFound, StageId, VerificationResult } from "./types";
 import { verdictMeta } from "./verdicts";
 import "./App.css";
 
@@ -71,8 +74,34 @@ function App() {
   const [recent, setRecent] = useState<RecentCheck[]>(() => loadRecent());
   const [announcement, setAnnouncement] = useState("");
   const [reused, setReused] = useState<ReusedReport | null>(null);
+  // Signed in: the account's history (null until loaded) replaces this browser's recent checks.
+  const userId = useAuth().session?.user.id ?? null;
+  const [myChecks, setMyChecks] = useState<MyCheck[] | null>(null);
+  const [myChecksError, setMyChecksError] = useState<string | null>(null);
+  const [lastUserId, setLastUserId] = useState(userId);
+  if (userId !== lastUserId) {
+    setLastUserId(userId);
+    setMyChecks(null);
+    setMyChecksError(null);
+    // Signing out cleared this browser's list (AuthProvider); show what's left, i.e. nothing.
+    if (!userId) setRecent(loadRecent());
+  }
   const controllerRef = useRef<AbortController | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
+
+  const loadMyChecks = useCallback(() => {
+    getMyChecks().then(
+      (items) => {
+        setMyChecks(items);
+        setMyChecksError(null);
+      },
+      (e: unknown) => setMyChecksError(e instanceof Error ? e.message : "We couldn't load your checks."),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (userId) loadMyChecks();
+  }, [userId, loadMyChecks]);
 
   const cacheResult = useCallback((result: VerificationResult) => {
     setResults((prev) => (prev[result.id] ? prev : { ...prev, [result.id]: result }));
@@ -124,15 +153,25 @@ function App() {
       onClaims: (claims) => update({ claims }),
       onSources: (sources) => update({ sources }),
     };
+    const run = (token: string | null) =>
+      submission.mode === "text"
+        ? verifyTextStream(submission.text, handlers, controller.signal, { refresh, editToken, accessToken: token })
+        : verifyFileStream(submission.mode, submission.file, handlers, controller.signal, { editToken, accessToken: token });
     try {
-      const result =
-        submission.mode === "text"
-          ? await verifyTextStream(submission.text, handlers, controller.signal, refresh, editToken)
-          : await verifyFileStream(submission.mode, submission.file, handlers, controller.signal, editToken);
+      const token = userId ? await accessToken() : null;
+      let result: VerificationResult;
+      try {
+        result = await run(token);
+      } catch (err) {
+        // An expired session: refresh once; if that fails, the check still runs signed out.
+        if (!token || !(err instanceof ApiError) || err.status !== 401) throw err;
+        result = await run(await refreshedAccessToken());
+      }
       if (controller.signal.aborted) return;
       controllerRef.current = null;
       cacheResult(result);
-      setRecent(rememberCheck(result));
+      if (userId) loadMyChecks();
+      else setRecent(rememberCheck(result));
       setCheck({ status: "idle" });
       const createdAt = Date.parse(result.createdAt);
       const wasReused = !Number.isNaN(createdAt) && createdAt < submittedAt - REUSE_THRESHOLD_MS;
@@ -162,8 +201,20 @@ function App() {
       return next;
     });
     setRecent(forgetCheck(id));
+    setMyChecks((prev) => prev && prev.filter((c) => c.id !== id));
     navigate("/check", { replace: true });
     setAnnouncement("Report deleted.");
+  }
+
+  function removeFromHistory(id: string) {
+    setMyChecks((prev) => prev && prev.filter((c) => c.id !== id));
+    removeMyCheck(id).then(
+      () => setAnnouncement("Removed from your checks."),
+      (e: unknown) => {
+        setAnnouncement(e instanceof Error ? e.message : "Couldn't remove that check.");
+        loadMyChecks();
+      },
+    );
   }
 
   /** "Check again now" on a reused report: run the same text or link again, bypassing reuse. */
@@ -260,16 +311,33 @@ function App() {
               <CheckForm onSubmit={(submission) => void runCheck(submission)} />
             </div>
 
-            {!loading && (
-              <RecentChecks
-                items={recent}
-                onClear={() => {
-                  clearRecent();
-                  setRecent([]);
-                  setAnnouncement("Recent checks cleared.");
-                }}
-              />
-            )}
+            {!loading &&
+              (userId ? (
+                <RecentChecks
+                  mode="account"
+                  items={
+                    myChecks &&
+                    myChecks.map((c) => ({
+                      id: c.id,
+                      overallVerdict: c.overallVerdict as OverallVerdict,
+                      label: c.label,
+                      createdAt: c.checkedAt,
+                    }))
+                  }
+                  error={myChecksError}
+                  onRemove={removeFromHistory}
+                />
+              ) : (
+                <RecentChecks
+                  mode="browser"
+                  items={recent}
+                  onClear={() => {
+                    clearRecent();
+                    setRecent([]);
+                    setAnnouncement("Recent checks cleared.");
+                  }}
+                />
+              ))}
           </>
         )}
 
@@ -280,6 +348,7 @@ function App() {
             cached={results[route.id]}
             onLoaded={cacheResult}
             onDeleted={reportDeleted}
+            yours={Boolean(myChecks?.find((c) => c.id === route.id)?.yours)}
             reusedAt={reused?.id === route.id ? reused.submittedAt : undefined}
             onRecheck={recheck}
           />

@@ -1031,6 +1031,23 @@
   font-weight: 500;
 }
 
+/* Account history: a Remove button beside each entry. */
+.recent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recent-row .recent-item {
+  border-bottom: 0;
+}
+
+.recent-remove {
+  font-size: 0.8rem;
+}
+
 .recent-meta {
   display: flex;
   flex-wrap: wrap;

@@ -45,6 +45,10 @@ public class VerificationRecord {
     @Column(name = "edit_token_hash", length = 64)
     private String editTokenHash;
 
+    /** The account whose request created the report (ADR-20); null when created signed out. */
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
     protected VerificationRecord() {
     }
 
@@ -78,5 +82,13 @@ public class VerificationRecord {
 
     public void setEditTokenHash(String editTokenHash) {
         this.editTokenHash = editTokenHash;
+    }
+
+    public UUID getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(UUID ownerId) {
+        this.ownerId = ownerId;
     }
 }

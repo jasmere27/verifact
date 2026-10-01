@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError, deleteVerification, errorMessage, getVerification } from "../api";
+import { accessToken } from "../auth/api";
 import { formatDate } from "../format";
 import { forgetReportToken, reportToken } from "../reportTokens";
 import type { VerificationResult } from "../types";
@@ -23,6 +24,8 @@ interface Props {
   onRecheck: (input: string) => void;
   /** After this browser deleted the report. */
   onDeleted: (id: string) => void;
+  /** The signed-in account created this report, so it may delete it from any device. */
+  yours: boolean;
 }
 
 /** Matches the server's retention period (Retention.PERIOD) and the Privacy Policy. */
@@ -33,19 +36,20 @@ function deletionDate(createdAt: string): string {
   return Number.isNaN(created) ? "" : formatDate(new Date(created + RETENTION_DAYS * 86_400_000).toISOString());
 }
 
-/** When the report will be deleted, and a delete button for the browser that ran the check. */
-function Retention({ result, onDeleted }: { result: VerificationResult; onDeleted: (id: string) => void }) {
+/** When the report will be deleted, and a delete button for whoever ran the check (this browser or account). */
+function Retention({ result, onDeleted, yours }: { result: VerificationResult; onDeleted: (id: string) => void; yours: boolean }) {
   const token = reportToken(result.id);
+  const canDelete = Boolean(token) || yours;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const date = deletionDate(result.createdAt);
 
   async function remove() {
-    if (!token || !window.confirm("Delete this report for everyone? The link will stop working. This can't be undone.")) return;
+    if (!canDelete || !window.confirm("Delete this report for everyone? The link will stop working. This can't be undone.")) return;
     setBusy(true);
     setError(null);
     try {
-      await deleteVerification(result.id, token);
+      await deleteVerification(result.id, { editToken: token, accessToken: yours ? await accessToken() : null });
       forgetReportToken(result.id);
       onDeleted(result.id);
     } catch (err) {
@@ -58,9 +62,9 @@ function Retention({ result, onDeleted }: { result: VerificationResult; onDelete
     <div className="report-retention small">
       <p className="muted">
         {date ? `This report will be deleted automatically on ${date}.` : `Reports are deleted automatically after ${RETENTION_DAYS} days.`}
-        {token ? " You ran this check, so you can delete it now." : ""}
+        {canDelete ? " You ran this check, so you can delete it now." : ""}
       </p>
-      {token && (
+      {canDelete && (
         <button type="button" className="text-button" onClick={() => void remove()} disabled={busy}>
           {busy ? "Deleting…" : "Delete this report"}
         </button>
@@ -74,7 +78,7 @@ function Retention({ result, onDeleted }: { result: VerificationResult; onDelete
   );
 }
 
-export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck, onDeleted }: Props) {
+export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck, onDeleted, yours }: Props) {
   const [state, setState] = useState<State>(cached ? { status: "ready", result: cached } : { status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -107,7 +111,7 @@ export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck, 
               : { submittedAt: reusedAt, onRecheck: canRecheck && result.input.trim() ? () => onRecheck(result.input) : undefined }
           }
         />
-        <Retention result={result} onDeleted={onDeleted} />
+        <Retention result={result} onDeleted={onDeleted} yours={yours} />
       </>
     );
   }

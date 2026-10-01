@@ -61,13 +61,16 @@ export function PrivacyPage() {
           </li>
         </ul>
         <p>
-          You don&apos;t need an account for any of this, and these records aren&apos;t linked to your account. Don&apos;t submit
+          You don&apos;t need an account for any of this. If you&apos;re signed in, VeriFact checks you run are added to
+          &quot;Your checks&quot; on your account, and reports you create are linked to your account so you can delete them from
+          any device. NewsFact reviews, research workspaces and feedback aren&apos;t linked to your account. Don&apos;t submit
           passwords, ID numbers, health details or other private information about yourself or anyone else.
         </p>
 
         <h3>When you create an account</h3>
         <ul>
           <li>Your email address and, if you sign in with Google, your Google account&apos;s name and email.</li>
+          <li>The list of VeriFact checks you ran while signed in (&quot;Your checks&quot;), which only you can see.</li>
           <li>Your password, stored only as a secure hash by our sign-in provider. We never see it.</li>
           <li>When you created the account and when it last changed.</li>
         </ul>
@@ -85,7 +88,8 @@ export function PrivacyPage() {
         <p>
           We save a few things on your device: your light/dark theme, your recent checks, which reports you&apos;ve rated, the keys
           that let you delete your reports and edit or delete your NewsFact reviews and research workspaces, and your sign-in session. We don&apos;t use advertising or
-          tracking cookies. Clearing your browser data removes them.
+          tracking cookies. Clearing your browser data removes them, and signing out removes your recent checks and report delete
+          keys from that browser.
         </p>
       </section>
 
@@ -147,11 +151,12 @@ export function PrivacyPage() {
         <ul>
           <li>
             <strong>Delete what you created</strong> at any time: VeriFact reports, NewsFact reviews and research workspaces each
-            have a delete button, shown in the browser you used to create them.
+            have a delete button, shown in the browser you used to create them. Reports you created while signed in can be deleted
+            from any device where you&apos;re signed in. You can also remove any check from &quot;Your checks&quot;.
           </li>
           <li>
             <strong>Delete your account</strong> at any time from your <Link href="/account">account page</Link>. This removes your
-            sign-in and profile straight away.
+            sign-in, profile, &quot;Your checks&quot; and the reports you created while signed in, straight away.
           </li>
           <li>
             <strong>Ask us</strong> to see, correct or delete data about you, including a specific report or review (send its link),

@@ -31,8 +31,8 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ◐ NewsFact supporting videos: V1 (YouTube metadata search per claim) built 2026-10-01; V2 video upload analysis, V3 reused-footage check planned (ADR-16)
 
 ## Phase 4 — Accounts
-- ◐ Auth (ADR-18): Supabase Auth + Spring Security JWKS verification; phase A (backend, /me, organisations, RLS) built 2026-10-01; B frontend, C ownership, D usage limits next
-- ☐ Private history, saved reports, shareable public report pages (opt-in)
+- ◐ Auth (ADR-18): Supabase Auth + Spring Security JWKS verification; phase A (backend, /me, organisations, RLS) and B (frontend) built 2026-10-01; C ownership started (VeriFact reports, ADR-20); D usage limits next
+- ◐ Private history: VeriFact "Your checks" + report ownership (ADR-20, 2026-10-01); NewsFact/ResearchFact ownership, shareable public report pages (opt-in) still to do
 
 ## Commercial priorities (2026-09-30; see revenue-strategy.md, product-validation.md, experiments.md)
 Revenue $0, no validated demand yet. Order of work (P = priority):

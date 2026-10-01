@@ -85,33 +85,48 @@ public class VerificationStore {
     }
 
     /**
-     * Lets the browser that ran a check delete its report: stores the token's hash, but only on a report
-     * created by this request. A reused report (created before {@code requestStartedAt}) belongs to
-     * whoever ran it first and is left alone. Best-effort, like saving.
+     * Records who created a report so they can delete it: the browser's edit token (its hash) and, when signed
+     * in, the account (ADR-20). Only on a report created by this request: a reused one (created before
+     * {@code requestStartedAt}) belongs to whoever ran it first and is left alone. Values already set are kept.
+     * Best-effort, like saving.
+     *
+     * @param token   null for none
+     * @param ownerId null when signed out (the account must already exist)
      */
-    public void attachEditToken(UUID id, String token, Instant requestStartedAt) {
-        if (token == null) {
+    public void attachCreator(UUID id, String token, UUID ownerId, Instant requestStartedAt) {
+        if (token == null && ownerId == null) {
             return;
         }
         try {
             repository.findById(id)
-                    .filter(r -> r.getEditTokenHash() == null && !r.getCreatedAt().toInstant().isBefore(requestStartedAt))
+                    .filter(r -> !r.getCreatedAt().toInstant().isBefore(requestStartedAt))
                     .ifPresent(r -> {
-                        r.setEditTokenHash(EditTokens.hash(token));
+                        if (token != null && r.getEditTokenHash() == null) {
+                            r.setEditTokenHash(EditTokens.hash(token));
+                        }
+                        if (ownerId != null && r.getOwnerId() == null) {
+                            r.setOwnerId(ownerId);
+                        }
                         repository.save(r);
                     });
         } catch (RuntimeException e) {
-            log.warn("Could not attach an edit token to report {}: {}", id, e.getClass().getSimpleName());
+            log.warn("Could not record the creator of report {}: {}", id, e.getClass().getSimpleName());
         }
     }
 
-    /** @throws ApiException 404 unknown id, 403 wrong or missing token (or a report nobody can delete) */
+    /**
+     * Deletes a report for everyone: allowed with its edit token, or for the account that created it.
+     *
+     * @param userId the signed-in user, or null
+     * @throws ApiException 404 unknown id, 403 anyone else
+     */
     @Transactional
-    public void delete(UUID id, String token) {
+    public void delete(UUID id, String token, UUID userId) {
         VerificationRecord record = repository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That report doesn't exist or was already deleted."));
-        if (!EditTokens.matches(token, record.getEditTokenHash())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Only the browser that ran this check can delete its report.");
+        boolean owner = userId != null && userId.equals(record.getOwnerId());
+        if (!owner && !EditTokens.matches(token, record.getEditTokenHash())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Only the person who ran this check can delete its report.");
         }
         repository.delete(record);
     }
