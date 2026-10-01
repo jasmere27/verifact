@@ -7,6 +7,7 @@ import type { Submission } from "./components/CheckForm";
 import CheckProgress from "./components/CheckProgress";
 import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
+import InstallPage from "./components/InstallPage";
 import ShareSite from "./components/ShareSite";
 import SiteNav from "./components/SiteNav";
 import ReportPage from "./components/ReportPage";
@@ -62,6 +63,7 @@ const AUTH_TITLES: Partial<Record<Route["name"], string>> = {
 
 const PAGE_TITLES: Partial<Record<Route["name"], string>> = {
   privacy: "Privacy Policy · VeriFact",
+  install: "Get the VeriFact app",
   terms: "Terms of Use · VeriFact",
 };
 
@@ -374,6 +376,7 @@ function App() {
         {route.name === "authCallback" && <AuthCallbackPage />}
         {route.name === "account" && <AccountPage />}
 
+        {route.name === "install" && <InstallPage />}
         {route.name === "privacy" && <PrivacyPage />}
         {route.name === "terms" && <TermsPage />}
 
@@ -411,6 +414,7 @@ function App() {
               <a href="/#trust">Evidence &amp; trust</a>
               <a href="/#pricing">Pricing</a>
               <a href="/#faq">FAQ</a>
+              <Link href="/install">Get the app</Link>
               <ShareSite className="site-footer-share" />
             </div>
             <div>

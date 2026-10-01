@@ -266,7 +266,9 @@
     order: 3;
   }
   .site-nav-share {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 10px 14px 0;
     border-top: 1px solid var(--line);
     margin-top: 6px;
@@ -1994,4 +1996,71 @@ div.state-card {
   .claim-card {
     padding: 16px;
   }
+}
+
+/* ---------- Install page ---------- */
+
+.install {
+  max-width: 560px;
+  margin: 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.install-icon {
+  border-radius: 18px;
+  box-shadow: var(--shadow-lift);
+}
+
+.install h1 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.9rem;
+}
+
+.install-lede {
+  color: var(--text-2);
+}
+
+.install-box {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.install-box--done {
+  border-color: color-mix(in srgb, var(--v-supported) 40%, var(--line));
+}
+
+.install-button {
+  min-width: 220px;
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+
+.install-steps {
+  justify-self: stretch;
+  text-align: left;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.install-glyph {
+  vertical-align: -3px;
+}
+
+.install-foot {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 6px;
 }
