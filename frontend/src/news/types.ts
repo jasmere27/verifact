@@ -41,6 +41,43 @@ export interface NewsCheck {
   notice: string;
   searchProvider: string;
   durationMs: number;
+  /** Null for checks saved before supporting videos existed. */
+  videos?: NewsVideos | null;
+}
+
+export type VideoStance = "SUPPORTS" | "CONTRADICTS" | "CONTEXT";
+export type VideoKind = "NEWS_REPORT" | "OFFICIAL" | "EYEWITNESS" | "OTHER";
+
+export interface VideoChapter {
+  seconds: number;
+  label: string;
+}
+
+export interface SupportingVideo {
+  platform: string;
+  videoId: string;
+  url: string;
+  title: string;
+  channel: string;
+  publishedAt: string | null;
+  durationSeconds: number | null;
+  thumbnailUrl: string;
+  keyFrames: string[];
+  chapters: VideoChapter[];
+  relevantAt: VideoChapter | null;
+  stance: VideoStance;
+  kind: VideoKind;
+  why: string;
+  quote: string;
+  claimsMade: string[];
+  earliestFound: boolean;
+}
+
+export interface NewsVideos {
+  claims: { claimId: string; query: string; videos: SupportingVideo[] }[];
+  searched: boolean;
+  limitations: string[];
+  notice: string;
 }
 
 export interface Decision {

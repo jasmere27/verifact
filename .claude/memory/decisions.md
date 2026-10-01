@@ -111,3 +111,10 @@ Only record decisions with real tradeoffs.
   - `ResearchInsightsService`: coverage counted in code; gaps must cite saved sources; relations need verbatim abstract quotes; framework variables are VERIFIED only if a saved source names them.
   - Discovery, draft reading and insights use `LlmClient.generateQuick` (reasoning effort low) for latency.
   - A live run found the citation check VERIFYING a fabricated reference on title overlap alone: title matching now requires the shorter title's words to be present (one miss allowed at 6+ words).
+
+## ADR-16 — NewsFact supporting videos from platform metadata only (V1)
+**Accepted** · 2026-10-01 (owner request; plan approved)
+- Decision: per claim, search YouTube Data API v3 and classify videos as supporting / contradicting / context from their published title, description and chapters. Labels, "claims made" and timestamps must be verbatim from that metadata, checked in code. Videos are never downloaded and third-party transcripts aren't fetched (YouTube terms; captions.download is owner-only), and the UI says so.
+- Quota: ~100 searches/day free, so only the first 4 claims (`NEWS_VIDEO_CLAIMS`) get a search; quota exhaustion is reported as a limitation, not an error.
+- Runs in parallel with the evidence step on virtual threads; never fails the check.
+- Deferred: V2 uploaded-video analysis (ffmpeg, speech-to-text, frame analysis; keeps "what the video shows / what the uploader claims / what sources confirm / unverified" separate; no AI real/fake verdict) and V3 reused-footage detection (Cloud Vision web detection).

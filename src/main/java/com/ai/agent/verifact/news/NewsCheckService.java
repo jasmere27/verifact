@@ -57,6 +57,8 @@ public class NewsCheckService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsCheckService.class);
 
+    private static final java.util.concurrent.ExecutorService VIDEO_POOL = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+
     static final int MAX_CLAIMS = 10;
     static final int MAX_SEARCHES = 10;
     static final int MAX_SOURCES = 16;
@@ -67,14 +69,16 @@ public class NewsCheckService {
             + "these sources, not that a quote is fake. Confirm with primary sources before publishing a correction.";
 
     private final LlmClient llm;
+    private final NewsVideoService videoService;
     private final EvidenceRetriever retriever;
     private final SafeUrlFetcher fetcher;
     private final Clock clock;
     private final int maxContentChars;
 
     public NewsCheckService(LlmClient llm, EvidenceRetriever retriever, SafeUrlFetcher fetcher, Clock clock,
-                            @Value("${app.ai.max-content-chars:20000}") int maxContentChars) {
+                            @Value("${app.ai.max-content-chars:20000}") int maxContentChars, NewsVideoService videoService) {
         this.llm = llm;
+        this.videoService = videoService;
         this.retriever = retriever;
         this.fetcher = fetcher;
         this.clock = clock;
@@ -124,6 +128,15 @@ public class NewsCheckService {
                 ? clean(extraction.articleDate(), 60) : null;
         progress.claims(claims.stream().map(ArticleClaim::claim).toList());
 
+        // Supporting videos: searched alongside the sources and verdicts; a failure here never fails the check.
+        List<NewsVideoService.ClaimInput> videoClaims = new ArrayList<>();
+        for (int i = 0; i < claims.size(); i++) {
+            videoClaims.add(new NewsVideoService.ClaimInput("C" + (i + 1), claims.get(i).claim()));
+        }
+        java.util.concurrent.CompletableFuture<NewsVideos> videos = videoService == null
+                ? java.util.concurrent.CompletableFuture.completedFuture(null)
+                : java.util.concurrent.CompletableFuture.supplyAsync(() -> videoService.find(videoClaims), VIDEO_POOL);
+
         // 2. Sources (the article's own site can't confirm itself)
         progress.stage(VerificationProgress.Stage.SEARCHING);
         String excludedSite = url == null ? null : Urls.registrableDomain(Urls.domain(url));
@@ -168,11 +181,19 @@ public class NewsCheckService {
             counts.put(v, 0);
         }
         checked.forEach(c -> counts.merge(c.verdict(), 1, Integer::sum));
+        NewsVideos foundVideos;
+        try {
+            foundVideos = videos.get(90, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            videos.cancel(true);
+            log.warn("Supporting videos unavailable: {}", e.getClass().getSimpleName());
+            foundVideos = NewsVideos.none("Video search didn't finish in time; the rest of the check is complete.");
+        }
         long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         // Counts only: article text stays out of the logs.
         log.info("News check done claims={} sources={} verdicts={} durationMs={}", checked.size(), sources.size(), counts, durationMs);
         return new NewsCheck(UUID.randomUUID(), now, url, emptyToNull(clean(title, 300)), articleDate, checked, sources,
-                counts, List.copyOf(limitations), NOTICE, retriever.providerName(), durationMs);
+                counts, List.copyOf(limitations), NOTICE, retriever.providerName(), durationMs, foundVideos);
     }
 
     /** Claims whose sentence (and quoted words) are really in the article; speakers only as the article names them. */
