@@ -1,0 +1,26 @@
+{
+  "name": "VeriFact: check claims against the evidence",
+  "short_name": "VeriFact",
+  "description": "Paste or share a post, link or screenshot and see what fact-checkers, news and reference sources say.",
+  "id": "/",
+  "start_url": "/check?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f6fb",
+  "theme_color": "#2b4fd6",
+  "categories": ["education", "news", "utilities"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "/check",
+    "method": "GET",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  },
+  "shortcuts": [
+    { "name": "Check a claim", "url": "/check?source=app", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Research a topic", "url": "/research", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

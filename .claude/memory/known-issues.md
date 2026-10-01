@@ -5,7 +5,7 @@ for context; delete them once they stop being useful._
 
 ## Critical
 0. **Rotate API keys.** The OpenAI, Tavily and Google keys were pasted into a chat on 2026-09-30. Replace them in the Render dashboard (and local `.env`), redeploy, then delete the old keys at each provider.
-1. **Production search still needs a Tavily key.** Code supports Tavily (ADR-5), but until `TAVILY_API_KEY` is set, `auto` falls back to Google Custom Search, which stops working on 2027-01-01. Tavily integration has only been tested against its documented contract (mocked), not a live call.
+1. ~~Production search still needs a Tavily key.~~ Resolved: production logs show `Web search provider: tavily` (checked 2026-10-02). Free plan is 1,000 searches/month and a check uses up to 4 (~250 checks/month): watch usage before any class pilot.
 
 ## High
 2. **Eval set is small.** Live run 2026-09-30 (gpt-5-mini + Tavily): **20/20**, including the prompt-injection case; ~15–30 s per check, ~600 + ~2,200 prompt tokens per check. 20 mostly well-known claims can't catch subtle failures: grow it with real user claims (recent news, local/Filipino topics, partly-true and misleading cases).
