@@ -198,8 +198,12 @@
   .theme-toggle {
     padding: 6px 10px;
   }
+  /* Phone header, left to right: theme (signed out only), menu, account. */
+  .header-end > .theme-toggle {
+    order: 1;
+  }
   .nav-toggle {
-    order: 3;
+    order: 2;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -239,6 +243,10 @@
     padding: 12px 14px;
     border-radius: 12px;
     font-size: 1rem;
+  }
+  .header-end > .account-menu,
+  .header-end > .account-signin {
+    order: 3;
   }
   .site-nav-hint {
     display: block;

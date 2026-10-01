@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "../components/Link";
+import { ThemeMenuSwitch } from "../components/ThemeToggle";
 import { navigate, usePathname } from "../router";
 import { shownName, useAuth } from "./useAuth";
 import { auth } from "./client";
@@ -66,6 +67,7 @@ export default function AccountMenu() {
           <Link href="/account" className="account-dropdown-item">
             Account
           </Link>
+          <ThemeMenuSwitch />
           <button
             type="button"
             className="account-dropdown-item"

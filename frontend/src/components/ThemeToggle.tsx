@@ -48,3 +48,18 @@ export default function ThemeToggle() {
     </button>
   );
 }
+
+/** The same choice as a switch row, for the signed-in account menu. Keeps the menu open so the change is visible. */
+export function ThemeMenuSwitch() {
+  const [theme, toggle] = useTheme();
+  const dark = theme === "dark";
+  return (
+    <button type="button" role="switch" aria-checked={dark} className="account-dropdown-item theme-switch" onClick={toggle}>
+      <ThemeIcon theme={theme} />
+      <span className="theme-switch-label">Dark mode</span>
+      <span className="theme-switch-track" aria-hidden="true">
+        <span className="theme-switch-thumb" />
+      </span>
+    </button>
+  );
+}
