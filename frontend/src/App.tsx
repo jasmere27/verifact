@@ -7,6 +7,7 @@ import type { Submission } from "./components/CheckForm";
 import CheckProgress from "./components/CheckProgress";
 import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
+import ShareSite from "./components/ShareSite";
 import SiteNav from "./components/SiteNav";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
@@ -410,6 +411,7 @@ function App() {
               <a href="/#trust">Evidence &amp; trust</a>
               <a href="/#pricing">Pricing</a>
               <a href="/#faq">FAQ</a>
+              <ShareSite className="site-footer-share" />
             </div>
             <div>
               <p className="site-footer-heading">Legal</p>

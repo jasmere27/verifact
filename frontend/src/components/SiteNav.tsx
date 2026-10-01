@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { Route } from "../router";
 import { usePathname } from "../router";
 import Link from "./Link";
+import ShareSite from "./ShareSite";
 
 const PRODUCTS: { href: string; label: string; hint: string; current: Route["name"][] }[] = [
   { href: "/check", label: "VeriFact", hint: "Check a post, link or screenshot", current: ["check", "report"] },
@@ -51,6 +52,9 @@ export default function SiteNav({ route }: { route: Route["name"] }) {
             <span className="site-nav-hint">{p.hint}</span>
           </Link>
         ))}
+        <div className="site-nav-share">
+          <ShareSite className="button button--secondary button--small" label="Share VeriFact with friends" />
+        </div>
       </nav>
       <button
         ref={buttonRef}
