@@ -1,10 +1,9 @@
 import { useTheme } from "../theme";
-import type { ThemeChoice } from "../theme";
+import type { Theme } from "../theme";
 
-const LABELS: Record<ThemeChoice, string> = { system: "System", light: "Light", dark: "Dark" };
-const NEXT: Record<ThemeChoice, ThemeChoice> = { system: "light", light: "dark", dark: "system" };
+const LABELS: Record<Theme, string> = { light: "Light", dark: "Dark" };
 
-function ThemeIcon({ choice }: { choice: ThemeChoice }) {
+function ThemeIcon({ theme }: { theme: Theme }) {
   const common = {
     width: 18,
     height: 18,
@@ -17,7 +16,7 @@ function ThemeIcon({ choice }: { choice: ThemeChoice }) {
     "aria-hidden": true,
     focusable: false,
   };
-  if (choice === "light") {
+  if (theme === "light") {
     return (
       <svg {...common}>
         <circle cx="12" cy="12" r="4" />
@@ -25,34 +24,27 @@ function ThemeIcon({ choice }: { choice: ThemeChoice }) {
       </svg>
     );
   }
-  if (choice === "dark") {
-    return (
-      <svg {...common}>
-        <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z" />
-      </svg>
-    );
-  }
   return (
     <svg {...common}>
-      <rect x="3" y="4" width="18" height="12" rx="2" />
-      <path d="M8 20h8M12 16v4" />
+      <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z" />
     </svg>
   );
 }
 
-/** Header button cycling System → Light → Dark. */
+/** Header button switching between Light and Dark. */
 export default function ThemeToggle() {
-  const [choice, cycle] = useTheme();
+  const [theme, toggle] = useTheme();
+  const next = theme === "dark" ? "light" : "dark";
   return (
     <button
       type="button"
       className="theme-toggle"
-      onClick={cycle}
-      aria-label={`Theme: ${LABELS[choice]}. Switch to ${LABELS[NEXT[choice]]}`}
-      title={`Theme: ${LABELS[choice]}`}
+      onClick={toggle}
+      aria-label={`${LABELS[theme]} mode. Switch to ${LABELS[next].toLowerCase()} mode`}
+      title={`Switch to ${LABELS[next].toLowerCase()} mode`}
     >
-      <ThemeIcon choice={choice} />
-      <span className="theme-toggle-label">{LABELS[choice]}</span>
+      <ThemeIcon theme={theme} />
+      <span className="theme-toggle-label">{LABELS[theme]}</span>
     </button>
   );
 }

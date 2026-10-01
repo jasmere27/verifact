@@ -7,6 +7,7 @@ import type { Submission } from "./components/CheckForm";
 import CheckProgress from "./components/CheckProgress";
 import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
+import SiteNav from "./components/SiteNav";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
 import AccountMenu from "./auth/AccountMenu";
@@ -250,20 +251,7 @@ function App() {
             <Brand />
           </Link>
           <div className="header-end">
-            <nav className="site-nav" aria-label="Products">
-              <Link href="/check" aria-current={route.name === "check" || route.name === "report" ? "page" : undefined}>
-                VeriFact
-              </Link>
-              <Link href="/news" aria-current={route.name === "news" || route.name === "newsWorkspace" ? "page" : undefined}>
-                NewsFact
-              </Link>
-              <Link href="/legal" aria-current={route.name === "legal" ? "page" : undefined}>
-                LegalFact
-              </Link>
-              <Link href="/research" aria-current={route.name === "research" || route.name === "researchWorkspace" ? "page" : undefined}>
-                ResearchFact
-              </Link>
-            </nav>
+            <SiteNav route={route.name} />
             <ThemeToggle />
             <AccountMenu />
           </div>

@@ -179,6 +179,75 @@
   color: var(--accent);
 }
 
+/* The one-line descriptions and the menu button only appear in the phone menu. */
+.site-nav-hint,
+.nav-toggle {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .site-header-inner {
+    flex-wrap: nowrap;
+  }
+  .header-end {
+    gap: 8px;
+  }
+  .theme-toggle-label {
+    display: none;
+  }
+  .theme-toggle {
+    padding: 6px 10px;
+  }
+  .nav-toggle {
+    order: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .nav-toggle:hover,
+  .nav-toggle[aria-expanded="true"] {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+    background: var(--accent-soft);
+  }
+  .site-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 16px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 16px 28px -14px rgb(18 22 38 / 0.28);
+  }
+  .site-nav.is-open {
+    display: flex;
+  }
+  .site-nav a {
+    display: grid;
+    gap: 2px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 1rem;
+  }
+  .site-nav-hint {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -1865,35 +1934,6 @@ div.state-card {
   }
   .slogan {
     font-size: 0.88rem;
-  }
-  .header-end {
-    gap: 10px;
-    width: 100%;
-    min-width: 0;
-  }
-  .site-nav {
-    flex: 1;
-    min-width: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .site-nav::-webkit-scrollbar {
-    display: none;
-  }
-  .site-nav a {
-    white-space: nowrap;
-  }
-  .site-nav a {
-    padding: 6px 8px;
-    font-size: 0.82rem;
-  }
-  .theme-toggle {
-    padding: 6px 10px;
-  }
-  .theme-toggle-label {
-    display: none;
   }
   .main {
     padding: 24px 16px 40px;

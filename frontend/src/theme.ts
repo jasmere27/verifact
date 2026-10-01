@@ -1,51 +1,59 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
- * Colour theme: follow the system, or force light/dark. The choice lives in localStorage and is applied as
- * `data-theme` on <html>; index.html applies it before first paint so there's no flash of the wrong theme.
+ * Colour theme: Light or Dark. Until the visitor picks one, the page follows the device setting (no
+ * `data-theme`, CSS media queries apply) and the toggle shows whichever that is. A pick is stored in
+ * localStorage and applied as `data-theme` on <html>; public/theme-init.js applies it before first paint.
  */
-export type ThemeChoice = "system" | "light" | "dark";
+export type Theme = "light" | "dark";
 
 const STORAGE_KEY = "verifact.theme";
-const ORDER: ThemeChoice[] = ["system", "light", "dark"];
 const THEME_COLORS = { light: "#f4f6fb", dark: "#0a0f1d" };
+const DARK_QUERY = "(prefers-color-scheme: dark)";
 
-function readChoice(): ThemeChoice {
+function stored(): Theme | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === "light" || stored === "dark" ? stored : "system";
+    const value = localStorage.getItem(STORAGE_KEY);
+    return value === "light" || value === "dark" ? value : null;
   } catch {
-    return "system";
+    return null;
   }
 }
 
-function applyChoice(choice: ThemeChoice) {
-  const root = document.documentElement;
-  if (choice === "system") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", choice);
+const deviceTheme = (): Theme => (window.matchMedia(DARK_QUERY).matches ? "dark" : "light");
 
-  // Browser chrome colour: per-scheme metas when following the system, the forced colour otherwise.
+function apply(theme: Theme) {
+  document.documentElement.setAttribute("data-theme", theme);
   document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
-    const scheme = meta.media.includes("dark") ? "dark" : "light";
-    meta.content = THEME_COLORS[choice === "system" ? scheme : choice];
+    meta.content = THEME_COLORS[theme];
   });
-
   try {
-    if (choice === "system") localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, choice);
+    localStorage.setItem(STORAGE_KEY, theme);
   } catch {
     // Storage blocked (private mode etc.): the choice still applies for this page view.
   }
 }
 
-export function useTheme(): [ThemeChoice, () => void] {
-  const [choice, setChoice] = useState<ThemeChoice>(readChoice);
-  const cycle = useCallback(() => {
-    setChoice((current) => {
-      const next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
-      applyChoice(next);
+export function useTheme(): [Theme, () => void] {
+  const [theme, setTheme] = useState<Theme>(() => stored() ?? deviceTheme());
+
+  // Not chosen yet: keep showing the device's theme if it changes (e.g. automatic dark mode at night).
+  useEffect(() => {
+    if (stored()) return;
+    const media = window.matchMedia(DARK_QUERY);
+    const follow = () => {
+      if (!stored()) setTheme(media.matches ? "dark" : "light");
+    };
+    media.addEventListener("change", follow);
+    return () => media.removeEventListener("change", follow);
+  }, []);
+
+  const toggle = useCallback(() => {
+    setTheme((current) => {
+      const next: Theme = current === "dark" ? "light" : "dark";
+      apply(next);
       return next;
     });
   }, []);
-  return [choice, cycle];
+  return [theme, toggle];
 }
