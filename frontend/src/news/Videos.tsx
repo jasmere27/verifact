@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatDate } from "../format";
 import type { SupportingVideo, VideoKind, VideoStance } from "./types";
 
@@ -26,13 +27,43 @@ function at(url: string, seconds: number): string {
   return `${url}&t=${seconds}s`;
 }
 
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+
+/** YouTube's privacy-enhanced player; nothing loads from YouTube until the viewer presses play. */
+function embedUrl(videoId: string, start: number): string {
+  return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&start=${Math.max(0, Math.floor(start))}`;
+}
+
 function VideoCard({ v }: { v: SupportingVideo }) {
+  // Start time of the open player, or null when closed.
+  const [playFrom, setPlayFrom] = useState<number | null>(null);
+  // Unknown (checks saved before this was recorded) still gets the player; YouTube explains if it's blocked.
+  const embeddable = v.platform === "youtube" && v.embeddable !== false && YOUTUBE_ID.test(v.videoId);
   return (
-    <li className="news-video">
-      <a className="news-video-thumb" href={v.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={`Watch “${v.title}” on YouTube`}>
-        <img src={v.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
-        {v.durationSeconds != null && v.durationSeconds > 0 && <span className="news-video-duration">{clock(v.durationSeconds)}</span>}
-      </a>
+    <li className={`news-video${playFrom != null ? " news-video--playing" : ""}`}>
+      {playFrom != null ? (
+        <div className="news-video-player">
+          <iframe
+            key={playFrom}
+            src={embedUrl(v.videoId, playFrom)}
+            title={v.title}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      ) : embeddable ? (
+        <button type="button" className="news-video-thumb" onClick={() => setPlayFrom(0)} aria-label={`Play “${v.title}” here`}>
+          <img src={v.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          <span className="news-video-play" aria-hidden="true">▶</span>
+          {v.durationSeconds != null && v.durationSeconds > 0 && <span className="news-video-duration">{clock(v.durationSeconds)}</span>}
+        </button>
+      ) : (
+        <a className="news-video-thumb" href={v.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={`Watch “${v.title}” on YouTube`}>
+          <img src={v.thumbnailUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          {v.durationSeconds != null && v.durationSeconds > 0 && <span className="news-video-duration">{clock(v.durationSeconds)}</span>}
+        </a>
+      )}
       <div className="news-video-body">
         <div className="news-flags">
           <span className={`news-flag ${STANCE[v.stance].tone}`}>{STANCE[v.stance].label}</span>
@@ -69,9 +100,15 @@ function VideoCard({ v }: { v: SupportingVideo }) {
         {v.relevantAt && (
           <p className="small">
             Relevant part:{" "}
-            <a href={at(v.url, v.relevantAt.seconds)} target="_blank" rel="noopener noreferrer nofollow">
-              {clock(v.relevantAt.seconds)} {v.relevantAt.label}
-            </a>{" "}
+            {embeddable ? (
+              <button type="button" className="link-button" onClick={() => setPlayFrom(v.relevantAt!.seconds)}>
+                ▶ {clock(v.relevantAt.seconds)} {v.relevantAt.label}
+              </button>
+            ) : (
+              <a href={at(v.url, v.relevantAt.seconds)} target="_blank" rel="noopener noreferrer nofollow">
+                {clock(v.relevantAt.seconds)} {v.relevantAt.label}
+              </a>
+            )}{" "}
             <span className="muted">(from the video&apos;s chapter list)</span>
           </p>
         )}
@@ -84,9 +121,21 @@ function VideoCard({ v }: { v: SupportingVideo }) {
           </div>
         )}
         <p className="muted small">Transcript: not available (YouTube only lets a video&apos;s owner download captions).</p>
-        <a className="button button--secondary button--small news-video-watch" href={v.url} target="_blank" rel="noopener noreferrer nofollow">
-          Watch the original ↗
-        </a>
+        <div className="news-video-actions">
+          {embeddable &&
+            (playFrom == null ? (
+              <button type="button" className="button button--small" onClick={() => setPlayFrom(0)}>
+                ▶ Play here
+              </button>
+            ) : (
+              <button type="button" className="button button--secondary button--small" onClick={() => setPlayFrom(null)}>
+                Close player
+              </button>
+            ))}
+          <a className="button button--secondary button--small news-video-watch" href={v.url} target="_blank" rel="noopener noreferrer nofollow">
+            Watch on YouTube ↗
+          </a>
+        </div>
       </div>
     </li>
   );

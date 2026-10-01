@@ -7,6 +7,8 @@ import java.time.Instant;
  * owner download captions, and downloading videos breaks its terms.
  *
  * @param durationSeconds null when unknown
+ * @param embeddable      whether the uploader allows playing it on other sites; null when unknown
  */
 public record FoundVideo(String platform, String videoId, String url, String title, String channel, String channelId,
-                         Instant publishedAt, Integer durationSeconds, String description, String thumbnailUrl) {}
+                         Instant publishedAt, Integer durationSeconds, String description, String thumbnailUrl,
+                         Boolean embeddable) {}

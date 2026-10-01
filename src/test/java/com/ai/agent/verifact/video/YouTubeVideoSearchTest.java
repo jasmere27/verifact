@@ -33,7 +33,7 @@ class YouTubeVideoSearchTest {
                         {"items":[
                           {"id":"aaaaaaaaaaa","snippet":{"title":"A","channelTitle":"Ch","channelId":"UC1","publishedAt":"2026-07-24T10:00:00Z",
                            "description":"desc","thumbnails":{"high":{"url":"https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg"}}},
-                           "contentDetails":{"duration":"PT3M5S"}},
+                           "contentDetails":{"duration":"PT3M5S"},"status":{"embeddable":false}},
                           {"id":"bbbbbbbbbbb","snippet":{"title":"B","channelTitle":"Ch","publishedAt":"2026-07-23T10:00:00Z",
                            "thumbnails":{"high":{"url":"https://evil.example/x.jpg"}}},"contentDetails":{"duration":"PT1H"}}]}""",
                         MediaType.APPLICATION_JSON));
@@ -43,6 +43,9 @@ class YouTubeVideoSearchTest {
         assertThat(found).extracting(FoundVideo::videoId).containsExactly("bbbbbbbbbbb", "aaaaaaaaaaa");
         assertThat(found.get(1).durationSeconds()).isEqualTo(185);
         assertThat(found.get(1).url()).isEqualTo("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+        // Embedding as the uploader set it; unknown when YouTube doesn't say.
+        assertThat(found.get(1).embeddable()).isFalse();
+        assertThat(found.get(0).embeddable()).isNull();
         // Thumbnails only from YouTube's image host.
         assertThat(found.get(0).thumbnailUrl()).isEqualTo("https://i.ytimg.com/vi/bbbbbbbbbbb/hqdefault.jpg");
         server.verify();
