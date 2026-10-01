@@ -1,0 +1,258 @@
+{
+  "id": "893283ea-c63c-4cfb-9e56-d9e478f370d4",
+  "createdAt": "2026-10-01T04:22:10.672936760Z",
+  "articleUrl": null,
+  "articleTitle": null,
+  "articleDate": null,
+  "claims": [
+    {
+      "id": "C1",
+      "type": "FACT",
+      "articleQuote": "NASA launched the Artemis I mission from Kennedy Space Center in November 2022, sending the uncrewed Orion spacecraft around the Moon.",
+      "claim": "NASA launched the Artemis I mission from Kennedy Space Center in November 2022, sending the uncrewed Orion spacecraft around the Moon.",
+      "speaker": null,
+      "quotedWords": null,
+      "verdict": "SUPPORTED",
+      "supporting": {
+        "sourceId": "E9",
+        "excerpt": "Artemis I was an uncrewed mission intended to test the Space Launch System (SLS) and Orion spacecraft, launched from the Kennedy Space Center’s Launch Complex 39B in Florida, USA on November 16, 2022"
+      },
+      "contradicting": null,
+      "contextIssue": "NONE",
+      "quoteStatus": "NOT_A_QUOTE",
+      "quoteSource": null,
+      "sourcesConflict": false,
+      "explanation": "Sources state Artemis I launched from Kennedy Space Center on Nov. 16, 2022 and that it was an uncrewed test flight sending the Orion spacecraft around the Moon."
+    },
+    {
+      "id": "C2",
+      "type": "DATE_TIME",
+      "articleQuote": "Orion splashed down in the Pacific Ocean in December 2022 after a 25-day mission.",
+      "claim": "The Orion spacecraft splashed down in the Pacific Ocean in December 2022.",
+      "speaker": null,
+      "quotedWords": null,
+      "verdict": "SUPPORTED",
+      "supporting": {
+        "sourceId": "E10",
+        "excerpt": "Artemis I flew thousands of miles beyond and around the Moon and splashed down to Earth off the coast of San Diego at 12:40 p.m. EST on Dec. 11, 2022"
+      },
+      "contradicting": null,
+      "contextIssue": "NONE",
+      "quoteStatus": "NOT_A_QUOTE",
+      "quoteSource": null,
+      "sourcesConflict": false,
+      "explanation": "NASA and other sources report that Orion splashed down in the Pacific Ocean off the U.S. West Coast on Dec. 11, 2022, concluding the Artemis I flight test."
+    },
+    {
+      "id": "C3",
+      "type": "STATISTIC",
+      "articleQuote": "Orion splashed down in the Pacific Ocean in December 2022 after a 25-day mission.",
+      "claim": "The Artemis I mission lasted 25 days.",
+      "speaker": null,
+      "quotedWords": null,
+      "verdict": "PARTLY_SUPPORTED",
+      "supporting": {
+        "sourceId": "E9",
+        "excerpt": "The mission's duration was 25 days, aiming to stress test Orion’s critical systems"
+      },
+      "contradicting": {
+        "sourceId": "E10",
+        "excerpt": "The total mission duration was 25 days, 10 hours, and 53 minutes"
+      },
+      "contextIssue": "MISSING_CONTEXT",
+      "quoteStatus": "NOT_A_QUOTE",
+      "quoteSource": null,
+      "sourcesConflict": true,
+      "explanation": null
+    }
+  ],
+  "sources": [
+    {
+      "id": "E1",
+      "url": "https://www.friendsofnasa.org/2022/11/nasas-artemis-i-moon-rocket-launch_16.html",
+      "domain": "friendsofnasa.org",
+      "title": "Friends of NASA: NASA's Artemis I Moon Rocket Launch | Kennedy Space Center",
+      "snippet": "Title: Friends of NASA: NASA's Artemis I Moon Rocket Launch | Kennedy Space Center # Friends of NASA. Friends of NASA (FoN) is an independent non-governmental organization (NGO) dedicated to building international support for peaceful space exploration, commerce, scientific discovery, and STEM education. ## Wednesday, November 16, 2022. ### NASA's Artemis I Moon Rocket Launch | Kennedy Space Center. NASA’s Space Launch System rocket carrying the Orion spacecraft launches on the Artemis I flight test, Wednesday, Nov. 16, 2022, from Launch Complex 39B at NASA’s Kennedy Space Center in Florida. N",
+      "publishedDate": null,
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E2",
+      "url": "https://newspaceeconomy.ca/2026/04/02/kennedy-space-center-launch-control-and-its-role-in-artemis-missions?amp=1",
+      "domain": "newspaceeconomy.ca",
+      "title": "Kennedy Space Center Launch Control and Its Role in Artemis Missions - New Space Economy",
+      "snippet": "Title: Kennedy Space Center Launch Control and Its Role in Artemis Missions - New Space Economy # Kennedy Space Center Launch Control and Its Role in Artemis Missions. That is why Kennedy launch control matters so much to Artemis. During Artemis I wet dress rehearsal testing in June 2022, NASA listed one of the main objectives as demonstrating the Launch Control Center and Launch Complex 39 in launch countdown configuration and validating required connectivity with the launch control team, support teams, the then 45th Delta Space Force range organization, networks, and design-center support. T",
+      "publishedDate": null,
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E3",
+      "url": "https://www.kennedyspacecenter.com/it/event/nasa-space-launch-system-sls-artemis-ii",
+      "domain": "kennedyspacecenter.com",
+      "title": "NASA Space Launch System (SLS) Artemis II - Kennedy Space Center Visitor Complex",
+      "snippet": "Title: NASA Space Launch System (SLS) Artemis II - Kennedy Space Center Visitor Complex It looks like you may be using a web browser version that we don't support. Make sure you're using the most recent version of your browser, or try using of these supported browsers, to get the full experience: Chrome, Firefox, Safari, or Edge. ### Gateway: The Deep Space Launch Complex®. During the Kennedy Space Center Bus Tour, go behind NASA's gates to see the past, present and future of this premier spaceport. Family entering the front gate of the Kennedy Space Center Visitor Complex. ### Plan Your Visit",
+      "publishedDate": null,
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E4",
+      "url": "https://www.kennedyspacecenter.com/event/nasa-space-launch-system-sls-artemis-ii",
+      "domain": "kennedyspacecenter.com",
+      "title": "NASA Space Launch System (SLS) Artemis II - Kennedy Space Center Visitor Complex",
+      "snippet": "ShopHotel Packages Sign up to our newsletter All Events Rocket Launch # NASA Space Launch System (SLS) Artemis II Launch Complex 39B - Kennedy Space Center NET April 1, 20266:24pm Framed by vegetation in the foreground and against the backdrop of a black night sky, NASA’s SLS (Space Launch System) rocket carrying the Orion spacecraft launches on the Artemis I flight test on Nov. 16, 2022, from Launch Complex 39B at NASA’s Kennedy Space Center in Florida. IMPORTANT: [...] Artemis II builds on the success of the uncrewed Artemis I in 2022, and will demonstrate a broad range of capabilities neede",
+      "publishedDate": null,
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E5",
+      "url": "https://www.collectspace.com/news/news-121122a-artemis-i-orion-splashdown.html",
+      "domain": "collectspace.com",
+      "title": "NASA's Artemis I Orion capsule splashes down after 25-day moon mission | collectSPACE",
+      "snippet": "| | | | | --- --- | | December 11, 2022 — A NASA spacecraft has landed from the moon for the time since the Apollo missions 50 years ago. The uncrewed Orion capsule descended to a splashdown in the Pacific Ocean off the coast of Guadalupe Island, west of the Baja California Peninsula, on Sunday (Dec. 11). The 12:40 p.m. EST (1740 GMT) landing marked the end of the nearly month-long Artemis I mission, a test flight that was aimed at proving that the Orion is ready to fly with [...] on the Artemis I mission. (NASA) NASA's Artemis I Orion spacecraft is seen after landing on Dec. 11, 2022, with th",
+      "publishedDate": "Sun, 11 Dec 2022 00:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E6",
+      "url": "https://www.nasa.gov/centers-and-facilities/hq/splashdown-nasas-orion-returns-to-earth-after-historic-moon-mission",
+      "domain": "nasa.gov",
+      "title": "Splashdown! NASA’s Orion Returns to Earth After Historic Moon Mission - NASA",
+      "snippet": "4 min read # Splashdown! NASA’s Orion Returns to Earth After Historic Moon Mission The headshot image of Beth Ridgeway Beth Ridgeway Dec 11, 2022 Article NASA’s Orion spacecraft splashed down in the Pacific Ocean, west of Baja California, at 9:40 a.m. PST Sunday after a record-breaking mission, traveling more than 1.4 million miles on a path around the Moon and returning safely to Earth, completing the Artemis I flight test. [...] NASA’s Orion spacecraft for the Artemis I mission splashed down in the Pacific Ocean at 9:40 a.m. PST on Sunday, Dec. 11, after a 25.5 day mission to the Moon. NASA ",
+      "publishedDate": "Sun, 11 Dec 2022 22:03:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "GOVERNMENT",
+      "social": false
+    },
+    {
+      "id": "E7",
+      "url": "https://www.facebook.com/NASASpaceflight/posts/december-11th-on-this-day-in-2022-nasas-orion-spacecraft-returned-to-earth-concl/1494618249330874",
+      "domain": "facebook.com",
+      "title": "on this day in 2022, NASA's Orion Spacecraft returned to ...",
+      "snippet": "At 12:40 p.m. EST, Dec. 11, 2022, NASA's Orion spacecraft for the Artemis I mission splashed down in the Pacific Ocean after a 25.5 day mission",
+      "publishedDate": "Sun, 04 Jan 2026 04:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "SOCIAL",
+      "social": true
+    },
+    {
+      "id": "E8",
+      "url": "https://www.youtube.com/watch?v=r_t0pAvW8QQ",
+      "domain": "youtube.com",
+      "title": "Artemis I - Orion - Deorbit Burn & Splashdown - Pacific Ocean",
+      "snippet": "NASA set the return day for the Orion Spacecraft of the Artemis I mission to December 11, 2022. The timetable of events (attention all is",
+      "publishedDate": "Mon, 02 Oct 2023 04:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "SOCIAL",
+      "social": true
+    },
+    {
+      "id": "E9",
+      "url": "https://www.eoportal.org/satellite-missions/artemisprogram",
+      "domain": "eoportal.org",
+      "title": "Artemis Program - eoPortal",
+      "snippet": "Artemis I was an uncrewed mission intended to test the Space Launch System (SLS) and Orion spacecraft, launched from the Kennedy Space Center’s Launch Complex 39B in Florida, USA on November 16, 2022. The mission's duration was 25 days, aiming to stress test Orion’s critical systems. NASA installed a sensor-equipped mannequin inside the cabin to measure radiation exposure. Orion was propelled into a Distant Retrograde Orbit (DRO) around the Moon for six days. In addition to Orion, the SLS [...] Artemis IV is a planned crewed mission intended to re-establish human presence on the lunar surface ",
+      "publishedDate": "Thu, 30 Apr 2026 00:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E10",
+      "url": "https://www.nasa.gov/mission/artemis-i",
+      "domain": "nasa.gov",
+      "title": "Artemis I - NASA",
+      "snippet": "The Artemis I mission launched from Launch Pad 39B at Kennedy Space Center in Florida at 1:47 a.m. EST on Nov. 16, 2022. Artemis I flew thousands of miles beyond and around the Moon and splashed down to Earth off the coast of San Diego at 12:40 p.m. EST on Dec. 11, 2022. The total mission duration was 25 days, 10 hours, and 53 minutes. ### Was Artemis I successful? Yes! Artemis I was extremely successful, and helped set the stage for NASA’s plans to return humans to the Moon in 2028. [...] During the 25.5-day Artemis I mission, Orion traveled 268,563 miles from Earth and 43,471 miles beyond th",
+      "publishedDate": "Mon, 27 Feb 2023 20:00:12 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "GOVERNMENT",
+      "social": false
+    },
+    {
+      "id": "E11",
+      "url": "https://en.wikipedia.org/wiki/Artemis_I",
+      "domain": "en.wikipedia.org",
+      "title": "Artemis I - Wikipedia",
+      "snippet": "| The uncrewed Orion \"Orion (spacecraft)\") approaching the Moon on day six of the mission | | Names | Artemis I (official) Exploration Mission-1 (EM-1) | | Mission type | Uncrewed lunar orbital flight test | | Operator | NASA | | COSPAR ID | 2022-156A Edit this at Wikidata | | SATCAT no. | 54257Edit this on Wikidata | | Website | nasa.gov/mission/artemis-i | | Mission duration | 25 days, 10 hours, 52 minutes and 46 seconds | | Distance travelled | 1.3 million miles (2.1 million kilometers) | [...] | November 21‍–‍24 | Transit to Moon | | Orbiting Moon | | November 25–30 | Distant retrograde or",
+      "publishedDate": "Fri, 12 Dec 2025 00:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "REFERENCE",
+      "social": false
+    },
+    {
+      "id": "E12",
+      "url": "https://www3.nasa.gov/specials/artemis-i",
+      "domain": "www3.nasa.gov",
+      "title": "NASA: Artemis I",
+      "snippet": "The primary goals for Artemis I are to demonstrate Orion’s systems in a spaceflight environment and ensure a safe re-entry, descent, splashdown, and recovery prior to the first flight with crew on Artemis II. Learn more ### Mission Facts: Launch date: Nov. 16, 2022 Mission duration: 25 days, 10 hours, 53 minutes Total distance traveled: 1.4 miIlion miles Re-entry speed: 24,581 mph (Mach 32) Splashdown: Dec. 11, 2022 ### Artemis Updates Feed Press Kit Artemis I Reference Guide",
+      "publishedDate": null,
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "GOVERNMENT",
+      "social": false
+    },
+    {
+      "id": "E13",
+      "url": "https://mooncoverage.com/missions/artemis-1",
+      "domain": "mooncoverage.com",
+      "title": "Artemis I — First Flight of SLS and Orion Around the Moon | Moon Coverage",
+      "snippet": "Artemis I was the inaugural flight of NASA's Space Launch System and the Orion spacecraft, launching on November 16, 2022 from Kennedy Space Center's Launch Complex 39B. The uncrewed mission served as an end-to-end test of the integrated SLS/Orion system before astronauts would fly on Artemis II. [...] Moon Coverage Artemis Program Test Flight # Artemis I Uncrewed inaugural flight of the Space Launch System and Orion spacecraft around the Moon. Status Completed Launch Nov 16 2022 Duration 25.5 days Distance 1.4M+ mi 01 ## Mission Overview [...] However, post-flight analysis revealed unexpected",
+      "publishedDate": "Sun, 11 Dec 2022 00:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E14",
+      "url": "https://www.space.com/artemis-1-orion-arrive-orbit-moon",
+      "domain": "space.com",
+      "title": "Artemis 1's Orion spacecraft enters orbit around the moon | Space",
+      "snippet": "NASA's Artemis 1 Orion spacecraft captured this selfie shortly after completing an engine burn that inserted the capsule into lunar orbit on Nov. 25, 2022. (Image credit: NASA TV) Reddit Email Share this article Join the conversation Follow us Add us as a preferred source on Google Subscribe to our newsletter NASA's Artemis 1 Orion spacecraft is now orbiting the moon. [...] 1. Space Exploration 2. Missions 3. Artemis # Artemis 1's Orion spacecraft enters orbit around the moon By Mike Wall Published The milestone moment occurred just before 5 p.m. ET on Friday (Nov. 25). NASA's Artemis 1 Orion ",
+      "publishedDate": "Fri, 25 Nov 2022 22:28:31 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E15",
+      "url": "https://barringercrater.com/blog/artemis-1-mission-orion-splash-down-success",
+      "domain": "barringercrater.com",
+      "title": "Artemis 1 Mission: Orion Splash Down Success",
+      "snippet": "On Dec. 11, 2022, NASA's Orion spacecraft for the Artemis I mission splashed down in the Pacific Ocean after a 25.5 day mission to the Moon.",
+      "publishedDate": "Thu, 22 Dec 2022 00:00:00 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    },
+    {
+      "id": "E16",
+      "url": "https://www.americaspace.com/2022/12/11/artemis-i-mission-end-successfully-trials-human-capable-vehicle-in-deep-space",
+      "domain": "americaspace.com",
+      "title": "Artemis I Mission Ends, Successfully Trials Human-Capable Vehicle in Deep Space - AmericaSpace",
+      "snippet": "Heading back home, the ESM, its 25.5-day job done with flying colors, was separated from the Orion CM at 9 a.m. PST (12 p.m. EST) Sunday. Alone now, the CM performed a unique “skip-entry” technique, dipping briefly into the upper atmosphere to utilize its drag effects and the lift characteristics of the capsule to achieve a safe, parachute-aided splashdown at 9:40 a.m. PST (12:40 p.m. EST), wrapping up Artemis I with a mission elapsed time of 25 days, ten hours and 52 minutes. [...] After more than 25 days in space and 1.4 million miles (2.3 million kilometers) traveled, NASA’s Artemis I missi",
+      "publishedDate": "Sun, 11 Dec 2022 23:41:01 GMT",
+      "retrievedAt": "2026-10-01T04:22:10.672936760Z",
+      "sourceType": "OTHER",
+      "social": false
+    }
+  ],
+  "verdictCounts": {
+    "SUPPORTED": 2,
+    "PARTLY_SUPPORTED": 1,
+    "MISLEADING": 0,
+    "CONTRADICTED": 0,
+    "INSUFFICIENT_EVIDENCE": 0
+  },
+  "limitations": [],
+  "notice": "Automated first pass for an editor: every verdict shows the source's own words, and quotes are checked word for word against the sources found. \"Not located\" means not found in these sources, not that a quote is fake. Confirm with primary sources before publishing a correction.",
+  "searchProvider": "tavily",
+  "durationMs": 62687
+}
