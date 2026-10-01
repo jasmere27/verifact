@@ -118,3 +118,11 @@ Only record decisions with real tradeoffs.
 - Quota: ~100 searches/day free, so only the first 4 claims (`NEWS_VIDEO_CLAIMS`) get a search; quota exhaustion is reported as a limitation, not an error.
 - Runs in parallel with the evidence step on virtual threads; never fails the check.
 - Deferred: V2 uploaded-video analysis (ffmpeg, speech-to-text, frame analysis; keeps "what the video shows / what the uploader claims / what sources confirm / unverified" separate; no AI real/fake verdict) and V3 reused-footage detection (Cloud Vision web detection).
+
+## ADR-17 — Evidence Intelligence Core extracted from NewsFact
+**Accepted** · 2026-10-01 (owner request; plan approved)
+- Decision: the product-neutral rules NewsFact proved (claim grounding, verbatim citations, quote verification, verdict/flag gates, conflict detection, grounded explanations) move to `core/` as small stateless helpers over plain records. `Verdict` moves from `verification/` to `core/assess/` (JSON unchanged).
+- Products keep their prompts **and model output schemas** (the schema the model sees is generated from the product's class), storage, endpoints and wording; they map their model output to core candidates (`ClaimCandidate`, `ReviewCandidate`) and core results back to their own records. No pipeline framework.
+- Safety: `NewsCheckGoldenTest` pins NewsFact's full result and every prompt byte for byte, plus round-tripping of real stored `news_reviews` JSON (nested new fields must load as null). `CoreBoundaryTest` forbids product imports in `core/`.
+- Known existing behaviour kept as-is: explanation grounding only checks numbers/names, so a wordy unrelated explanation can pass; a context flag can stand with INSUFFICIENT_EVIDENCE when an excerpt exists. Candidates for a deliberate change later (eval before/after).
+- Next: source passages and page dates, timeline, comparison, report model; then the VeriFact Investigation workspace on the core; LegalFact/ResearchFact adopt parts where they fit.

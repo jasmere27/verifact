@@ -2,12 +2,13 @@ package com.ai.agent.verifact.news;
 
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.core.assess.ClaimFinding;
+import com.ai.agent.verifact.core.assess.EvidenceAssessor;
+import com.ai.agent.verifact.core.assess.ReviewCandidate;
 import com.ai.agent.verifact.core.assess.Verdict;
-import com.ai.agent.verifact.core.assess.VerdictRules;
 import com.ai.agent.verifact.core.claims.ClaimCandidate;
 import com.ai.agent.verifact.core.claims.ClaimGrounder;
 import com.ai.agent.verifact.core.claims.ClaimProfile;
-import com.ai.agent.verifact.core.provenance.CitationValidator;
 import com.ai.agent.verifact.core.provenance.QuoteVerifier;
 import com.ai.agent.verifact.core.provenance.SourceExcerpt;
 import com.ai.agent.verifact.evidence.Evidence;
@@ -37,7 +38,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -158,7 +158,7 @@ public class NewsCheckService {
         }
 
         // 3. Verdicts, with the sources' own words
-        Map<String, ClaimReview> reviews = new LinkedHashMap<>();
+        Map<String, ClaimReview> reviews = Map.of();
         if (!sources.isEmpty()) {
             progress.stage(VerificationProgress.Stage.ASSESSING);
             String reviewNonce = nonce();
@@ -168,13 +168,7 @@ public class NewsCheckService {
             }
             ClaimReviews review = llm.generate(NewsPrompts.withNonce(NewsPrompts.REVIEW_SYSTEM, reviewNonce),
                     NewsPrompts.reviewUser(reviewNonce, today, articleDate, lines, sources), ClaimReviews.class);
-            if (review != null && review.claims() != null) {
-                for (ClaimReview r : review.claims()) {
-                    if (r != null && r.claimId() != null) {
-                        reviews.putIfAbsent(r.claimId().trim().toUpperCase(Locale.ROOT), r);
-                    }
-                }
-            }
+            reviews = EvidenceAssessor.byClaimId(review == null ? null : review.claims(), ClaimReview::claimId);
         }
 
         List<NewsClaim> checked = new ArrayList<>();
@@ -219,9 +213,8 @@ public class NewsCheckService {
     }
 
     /**
-     * The model's verdict stands only when the excerpt it relies on is the source's own words:
-     * SUPPORTED/PARTLY need a supporting excerpt, CONTRADICTED a contradicting one, MISLEADING either;
-     * otherwise INSUFFICIENT_EVIDENCE. The quote check is independent of the model.
+     * The model's verdict stands only when the excerpt it relies on is the source's own words (shared
+     * {@link EvidenceAssessor} rules); context flags need an excerpt too. The quote check is independent of the model.
      */
     static NewsClaim validate(String id, ArticleClaim c, ClaimReview r, List<Evidence> sources) {
         ClaimType type = ClaimType.valueOf(c.type());
@@ -231,24 +224,13 @@ public class NewsCheckService {
             quoteSource = QuoteVerifier.locate(c.quotedWords(), sources, 3, MAX_EXCERPT_CHARS);
             quoteStatus = quoteSource != null ? QuoteStatus.FOUND_VERBATIM : QuoteStatus.NOT_LOCATED;
         }
-        Map<String, Evidence> byId = CitationValidator.byId(sources);
-        SourceExcerpt supporting = r == null ? null : excerpt(r.supportingSourceId(), r.supportingExcerpt(), byId);
-        SourceExcerpt contradicting = r == null ? null : excerpt(r.contradictingSourceId(), r.contradictingExcerpt(), byId);
-        Verdict verdict = r == null ? Verdict.INSUFFICIENT_EVIDENCE : Verdict.parse(r.verdict());
-        verdict = VerdictRules.gate(verdict, supporting, contradicting);
-        ContextIssue context = contextIssue(r == null ? null : r.contextIssue());
-        if (!VerdictRules.flagBacked(supporting, contradicting)) {
-            context = ContextIssue.NONE;
-        }
-        String explanation = r == null ? null : VerdictRules.groundedExplanation(clean(r.explanation(), 400), c.claim(),
-                supporting, contradicting);
+        ClaimFinding f = EvidenceAssessor.assess(c.claim(), r == null ? null : new ReviewCandidate(r.verdict(),
+                r.supportingSourceId(), r.supportingExcerpt(), r.contradictingSourceId(), r.contradictingExcerpt(),
+                r.explanation()), sources, MAX_EXCERPT_CHARS);
+        ContextIssue context = f.flagsBacked() ? contextIssue(r.contextIssue()) : ContextIssue.NONE;
         return new NewsClaim(id, type, c.quote(), c.claim(), emptyToNull(c.speaker()), emptyToNull(c.quotedWords()),
-                verdict, supporting, contradicting, context, quoteStatus, quoteSource,
-                VerdictRules.sourcesConflict(supporting, contradicting), explanation);
-    }
-
-    private static SourceExcerpt excerpt(String sourceId, String excerpt, Map<String, Evidence> byId) {
-        return CitationValidator.verbatim(sourceId, excerpt, byId, 5, MAX_EXCERPT_CHARS);
+                f.verdict(), f.supporting(), f.contradicting(), context, quoteStatus, quoteSource, f.sourcesConflict(),
+                f.explanation());
     }
 
     private static ContextIssue contextIssue(String s) {
