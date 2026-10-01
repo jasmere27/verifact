@@ -87,6 +87,13 @@
             <artifactId>spring-boot-starter-security-oauth2-resource-server-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Real Postgres (embedded) for migration tests: H2 can't run Postgres-only migrations such as RLS -->
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>2.1.1</version>
+            <scope>test</scope>
+        </dependency>
         <!-- In-memory database so the application context can start in tests -->
         <dependency>
             <groupId>com.h2database</groupId>

@@ -2,7 +2,9 @@
 -- Data API to anyone holding the project's public (anon/publishable) key, which the frontend ships once sign-in
 -- exists. Enabling row-level security with no policies gives those API roles no access at all. The backend is
 -- unaffected: it connects as the tables' owner, and owners bypass RLS (it is not FORCEd).
--- Every new table must be added here or in a later migration (see known-issues).
+-- Every new table must be added here or in a later migration (see known-issues). flyway_schema_history is left
+-- out: Flyway holds it while migrating, so altering it here waits on itself (this hung the first deploy).
+-- It holds only migration names; the Data API is also switched off in the dashboard.
 -- Rollback: ALTER TABLE ... DISABLE ROW LEVEL SECURITY (only if the Data API is disabled).
 ALTER TABLE fact_check_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE verifications ENABLE ROW LEVEL SECURITY;
@@ -12,4 +14,3 @@ ALTER TABLE research_workspaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE flyway_schema_history ENABLE ROW LEVEL SECURITY;
