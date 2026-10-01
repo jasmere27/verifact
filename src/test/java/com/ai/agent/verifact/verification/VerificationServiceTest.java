@@ -1,13 +1,14 @@
 package com.ai.agent.verifact.verification;
 
-import com.ai.agent.verifact.evidence.Evidence;
-import com.ai.agent.verifact.evidence.SourceType;
-import com.ai.agent.verifact.evidence.EvidenceRetriever;
-import com.ai.agent.verifact.evidence.Urls;
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.ai.LlmException;
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.core.assess.Verdict;
+import com.ai.agent.verifact.evidence.Evidence;
+import com.ai.agent.verifact.evidence.EvidenceRetriever;
+import com.ai.agent.verifact.evidence.SourceType;
+import com.ai.agent.verifact.evidence.Urls;
 import com.ai.agent.verifact.fetch.SafeUrlFetcher;
 import com.ai.agent.verifact.fetch.UnsafeUrlException;
 import com.ai.agent.verifact.model.InputType;

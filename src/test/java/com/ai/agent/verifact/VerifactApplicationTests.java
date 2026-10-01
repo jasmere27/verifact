@@ -36,7 +36,7 @@ class VerifactApplicationTests {
                 "https://news.example/a", "Headline text {with braces}",
                 com.ai.agent.verifact.verification.OverallVerdict.MIXED, "Summary",
                 java.util.List.of(new com.ai.agent.verifact.verification.ClaimAssessment("C1", "Claim",
-                        com.ai.agent.verifact.verification.Verdict.SUPPORTED,
+                        com.ai.agent.verifact.core.assess.Verdict.SUPPORTED,
                         com.ai.agent.verifact.verification.EvidenceStrength.MODERATE, "Why",
                         java.util.List.of("E1"), java.util.List.of())),
                 java.util.List.of(new com.ai.agent.verifact.evidence.Evidence("E1", "https://a.example/1",

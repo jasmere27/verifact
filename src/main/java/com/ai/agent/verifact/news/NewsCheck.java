@@ -1,7 +1,8 @@
 package com.ai.agent.verifact.news;
 
+import com.ai.agent.verifact.core.assess.Verdict;
+import com.ai.agent.verifact.core.provenance.SourceExcerpt;
 import com.ai.agent.verifact.evidence.Evidence;
-import com.ai.agent.verifact.verification.Verdict;
 
 import java.time.Instant;
 import java.util.List;
@@ -33,9 +34,6 @@ public record NewsCheck(UUID id, Instant createdAt, String articleUrl, String ar
         /** Not found word for word in the retrieved sources: check the original recording or transcript. */
         NOT_LOCATED
     }
-
-    /** A source's own words for or against a claim (verbatim, checked in code). */
-    public record SourceExcerpt(String sourceId, String excerpt) {}
 
     /**
      * @param articleQuote the article's exact words

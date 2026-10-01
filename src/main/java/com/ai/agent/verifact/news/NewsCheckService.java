@@ -2,6 +2,11 @@ package com.ai.agent.verifact.news;
 
 import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.core.assess.Verdict;
+import com.ai.agent.verifact.core.assess.VerdictRules;
+import com.ai.agent.verifact.core.provenance.CitationValidator;
+import com.ai.agent.verifact.core.provenance.QuoteVerifier;
+import com.ai.agent.verifact.core.provenance.SourceExcerpt;
 import com.ai.agent.verifact.evidence.Evidence;
 import com.ai.agent.verifact.evidence.EvidenceRetriever;
 import com.ai.agent.verifact.evidence.Grounding;
@@ -14,12 +19,10 @@ import com.ai.agent.verifact.news.NewsCheck.ClaimType;
 import com.ai.agent.verifact.news.NewsCheck.ContextIssue;
 import com.ai.agent.verifact.news.NewsCheck.NewsClaim;
 import com.ai.agent.verifact.news.NewsCheck.QuoteStatus;
-import com.ai.agent.verifact.news.NewsCheck.SourceExcerpt;
 import com.ai.agent.verifact.news.NewsOutputs.ArticleClaim;
 import com.ai.agent.verifact.news.NewsOutputs.ClaimExtraction;
 import com.ai.agent.verifact.news.NewsOutputs.ClaimReview;
 import com.ai.agent.verifact.news.NewsOutputs.ClaimReviews;
-import com.ai.agent.verifact.verification.Verdict;
 import com.ai.agent.verifact.verification.VerificationProgress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -250,53 +253,27 @@ public class NewsCheckService {
         QuoteStatus quoteStatus = QuoteStatus.NOT_A_QUOTE;
         SourceExcerpt quoteSource = null;
         if (type == ClaimType.QUOTE) {
-            quoteStatus = QuoteStatus.NOT_LOCATED;
-            for (Evidence e : sources) {
-                String span = Grounding.findSpan(c.quotedWords(), e.title() + " " + e.snippet(), 3);
-                if (span != null) {
-                    quoteStatus = QuoteStatus.FOUND_VERBATIM;
-                    quoteSource = new SourceExcerpt(e.id(), cap(span));
-                    break;
-                }
-            }
+            quoteSource = QuoteVerifier.locate(c.quotedWords(), sources, 3, MAX_EXCERPT_CHARS);
+            quoteStatus = quoteSource != null ? QuoteStatus.FOUND_VERBATIM : QuoteStatus.NOT_LOCATED;
         }
-        Map<String, Evidence> byId = new LinkedHashMap<>();
-        sources.forEach(e -> byId.put(e.id(), e));
+        Map<String, Evidence> byId = CitationValidator.byId(sources);
         SourceExcerpt supporting = r == null ? null : excerpt(r.supportingSourceId(), r.supportingExcerpt(), byId);
         SourceExcerpt contradicting = r == null ? null : excerpt(r.contradictingSourceId(), r.contradictingExcerpt(), byId);
         Verdict verdict = r == null ? Verdict.INSUFFICIENT_EVIDENCE : Verdict.parse(r.verdict());
-        verdict = switch (verdict) {
-            case SUPPORTED, PARTLY_SUPPORTED -> supporting != null ? verdict : Verdict.INSUFFICIENT_EVIDENCE;
-            case CONTRADICTED -> contradicting != null ? verdict : Verdict.INSUFFICIENT_EVIDENCE;
-            case MISLEADING -> supporting != null || contradicting != null ? verdict : Verdict.INSUFFICIENT_EVIDENCE;
-            case INSUFFICIENT_EVIDENCE -> verdict;
-        };
+        verdict = VerdictRules.gate(verdict, supporting, contradicting);
         ContextIssue context = contextIssue(r == null ? null : r.contextIssue());
-        if (context != ContextIssue.NONE && supporting == null && contradicting == null) {
-            context = ContextIssue.NONE; // a context flag also needs a source's own words
+        if (!VerdictRules.flagBacked(supporting, contradicting)) {
+            context = ContextIssue.NONE;
         }
-        String material = material(c.claim(), supporting == null ? "" : supporting.excerpt(),
-                contradicting == null ? "" : contradicting.excerpt());
-        String explanation = r == null ? null : clean(r.explanation(), 400);
-        if (explanation != null && (explanation.isBlank() || !Grounding.supported(explanation, material))) {
-            explanation = null;
-        }
+        String explanation = r == null ? null : VerdictRules.groundedExplanation(clean(r.explanation(), 400), c.claim(),
+                supporting, contradicting);
         return new NewsClaim(id, type, c.quote(), c.claim(), emptyToNull(c.speaker()), emptyToNull(c.quotedWords()),
                 verdict, supporting, contradicting, context, quoteStatus, quoteSource,
-                supporting != null && contradicting != null && !supporting.sourceId().equals(contradicting.sourceId()),
-                explanation);
+                VerdictRules.sourcesConflict(supporting, contradicting), explanation);
     }
 
     private static SourceExcerpt excerpt(String sourceId, String excerpt, Map<String, Evidence> byId) {
-        if (sourceId == null || excerpt == null) {
-            return null;
-        }
-        Evidence e = byId.get(sourceId.trim().toUpperCase(Locale.ROOT));
-        if (e == null) {
-            return null;
-        }
-        String span = Grounding.findSpan(excerpt, e.title() + " " + e.snippet(), 5);
-        return span == null ? null : new SourceExcerpt(e.id(), cap(span));
+        return CitationValidator.verbatim(sourceId, excerpt, byId, 5, MAX_EXCERPT_CHARS);
     }
 
     private static ClaimType type(String s) {
@@ -313,10 +290,6 @@ public class NewsCheckService {
         } catch (IllegalArgumentException e) {
             return ContextIssue.NONE;
         }
-    }
-
-    private static String cap(String s) {
-        return s.length() > MAX_EXCERPT_CHARS ? s.substring(0, MAX_EXCERPT_CHARS) + "…" : s;
     }
 
     private static String clean(String text, int max) {

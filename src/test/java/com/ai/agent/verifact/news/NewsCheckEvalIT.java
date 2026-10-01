@@ -1,8 +1,8 @@
 package com.ai.agent.verifact.news;
 
+import com.ai.agent.verifact.core.assess.Verdict;
 import com.ai.agent.verifact.news.NewsCheck.NewsClaim;
 import com.ai.agent.verifact.news.NewsCheck.QuoteStatus;
-import com.ai.agent.verifact.verification.Verdict;
 import com.ai.agent.verifact.verification.VerificationProgress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;

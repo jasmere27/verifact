@@ -1,7 +1,7 @@
 package com.ai.agent.verifact.news;
 
 import com.ai.agent.verifact.common.ApiException;
-import com.ai.agent.verifact.verification.Verdict;
+import com.ai.agent.verifact.core.assess.Verdict;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
