@@ -33,3 +33,17 @@ export function forgetReportToken(id: string) {
     // ignore
   }
 }
+
+/** On sign-out: the next person using this browser can't delete (or find) the reports made here. */
+export function forgetAllReportTokens() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("verifact.token.")) keys.push(key);
+    }
+    keys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // ignore
+  }
+}

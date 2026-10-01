@@ -1,5 +1,7 @@
 import type { AuthChangeEvent, Session } from "@supabase/auth-js";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { clearRecent } from "../recent";
+import { forgetAllReportTokens } from "../reportTokens";
 import { getAccount, type Account } from "./api";
 import { auth, authEnabled } from "./client";
 import { AuthContext, type AuthState } from "./useAuth";
@@ -24,7 +26,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = auth.onAuthStateChange((event: AuthChangeEvent, next: Session | null) => {
       setSession(next);
       if (event === "PASSWORD_RECOVERY") setRecovering(true);
-      if (event === "SIGNED_OUT") setRecovering(false);
+      if (event === "SIGNED_OUT") {
+        setRecovering(false);
+        // Shared computers: the next person mustn't see (or delete) what was checked in this browser.
+        clearRecent();
+        forgetAllReportTokens();
+      }
     });
     return () => {
       active = false;

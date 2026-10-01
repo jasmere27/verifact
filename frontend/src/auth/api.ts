@@ -28,6 +28,19 @@ export class AccountApiError extends Error {
   }
 }
 
+/** The signed-in user's access token (refreshed by the auth client when needed), or null when signed out. */
+export async function accessToken(): Promise<string | null> {
+  const { data } = (await auth?.getSession()) ?? { data: { session: null } };
+  return data.session?.access_token ?? null;
+}
+
+/** After a 401: a fresh token, or null if the session can't be refreshed. */
+export async function refreshedAccessToken(): Promise<string | null> {
+  if (!auth) return null;
+  const { data } = await auth.refreshSession();
+  return data.session?.access_token ?? null;
+}
+
 async function token(): Promise<string> {
   const { data } = (await auth?.getSession()) ?? { data: { session: null } };
   if (!data.session) throw new AccountApiError("Please sign in to continue.", 401);
@@ -76,4 +89,22 @@ export async function updateDisplayName(displayName: string): Promise<Account> {
 
 export async function deleteAccount(): Promise<void> {
   await authed("/api/v2/me", { method: "DELETE" });
+}
+
+/** An entry in "Your checks" (`GET /api/v2/me/checks`). `yours`: this account created the report and may delete it. */
+export interface MyCheck {
+  id: string;
+  checkedAt: string;
+  overallVerdict: string;
+  label: string;
+  yours: boolean;
+}
+
+export async function getMyChecks(): Promise<MyCheck[]> {
+  return (await authed("/api/v2/me/checks")).json() as Promise<MyCheck[]>;
+}
+
+/** Removes a check from the history only; the report stays. */
+export async function removeMyCheck(id: string): Promise<void> {
+  await authed(`/api/v2/me/checks/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

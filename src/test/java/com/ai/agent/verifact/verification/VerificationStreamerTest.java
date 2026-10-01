@@ -54,6 +54,8 @@ class VerificationStreamerTest {
     private ImageOcrService imageOcrService;
     @MockitoBean
     private VoiceToTextTool voiceToText;
+    @MockitoBean
+    private AccountChecks accountChecks;
 
     private static VerificationResult result() {
         return new VerificationResult(UUID.fromString("6f1c1a8e-2b3c-4d5e-8f90-1a2b3c4d5e6f"),

@@ -86,7 +86,7 @@ public class AccountService {
     }
 
     /** Creates the user, their personal organisation and owner membership once; keeps the email current. */
-    void ensureProvisioned(SignedInUser user) {
+    public void ensureProvisioned(SignedInUser user) {
         try {
             tx.executeWithoutResult(s -> provisionOrSync(user));
         } catch (DataIntegrityViolationException e) {

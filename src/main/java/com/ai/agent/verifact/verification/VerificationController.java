@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.account.SignedInUser;
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.service.ImageOcrService;
@@ -9,6 +10,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,7 +34,9 @@ import java.util.regex.Pattern;
 /**
  * API v2: structured, evidence-cited verification reports. Reports get unguessable IDs and can be
  * re-opened (and shared) with GET by id. A check may send {@code X-Edit-Token} (a random token the
- * browser keeps); the browser that created a report can then DELETE it with the same header.
+ * browser keeps); the browser that created a report can then DELETE it with the same header. Signed in
+ * (a bearer token), the check is added to the account's history and a report it creates belongs to the
+ * account, which can delete it from any device (ADR-20).
  */
 @RestController
 @RequestMapping("/api/v2/verifications")
@@ -48,6 +53,7 @@ public class VerificationController {
     private final VerificationService verificationService;
     private final VerificationStreamer streamer;
     private final VerificationStore store;
+    private final AccountChecks accountChecks;
     private final ImageOcrService imageOcrService;
     private final VoiceToTextTool voiceToText;
     private final int maxInputChars;
@@ -59,13 +65,14 @@ public class VerificationController {
     private static final String EDIT_TOKEN_HEADER = "X-Edit-Token";
 
     public VerificationController(VerificationService verificationService, VerificationStreamer streamer,
-                                  VerificationStore store,
+                                  VerificationStore store, AccountChecks accountChecks,
                                   ImageOcrService imageOcrService, VoiceToTextTool voiceToText,
                                   @Value("${app.input.max-chars:10000}") int maxInputChars,
                                   @Value("${app.vision.enabled:true}") boolean visionEnabled, Clock clock) {
         this.verificationService = verificationService;
         this.streamer = streamer;
         this.store = store;
+        this.accountChecks = accountChecks;
         this.imageOcrService = imageOcrService;
         this.voiceToText = voiceToText;
         this.maxInputChars = maxInputChars;
@@ -75,9 +82,10 @@ public class VerificationController {
 
     @PostMapping
     public VerificationResult verify(@RequestBody(required = false) VerifyRequest request,
-                                     @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+                                     @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token,
+                                     @AuthenticationPrincipal Jwt jwt) {
         String input = validInput(request);
-        return owned(token, () -> verificationService.verifyText(input, VerificationProgress.NONE, request.forceRefresh()));
+        return owned(token, jwt, () -> verificationService.verifyText(input, VerificationProgress.NONE, request.forceRefresh()));
     }
 
     // Streaming variants: validation errors are ordinary problem+json responses; once the stream
@@ -85,44 +93,51 @@ public class VerificationController {
 
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter verifyStream(@RequestBody(required = false) VerifyRequest request, HttpServletResponse response,
-                                   @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+                                   @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token,
+                                   @AuthenticationPrincipal Jwt jwt) {
         String input = validInput(request);
         noProxyBuffering(response);
         boolean refresh = request.forceRefresh();
-        return streamer.start(progress -> owned(token, () -> verificationService.verifyText(input, progress, refresh)));
+        return streamer.start(progress -> owned(token, jwt, () -> verificationService.verifyText(input, progress, refresh)));
     }
 
     @PostMapping(value = "/image/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter verifyImageStream(@RequestParam("file") MultipartFile file, HttpServletResponse response,
-                                        @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+                                        @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token,
+                                        @AuthenticationPrincipal Jwt jwt) {
         byte[] bytes = read(file, "No image uploaded.");
         String name = file.getOriginalFilename();
         noProxyBuffering(response);
         return streamer.start(progress -> {
             progress.stage(VerificationProgress.Stage.READING_INPUT);
-            return owned(token, () -> verifyImage(name, bytes, progress));
+            return owned(token, jwt, () -> verifyImage(name, bytes, progress));
         });
     }
 
     @PostMapping(value = "/audio/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter verifyAudioStream(@RequestParam("file") MultipartFile file, HttpServletResponse response,
-                                        @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+                                        @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token,
+                                        @AuthenticationPrincipal Jwt jwt) {
         byte[] bytes = read(file, "No audio file uploaded.");
         String name = file.getOriginalFilename();
         noProxyBuffering(response);
         return streamer.start(progress -> {
             progress.stage(VerificationProgress.Stage.READING_INPUT);
-            return owned(token, () -> verificationService.verifyAudioTranscript(name, voiceToText.transcribe(bytes), progress));
+            return owned(token, jwt, () -> verificationService.verifyAudioTranscript(name, voiceToText.transcribe(bytes), progress));
         });
     }
 
-    /** Runs a check; a report it creates (not one it reuses) becomes deletable with {@code token}. */
-    private VerificationResult owned(String token, Supplier<VerificationResult> check) {
+    /**
+     * Runs a check. A report it creates (not one it reuses) becomes deletable with {@code token} and, when
+     * signed in, by the account; signed in, the report is also added to the account's history.
+     */
+    private VerificationResult owned(String token, Jwt jwt, Supplier<VerificationResult> check) {
         Instant startedAt = clock.instant();
         VerificationResult result = check.get();
-        if (token != null && EDIT_TOKEN.matcher(token).matches()) {
-            store.attachEditToken(result.id(), token, startedAt);
-        }
+        SignedInUser user = jwt == null ? null : SignedInUser.from(jwt);
+        boolean recorded = user != null && accountChecks.record(user, result);
+        String editToken = token != null && EDIT_TOKEN.matcher(token).matches() ? token : null;
+        store.attachCreator(result.id(), editToken, recorded ? user.id() : null, startedAt);
         return result;
     }
 
@@ -174,14 +189,15 @@ public class VerificationController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable("id") String id,
-                                       @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+                                       @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token,
+                                       @AuthenticationPrincipal Jwt jwt) {
         UUID uuid;
         try {
             uuid = UUID.fromString(id);
         } catch (IllegalArgumentException e) {
             throw notFound();
         }
-        store.delete(uuid, token);
+        store.delete(uuid, token, jwt == null ? null : SignedInUser.from(jwt).id());
         return ResponseEntity.noContent().build();
     }
 

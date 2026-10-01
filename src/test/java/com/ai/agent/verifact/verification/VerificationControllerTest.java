@@ -28,10 +28,12 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -65,6 +67,8 @@ class VerificationControllerTest {
     private ImageOcrService imageOcrService;
     @MockitoBean
     private VoiceToTextTool voiceToText;
+    @MockitoBean
+    private AccountChecks accountChecks;
 
     private static VerificationResult sample() {
         return new VerificationResult(ID, Instant.parse("2026-09-30T12:00:00Z"), InputType.TEXT, "claim", "claim",
@@ -102,19 +106,37 @@ class VerificationControllerTest {
         mockMvc.perform(post("/api/v2/verifications").header("X-Edit-Token", token)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"input\":\"claim\"}"))
                 .andExpect(status().isOk());
-        verify(store).attachEditToken(eq(ID), eq(token), any());
+        verify(store).attachCreator(eq(ID), eq(token), isNull(), any());
 
         mockMvc.perform(post("/api/v2/verifications").header("X-Edit-Token", "short")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"input\":\"claim\"}"))
                 .andExpect(status().isOk());
-        verify(store, never()).attachEditToken(any(), eq("short"), any());
+        verify(store).attachCreator(eq(ID), isNull(), isNull(), any());
+    }
+
+    @Test
+    void signedInChecksGoToTheAccountsHistoryAndTheReportBecomesTheirs() throws Exception {
+        UUID user = UUID.fromString("11111111-2222-4333-8444-555555555555");
+        when(service.verifyText("claim", VerificationProgress.NONE, false)).thenReturn(sample());
+        when(accountChecks.record(any(), any())).thenReturn(true);
+
+        mockMvc.perform(post("/api/v2/verifications").with(jwt().jwt(j -> j.subject(user.toString()).claim("email", "s@example.com")))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"input\":\"claim\"}"))
+                .andExpect(status().isOk());
+
+        verify(accountChecks).record(eq(new com.ai.agent.verifact.account.SignedInUser(user, "s@example.com")), any());
+        verify(store).attachCreator(eq(ID), isNull(), eq(user), any());
+
+        mockMvc.perform(delete("/api/v2/verifications/" + ID).with(jwt().jwt(j -> j.subject(user.toString()))))
+                .andExpect(status().isNoContent());
+        verify(store).delete(ID, null, user);
     }
 
     @Test
     void deletingAReportPassesTheTokenToTheStore() throws Exception {
         mockMvc.perform(delete("/api/v2/verifications/" + ID).header("X-Edit-Token", "tok"))
                 .andExpect(status().isNoContent());
-        verify(store).delete(ID, "tok");
+        verify(store).delete(ID, "tok", null);
 
         mockMvc.perform(delete("/api/v2/verifications/not-a-uuid"))
                 .andExpect(status().isNotFound());

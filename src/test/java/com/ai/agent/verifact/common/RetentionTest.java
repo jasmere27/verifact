@@ -109,28 +109,28 @@ class RetentionTest {
         Instant requestStarted = Instant.now().minusSeconds(1);
         UUID id = report(OffsetDateTime.now());
         UUID fb = feedbackOn(id);
-        reports.attachEditToken(id, TOKEN, requestStarted);
+        reports.attachCreator(id, TOKEN, null, requestStarted);
 
-        assertThatThrownBy(() -> reports.delete(id, "x".repeat(43)))
+        assertThatThrownBy(() -> reports.delete(id, "x".repeat(43), null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
-        assertThatThrownBy(() -> reports.delete(id, null))
+        assertThatThrownBy(() -> reports.delete(id, null, null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
 
-        reports.delete(id, TOKEN);
+        reports.delete(id, TOKEN, null);
 
         assertThat(reportRows.existsById(id)).isFalse();
         assertThat(feedback.existsById(fb)).isFalse();
-        assertThatThrownBy(() -> reports.delete(id, TOKEN))
+        assertThatThrownBy(() -> reports.delete(id, TOKEN, null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
     }
 
     @Test
     void aReusedReportCannotBeClaimedByALaterRequest() {
         UUID reused = report(daysAgo(0).minusHours(2));
-        reports.attachEditToken(reused, TOKEN, Instant.now().minusSeconds(1));
+        reports.attachCreator(reused, TOKEN, null, Instant.now().minusSeconds(1));
 
         assertThat(reportRows.findById(reused)).hasValueSatisfying(r -> assertThat(r.getEditTokenHash()).isNull());
-        assertThatThrownBy(() -> reports.delete(reused, TOKEN))
+        assertThatThrownBy(() -> reports.delete(reused, TOKEN, null))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
     }
 
@@ -138,8 +138,8 @@ class RetentionTest {
     void theFirstTokenOnAReportIsKept() {
         Instant requestStarted = Instant.now().minusSeconds(1);
         UUID id = report(OffsetDateTime.now());
-        reports.attachEditToken(id, TOKEN, requestStarted);
-        reports.attachEditToken(id, "y".repeat(43), requestStarted);
+        reports.attachCreator(id, TOKEN, null, requestStarted);
+        reports.attachCreator(id, "y".repeat(43), null, requestStarted);
 
         assertThat(reportRows.findById(id)).hasValueSatisfying(r -> assertThat(r.getEditTokenHash()).isEqualTo(EditTokens.hash(TOKEN)));
     }

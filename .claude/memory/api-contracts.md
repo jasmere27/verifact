@@ -160,3 +160,6 @@ Guarantees: every excerpt is the source's own words (≤300 chars); a verdict ot
 - `DELETE /api/v2/me` → 204: deletes the Supabase Auth user (secret key, `apikey` header) then our rows (personal organisation and memberships cascade). 503 without `SUPABASE_SECRET_KEY`; 502 if Supabase fails (nothing deleted).
 - `PATCH /api/v2/me` `{displayName}` (≤80 chars, control characters removed, blank clears) → same shape. Light rate limiter.
 - CORS now allows `PATCH` and the `Authorization` header.
+- **Check history (ADR-20, 2026-10-01):** checks (`POST /api/v2/verifications`, `/stream`, `/image/stream`, `/audio/stream`) sent with a valid bearer token add the report to the account's history and, if the request created the report, set `verifications.owner_id`. `DELETE /api/v2/verifications/{id}` also succeeds for that owner (with or without `X-Edit-Token`). Deleting the account deletes the reports it owns (FK cascade).
+- `GET /api/v2/me/checks` → `[{id, checkedAt, overallVerdict, label, yours}]`, newest first, ≤100; `yours` = this account created the report. 401 signed out.
+- `DELETE /api/v2/me/checks/{id}` → 204: removes from the history only (the report stays); unknown ids are ignored; malformed → 404.
