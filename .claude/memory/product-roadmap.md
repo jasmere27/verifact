@@ -62,6 +62,14 @@ Revenue $0, no validated demand yet. Order of work (P = priority):
 - ☐ L5: LegalMatch-style demo on a hypothetical case
 - ☐ Validate with legal professionals before any billing
 
+## Students and learners (2026-10-02, owner request; hypotheses until a class pilot)
+- ☑ "How to check it yourself" on reports: warning signs + fact-checker steps computed in code (`frontend/src/learn.ts`, English + Tagalog/Taglish share-pressure phrases), no model call
+- ☑ "Cite these sources": APA 7 / MLA 9 for report sources (`frontend/src/citations.ts`)
+- ☑ Installable app (manifest + icons) with Android share target → `/check?text=…` pre-fills the box (no auto-run). iPhone: Add to Home Screen only (no share target on iOS)
+- ☑ Reverse image search links (Google Lens, TinEye, Bing) for image checks; VeriFact doesn't keep the image, so the student uploads it there
+- ☐ Usage limits per account before promoting to classes (Tavily free plan ≈ 250 checks/month)
+- ☐ Main JS bundle passed 500 kB: lazy-load LegalFact/NewsFact/ResearchFact pages
+
 ## Phase 5 — Monetization (only after usage data)
 Candidates: higher limits, batch checks, API access, team workspaces, exportable reports.
 

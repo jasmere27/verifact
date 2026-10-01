@@ -585,7 +585,8 @@
   color: var(--text);
 }
 
-.mode-tab[aria-selected="true"] {
+.mode-tab[aria-selected="true"],
+.mode-tab[aria-checked="true"] {
   background: var(--surface);
   color: var(--accent);
   border-color: var(--line);
@@ -1539,6 +1540,53 @@
   padding-left: 1.2em;
   display: grid;
   gap: 6px;
+  color: var(--text-2);
+}
+
+/* ---------- Learners: check it yourself, citations ---------- */
+
+.learn-subhead {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.learn-signs,
+.learn-steps {
+  padding-left: 1.2em;
+  display: grid;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.learn-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cite-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cite-list {
+  padding-left: 1.4em;
+  display: grid;
+  gap: 10px;
+}
+
+.cite-list li {
+  padding-left: 2px;
+}
+
+.cite-text {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
   color: var(--text-2);
 }
 

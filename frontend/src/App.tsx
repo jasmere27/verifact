@@ -28,6 +28,7 @@ import { formatRelative } from "./format";
 import { clearRecent, forgetCheck, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
 import { newEditToken, saveReportToken } from "./reportTokens";
+import { sharedInput } from "./shared";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
 import type { Route } from "./router";
 import type { OverallVerdict, SourcesFound, StageId, VerificationResult } from "./types";
@@ -74,6 +75,8 @@ function App() {
   const [recent, setRecent] = useState<RecentCheck[]>(() => loadRecent());
   const [announcement, setAnnouncement] = useState("");
   const [reused, setReused] = useState<ReusedReport | null>(null);
+  // Shared from another app (installed app's share menu): pre-fill the check box once, then tidy the URL.
+  const [shared, setShared] = useState(() => (route.name === "check" ? sharedInput(window.location.search) : null));
   // Signed in: the account's history (null until loaded) replaces this browser's recent checks.
   const userId = useAuth().session?.user.id ?? null;
   const [myChecks, setMyChecks] = useState<MyCheck[] | null>(null);
@@ -102,6 +105,10 @@ function App() {
   useEffect(() => {
     if (userId) loadMyChecks();
   }, [userId, loadMyChecks]);
+
+  useEffect(() => {
+    if (route.name === "check" && window.location.search) navigate("/check", { replace: true });
+  }, [route.name]);
 
   const cacheResult = useCallback((result: VerificationResult) => {
     setResults((prev) => (prev[result.id] ? prev : { ...prev, [result.id]: result }));
@@ -308,7 +315,13 @@ function App() {
             )}
 
             <div className="card form-card" hidden={loading}>
-              <CheckForm onSubmit={(submission) => void runCheck(submission)} />
+              <CheckForm
+                initialText={shared ?? undefined}
+                onSubmit={(submission) => {
+                  setShared(null);
+                  void runCheck(submission);
+                }}
+              />
             </div>
 
             {!loading &&

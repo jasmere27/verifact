@@ -49,11 +49,13 @@ function formatBytes(bytes: number): string {
 
 interface Props {
   onSubmit: (submission: Submission) => void;
+  /** Pre-filled text, e.g. shared from another app. */
+  initialText?: string;
 }
 
-export default function CheckForm({ onSubmit }: Props) {
+export default function CheckForm({ onSubmit, initialText }: Props) {
   const [mode, setMode] = useState<Mode>("text");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? "");
   const [files, setFiles] = useState<Record<"image" | "audio", File | null>>({ image: null, audio: null });
   const [problem, setProblem] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);

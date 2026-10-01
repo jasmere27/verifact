@@ -7,6 +7,7 @@ import type { ClaimAssessment, Evidence, ImageContext, ImageKind, VerificationRe
 import { INPUT_TYPE_LABEL, strengthMeta, verdictMeta } from "../verdicts";
 import FeedbackPrompt from "./FeedbackPrompt";
 import Link from "./Link";
+import { CheckItYourself, CiteSources } from "./StudentTools";
 import VerdictBadge from "./VerdictBadge";
 import VerdictIcon from "./VerdictIcon";
 
@@ -461,6 +462,10 @@ export default function Report({ result, reuse }: { result: VerificationResult; 
       )}
 
       {result.imageContext && <ImageContextSection context={result.imageContext} />}
+
+      <CheckItYourself result={result} />
+
+      <CiteSources result={result} />
 
       <section className="report-section" aria-labelledby="limits-heading">
         <h2 id="limits-heading">What remains uncertain</h2>
