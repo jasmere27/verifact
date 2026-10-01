@@ -84,7 +84,7 @@ export function PrivacyPage() {
         <h3>In your browser</h3>
         <p>
           We save a few things on your device: your light/dark theme, your recent checks, which reports you&apos;ve rated, the keys
-          that let you edit your NewsFact reviews and research workspaces, and your sign-in session. We don&apos;t use advertising or
+          that let you delete your reports and edit or delete your NewsFact reviews and research workspaces, and your sign-in session. We don&apos;t use advertising or
           tracking cookies. Clearing your browser data removes them.
         </p>
       </section>
@@ -135,11 +135,8 @@ export function PrivacyPage() {
       <section>
         <h2>How long we keep it</h2>
         <ul>
-          <li>Research workspaces are deleted automatically 90 days after the last change.</li>
-          <li>
-            VeriFact reports, NewsFact reviews and feedback have no automatic deletion yet. We plan to add one; until then we delete
-            them when you ask.
-          </li>
+          <li>VeriFact reports, and any feedback on them, are deleted automatically 90 days after the check.</li>
+          <li>NewsFact reviews and research workspaces are deleted automatically 90 days after the last change.</li>
           <li>Account details are kept until you delete your account.</li>
           <li>Logs are kept only as long as our hosting providers retain them, typically days to weeks.</li>
         </ul>
@@ -148,6 +145,10 @@ export function PrivacyPage() {
       <section>
         <h2>Your choices and rights</h2>
         <ul>
+          <li>
+            <strong>Delete what you created</strong> at any time: VeriFact reports, NewsFact reviews and research workspaces each
+            have a delete button, shown in the browser you used to create them.
+          </li>
           <li>
             <strong>Delete your account</strong> at any time from your <Link href="/account">account page</Link>. This removes your
             sign-in and profile straight away.

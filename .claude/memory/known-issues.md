@@ -12,7 +12,7 @@ for context; delete them once they stop being useful._
 3. **v1 endpoints (deprecated) keep the old behaviour:** model-driven search, free-form markdown regex-parsed, and a prompt biased toward confident verdicts ("trusted source → real 100%", "use internal knowledge"). v2 fixes all of this; remove v1 once unused.
 4. **Evidence is search snippets only.** v2 judges from titles/snippets, not full articles, so nuanced claims may land on INSUFFICIENT_EVIDENCE or be judged on thin excerpts. Possible next step: safe-fetch the top 2–3 cited pages for longer excerpts (cost/latency tradeoff).
 6. **Audio path needs Google credentials** that no deploy config provides → `503` in practice. Also LINEAR16/en-US only.
-7. **Stored submissions have no retention policy.** Every check (including user text) is persisted to `fact_check_results` indefinitely; no deletion path. Decide retention before public launch.
+7. ~~Stored submissions have no retention policy.~~ Resolved 2026-10-01 (ADR-19): 90-day retention jobs for reports, feedback, NewsFact reviews and v1 results; delete buttons for the browser that created them.
 
 ## Medium
 8. **DNS rebinding** window between `UrlGuard` resolution and Jsoup's own connect-time resolution. Fix needs an HTTP client with a pluggable resolver or connecting by IP.
@@ -54,7 +54,7 @@ for context; delete them once they stop being useful._
 ## Low / hygiene
 14. Every report includes "Cybersecurity Tips" — capstone artifact; product value unclear.
 15. README claims MIT license but there is no LICENSE file.
-16. Reports are readable by anyone with the link (UUID) — the report page says so. No retention policy or deletion path: reports keep up to 1,500 chars of submitted/OCR/transcript text indefinitely. Add a retention job (e.g. 90 days) and a delete route before promoting sharing widely.
+16. Reports are readable by anyone with the link (UUID) — the report page says so. Retention and deletion resolved 2026-10-01 (ADR-19): deleted 90 days after the check, or earlier by the browser that ran it.
 
 ## Resolved in Phase 0a (2026-09-30)
 - SSRF via user URLs and LLM-callable fetch tool → `SafeUrlFetcher`/`UrlGuard`; fetch tool removed from the model.

@@ -41,6 +41,10 @@ public class VerificationRecord {
     @Column(name = "input_hash", length = 64)
     private String inputHash;
 
+    /** SHA-256 of the edit token of the browser that ran the check; null when none was sent. */
+    @Column(name = "edit_token_hash", length = 64)
+    private String editTokenHash;
+
     protected VerificationRecord() {
     }
 
@@ -60,7 +64,19 @@ public class VerificationRecord {
         return id;
     }
 
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
     public String getResultJson() {
         return resultJson;
+    }
+
+    public String getEditTokenHash() {
+        return editTokenHash;
+    }
+
+    public void setEditTokenHash(String editTokenHash) {
+        this.editTokenHash = editTokenHash;
     }
 }

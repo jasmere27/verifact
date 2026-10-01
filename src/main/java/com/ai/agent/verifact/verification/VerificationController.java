@@ -8,10 +8,13 @@ import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,11 +22,16 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * API v2: structured, evidence-cited verification reports. Reports get unguessable IDs and can be
- * re-opened (and shared) with GET by id.
+ * re-opened (and shared) with GET by id. A check may send {@code X-Edit-Token} (a random token the
+ * browser keeps); the browser that created a report can then DELETE it with the same header.
  */
 @RestController
 @RequestMapping("/api/v2/verifications")
@@ -44,12 +52,17 @@ public class VerificationController {
     private final VoiceToTextTool voiceToText;
     private final int maxInputChars;
     private final boolean visionEnabled;
+    private final Clock clock;
+
+    /** Browser-generated edit tokens: base64url, at least 192 bits. Anything else is ignored. */
+    private static final Pattern EDIT_TOKEN = Pattern.compile("[A-Za-z0-9_-]{32,128}");
+    private static final String EDIT_TOKEN_HEADER = "X-Edit-Token";
 
     public VerificationController(VerificationService verificationService, VerificationStreamer streamer,
                                   VerificationStore store,
                                   ImageOcrService imageOcrService, VoiceToTextTool voiceToText,
                                   @Value("${app.input.max-chars:10000}") int maxInputChars,
-                                  @Value("${app.vision.enabled:true}") boolean visionEnabled) {
+                                  @Value("${app.vision.enabled:true}") boolean visionEnabled, Clock clock) {
         this.verificationService = verificationService;
         this.streamer = streamer;
         this.store = store;
@@ -57,44 +70,60 @@ public class VerificationController {
         this.voiceToText = voiceToText;
         this.maxInputChars = maxInputChars;
         this.visionEnabled = visionEnabled;
+        this.clock = clock;
     }
 
     @PostMapping
-    public VerificationResult verify(@RequestBody(required = false) VerifyRequest request) {
-        return verificationService.verifyText(validInput(request), VerificationProgress.NONE, request.forceRefresh());
+    public VerificationResult verify(@RequestBody(required = false) VerifyRequest request,
+                                     @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+        String input = validInput(request);
+        return owned(token, () -> verificationService.verifyText(input, VerificationProgress.NONE, request.forceRefresh()));
     }
 
     // Streaming variants: validation errors are ordinary problem+json responses; once the stream
     // starts, progress, the result, or an error arrive as Server-Sent Events.
 
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter verifyStream(@RequestBody(required = false) VerifyRequest request, HttpServletResponse response) {
+    public SseEmitter verifyStream(@RequestBody(required = false) VerifyRequest request, HttpServletResponse response,
+                                   @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
         String input = validInput(request);
         noProxyBuffering(response);
         boolean refresh = request.forceRefresh();
-        return streamer.start(progress -> verificationService.verifyText(input, progress, refresh));
+        return streamer.start(progress -> owned(token, () -> verificationService.verifyText(input, progress, refresh)));
     }
 
     @PostMapping(value = "/image/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter verifyImageStream(@RequestParam("file") MultipartFile file, HttpServletResponse response) {
+    public SseEmitter verifyImageStream(@RequestParam("file") MultipartFile file, HttpServletResponse response,
+                                        @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
         byte[] bytes = read(file, "No image uploaded.");
         String name = file.getOriginalFilename();
         noProxyBuffering(response);
         return streamer.start(progress -> {
             progress.stage(VerificationProgress.Stage.READING_INPUT);
-            return verifyImage(name, bytes, progress);
+            return owned(token, () -> verifyImage(name, bytes, progress));
         });
     }
 
     @PostMapping(value = "/audio/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter verifyAudioStream(@RequestParam("file") MultipartFile file, HttpServletResponse response) {
+    public SseEmitter verifyAudioStream(@RequestParam("file") MultipartFile file, HttpServletResponse response,
+                                        @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
         byte[] bytes = read(file, "No audio file uploaded.");
         String name = file.getOriginalFilename();
         noProxyBuffering(response);
         return streamer.start(progress -> {
             progress.stage(VerificationProgress.Stage.READING_INPUT);
-            return verificationService.verifyAudioTranscript(name, voiceToText.transcribe(bytes), progress);
+            return owned(token, () -> verificationService.verifyAudioTranscript(name, voiceToText.transcribe(bytes), progress));
         });
+    }
+
+    /** Runs a check; a report it creates (not one it reuses) becomes deletable with {@code token}. */
+    private VerificationResult owned(String token, Supplier<VerificationResult> check) {
+        Instant startedAt = clock.instant();
+        VerificationResult result = check.get();
+        if (token != null && EDIT_TOKEN.matcher(token).matches()) {
+            store.attachEditToken(result.id(), token, startedAt);
+        }
+        return result;
     }
 
     private String validInput(VerifyRequest request) {
@@ -141,6 +170,19 @@ public class VerificationController {
             throw notFound();
         }
         return store.find(uuid).orElseThrow(VerificationController::notFound);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable("id") String id,
+                                       @RequestHeader(value = EDIT_TOKEN_HEADER, required = false) String token) {
+        UUID uuid;
+        try {
+            uuid = UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            throw notFound();
+        }
+        store.delete(uuid, token);
+        return ResponseEntity.noContent().build();
     }
 
     private static ApiException notFound() {

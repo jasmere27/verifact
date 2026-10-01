@@ -1,6 +1,9 @@
 package com.ai.agent.verifact.verification;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -10,4 +13,10 @@ public interface VerificationRecordRepository extends JpaRepository<Verification
 
     Optional<VerificationRecord> findFirstByInputHashAndCreatedAtAfterOrderByCreatedAtDesc(
             String inputHash, OffsetDateTime createdAfter);
+
+    /** Feedback on these reports goes with them (ON DELETE CASCADE). */
+    @Modifying
+    @Transactional
+    @Query("delete from VerificationRecord r where r.createdAt < :cutoff")
+    int deleteCreatedBefore(OffsetDateTime cutoff);
 }

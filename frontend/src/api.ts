@@ -303,21 +303,36 @@ export async function streamResult<T = VerificationResult>(
   }, timeoutMs);
 }
 
-/** `refresh: true` asks the server to run a new check instead of reusing a recent report for the same input. */
-export function verifyTextStream(input: string, handlers: StreamHandlers, signal?: AbortSignal, refresh = false) {
+/**
+ * `refresh: true` asks the server to run a new check instead of reusing a recent report for the same input.
+ * `editToken` lets this browser delete the report later, if the check creates a new one.
+ */
+export function verifyTextStream(input: string, handlers: StreamHandlers, signal?: AbortSignal, refresh = false, editToken?: string) {
   return streamResult(
     "/api/v2/verifications/stream",
     JSON.stringify(refresh ? { input, refresh: true } : { input }),
-    { "Content-Type": "application/json" },
+    { "Content-Type": "application/json", ...(editToken ? { "X-Edit-Token": editToken } : {}) },
     handlers,
     signal,
   );
 }
 
-export function verifyFileStream(kind: "image" | "audio", file: File, handlers: StreamHandlers, signal?: AbortSignal) {
+export function verifyFileStream(kind: "image" | "audio", file: File, handlers: StreamHandlers, signal?: AbortSignal, editToken?: string) {
   const formData = new FormData();
   formData.append("file", file);
-  return streamResult(`/api/v2/verifications/${kind}/stream`, formData, {}, handlers, signal);
+  return streamResult(`/api/v2/verifications/${kind}/stream`, formData, editToken ? { "X-Edit-Token": editToken } : {}, handlers, signal);
+}
+
+/** `DELETE /api/v2/verifications/{id}` with the token sent when the report was created → 204; 403 for anyone else. */
+export function deleteVerification(id: string, token: string, signal?: AbortSignal): Promise<void> {
+  return withTimeout(signal, async (timeoutSignal) => {
+    const response = await fetch(`${API_BASE_URL}/api/v2/verifications/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { "X-Edit-Token": token },
+      signal: timeoutSignal,
+    });
+    if (!response.ok && response.status !== 404) throw await toApiError(response);
+  });
 }
 
 /* ---------- Feedback ---------- */

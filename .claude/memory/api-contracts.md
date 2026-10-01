@@ -81,6 +81,12 @@ Runs on a virtual thread; 180 s emitter timeout; `X-Accel-Buffering: no`. Rate l
 
 **v1 is deprecated** (still served, unchanged) — it uses the older model-driven prompt. Remove once no callers remain.
 
+### Deletion and retention (2026-10-01, ADR-19)
+- Checks (`POST /api/v2/verifications`, `/stream`, `/image/stream`, `/audio/stream`) accept an optional header `X-Edit-Token` (browser-generated, base64url, 32–128 chars; anything else is ignored). Its SHA-256 is stored only on a report the request created, never on a reused one. Response unchanged.
+- `DELETE /api/v2/verifications/{id}` header `X-Edit-Token` → 204; 403 wrong/missing token or a report without one; 404 unknown/malformed. Feedback is deleted with the report.
+- `DELETE /api/v2/news/checks/{id}` header `X-Edit-Token` (the edit token from creation) → 204; 403; 404.
+- Retention: daily jobs (`app.retention.cleanup-cron`, default 03:27 UTC) delete reports + feedback 90 days after creation, NewsFact reviews 90 days after the last change, v1 `fact_check_results` 90 days after creation (research workspaces already: 90 days after last change).
+
 ## LegalFact — case intelligence (added 2026-09-30, ADR-12; branch `legalfact-mvp`)
 - `POST /api/v2/legal/case-intelligence` JSON `{"description": "..."}` (40–10,000 chars) → `CaseIntelligence`.
 - `POST /api/v2/legal/case-intelligence/stream` → `text/event-stream`, same events as verifications: `stage` (EXTRACTING_CLAIMS = organising, SEARCHING, ASSESSING), `claims` (issue topics), `sources`, then `result` or `error`.
@@ -119,6 +125,7 @@ Guarantees: `evidenceQuote` and conflict quotes are verbatim from the named work
 - `POST /api/v2/news/checks` JSON `{"input": "<article URL or text>"}` (text ≥60 chars, ≤10,000) → `NewsWorkspace` (includes `editToken` once); `/stream` → SSE (`stage` incl. READING_INPUT for links, `claims`, `sources`, `result`/`error`).
 - `GET /api/v2/news/checks/{id}` → `NewsWorkspace` (`editToken` null). Not rate limited.
 - `NewsCheck.videos` (nullable; older checks): `{claims: [{claimId, query, videos: [{platform, videoId, url, title, channel, publishedAt, durationSeconds, thumbnailUrl, keyFrames, chapters, relevantAt, stance SUPPORTS|CONTRADICTS|CONTEXT, kind NEWS_REPORT|OFFICIAL|EYEWITNESS|OTHER, why, quote, claimsMade, earliestFound, embeddable}]}], searched, limitations, notice}`.
+- `DELETE /api/v2/news/checks/{id}`: see Deletion and retention above.
 - `PUT /api/v2/news/checks/{id}/review` header `X-Edit-Token`, body `{decisions: {"C1": {status, note}}, editorNote}` → `NewsReview`. 403 without the right token; ids `C1`–`C99`, ≤20 decisions, notes ≤1,000 chars. Shares the feedback limiter (10/min/IP).
 - Errors: `400` · `413` · `422` link unreadable or no claims · `429` · `502` AI · `503` search or save failure.
 ```ts

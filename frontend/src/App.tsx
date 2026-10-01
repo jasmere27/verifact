@@ -22,8 +22,9 @@ import NewsPage from "./news/NewsPage";
 import NewsWorkspace from "./news/NewsWorkspace";
 import { CONTACT_EMAIL, PrivacyPage, TermsPage } from "./policies/PolicyPages";
 import { formatRelative } from "./format";
-import { clearRecent, loadRecent, rememberCheck } from "./recent";
+import { clearRecent, forgetCheck, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
+import { newEditToken, saveReportToken } from "./reportTokens";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
 import type { Route } from "./router";
 import type { SourcesFound, StageId, VerificationResult } from "./types";
@@ -107,6 +108,7 @@ function App() {
 
   async function runCheck(submission: Submission, refresh = false) {
     const submittedAt = Date.now();
+    const editToken = newEditToken();
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -125,8 +127,8 @@ function App() {
     try {
       const result =
         submission.mode === "text"
-          ? await verifyTextStream(submission.text, handlers, controller.signal, refresh)
-          : await verifyFileStream(submission.mode, submission.file, handlers, controller.signal);
+          ? await verifyTextStream(submission.text, handlers, controller.signal, refresh, editToken)
+          : await verifyFileStream(submission.mode, submission.file, handlers, controller.signal, editToken);
       if (controller.signal.aborted) return;
       controllerRef.current = null;
       cacheResult(result);
@@ -135,6 +137,8 @@ function App() {
       const createdAt = Date.parse(result.createdAt);
       const wasReused = !Number.isNaN(createdAt) && createdAt < submittedAt - REUSE_THRESHOLD_MS;
       setReused(wasReused ? { id: result.id, submittedAt } : null);
+      // The server only accepts the token on a report this check created, not on a reused one.
+      if (!wasReused) saveReportToken(result.id, editToken);
       const label = verdictMeta(result.overallVerdict).label;
       setAnnouncement(
         wasReused
@@ -149,6 +153,17 @@ function App() {
       setCheck({ status: "error", message, requestId });
       setAnnouncement("");
     }
+  }
+
+  function reportDeleted(id: string) {
+    setResults((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setRecent(forgetCheck(id));
+    navigate("/check", { replace: true });
+    setAnnouncement("Report deleted.");
   }
 
   /** "Check again now" on a reused report: run the same text or link again, bypassing reuse. */
@@ -264,6 +279,7 @@ function App() {
             id={route.id}
             cached={results[route.id]}
             onLoaded={cacheResult}
+            onDeleted={reportDeleted}
             reusedAt={reused?.id === route.id ? reused.submittedAt : undefined}
             onRecheck={recheck}
           />

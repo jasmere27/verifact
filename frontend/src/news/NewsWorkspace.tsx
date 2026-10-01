@@ -1,11 +1,12 @@
 import SupportingVideos from "./Videos";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage } from "../api";
-import { formatDateTime, formatDuration, safeHttpUrl } from "../format";
+import { formatDate, formatDateTime, formatDuration, safeHttpUrl } from "../format";
 import Link from "../components/Link";
 import VerdictBadge from "../components/VerdictBadge";
 import type { Evidence } from "../types";
-import { getNewsWorkspace, saveNewsReview, savedToken } from "./api";
+import { navigate } from "../router";
+import { deleteNewsCheck, getNewsWorkspace, saveNewsReview, savedToken } from "./api";
 import type { ClaimType, ContextIssue, DecisionStatus, NewsClaim, NewsReview, NewsWorkspace as Workspace, SupportingVideo } from "./types";
 import "./news.css";
 
@@ -193,6 +194,7 @@ export default function NewsWorkspace({ id }: { id: string }) {
   const [save, setSave] = useState<Save>("idle");
   const [tab, setTab] = useState<"claims" | "report">("claims");
   const [copied, setCopied] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const token = savedToken(id);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -264,6 +266,20 @@ export default function NewsWorkspace({ id }: { id: string }) {
       c.contextIssue !== "NONE" ||
       c.quoteStatus === "NOT_LOCATED",
   ).length;
+
+  // Deleted on the server 90 days after the last change (Retention.PERIOD).
+  const lastChange = Date.parse(review.updatedAt ?? check.createdAt);
+  const deletesOn = Number.isNaN(lastChange) ? null : formatDate(new Date(lastChange + 90 * 86_400_000).toISOString());
+
+  async function remove() {
+    if (!token || !window.confirm("Delete this check and your review for everyone? The link will stop working. This can't be undone.")) return;
+    try {
+      await deleteNewsCheck(id, token);
+      navigate("/news", { replace: true });
+    } catch (err) {
+      setDeleteError(errorMessage(err).message);
+    }
+  }
 
   function decide(claimId: string, status: DecisionStatus, note: string | null) {
     const next: NewsReview = { ...review!, decisions: { ...review!.decisions, [claimId]: { status, note } } };
@@ -415,6 +431,21 @@ export default function NewsWorkspace({ id }: { id: string }) {
       <p className="muted small">
         Anyone with this link can view this review. Search: {check.searchProvider} · took {formatDuration(check.durationMs)}.
       </p>
+      <p className="muted small">
+        {deletesOn
+          ? `Deleted automatically on ${deletesOn}, 90 days after the last change.`
+          : "Deleted automatically 90 days after the last change."}{" "}
+        {editable && (
+          <button type="button" className="text-button" onClick={() => void remove()}>
+            Delete this review now
+          </button>
+        )}
+      </p>
+      {deleteError && (
+        <p className="small" role="alert">
+          {deleteError}
+        </p>
+      )}
     </article>
   );
 }
