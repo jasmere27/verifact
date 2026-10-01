@@ -251,6 +251,10 @@ export function SignUpPage() {
           Already have an account? <Link href={`/signin${next !== "/account" ? `?next=${encodeURIComponent(next)}` : ""}`}>Sign in</Link>
         </span>
       </p>
+      <p className="muted small auth-agree">
+        By creating an account, you agree to our <Link href="/terms">Terms of Use</Link> and{" "}
+        <Link href="/privacy">Privacy Policy</Link>. You must be 13 or older.
+      </p>
     </AuthCard>
   );
 }
