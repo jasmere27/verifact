@@ -9,7 +9,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ☑ Real test suite with deterministic AI/search fakes (98 tests)
 - ☑ SSRF-safe fetcher; rate limiting; input/upload limits; ProblemDetail errors; timeouts; request IDs; cheap health check
 - ☑ Make `/history` non-public (disabled by default) until accounts exist
-- ☐ Decide data retention for stored submissions
+- ☑ Data retention: 90 days + owner delete buttons (ADR-19, 2026-10-01)
 
 ## Phase 1 — Core verification (the product)
 - ☑ Backend-controlled pipeline (ADR-3) with structured output — API v2
@@ -46,7 +46,7 @@ Revenue $0, no validated demand yet. Order of work (P = priority):
 ## NewsFact (ADR-14, newsfact.md)
 - ☑ N1: story check (typed claims, quote verification in code, context issues, conflicts) + review workspace + report (deployed 2026-09-30)
 - ☐ E6: validate with newsroom editors / fact-check desks before accounts or pricing
-- ☐ Retention + delete for saved reviews; accounts/teams only after demand
+- ☑ Retention + delete for saved reviews (ADR-19, 2026-10-01); accounts/teams only after demand
 
 ## ResearchFact (ADR-13, researchfact.md)
 - ☑ R1: citation-check MVP (existence/match, retraction, claim support from abstracts with verbatim quotes, conflicting research), `/research` (2026-09-30)

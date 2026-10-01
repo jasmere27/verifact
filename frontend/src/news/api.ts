@@ -45,6 +45,14 @@ function saveToken(id: string, token: string) {
   }
 }
 
+function forgetToken(id: string) {
+  try {
+    localStorage.removeItem(TOKEN_KEY(id));
+  } catch {
+    // ignore
+  }
+}
+
 export async function runNewsCheck(input: string, handlers: StreamHandlers, signal?: AbortSignal) {
   const w = await streamResult(
     "/api/v2/news/checks/stream",
@@ -68,6 +76,21 @@ export async function getNewsWorkspace(id: string, signal?: AbortSignal): Promis
     );
   }
   return normalize(await response.json());
+}
+
+/** Deletes the check and its review; only with the edit token from creation. Already gone counts as done. */
+export async function deleteNewsCheck(id: string, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v2/news/checks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: { "X-Edit-Token": token },
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new ApiError(
+      response.status === 403 ? "Only the person who ran this check can delete it." : "Couldn't delete the review. Please try again.",
+      response.status,
+    );
+  }
+  forgetToken(id);
 }
 
 export async function saveNewsReview(id: string, token: string, review: NewsReview): Promise<NewsReview> {

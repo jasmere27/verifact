@@ -61,3 +61,10 @@ export function clearRecent() {
     // ignore
   }
 }
+
+/** After a report is deleted. */
+export function forgetCheck(id: string): RecentCheck[] {
+  const next = loadRecent().filter((item) => item.id !== id);
+  save(next);
+  return next;
+}

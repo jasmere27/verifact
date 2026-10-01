@@ -1,6 +1,7 @@
 package com.ai.agent.verifact.verification;
 
 import com.ai.agent.verifact.config.SecurityConfig;
+import com.ai.agent.verifact.config.TimeConfig;
 import com.ai.agent.verifact.account.SupabaseAuthConfig;
 import org.springframework.context.annotation.Import;
 import com.ai.agent.verifact.ai.ImageInput;
@@ -31,6 +32,7 @@ import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -39,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(VerificationController.class)
-@Import({SecurityConfig.class, SupabaseAuthConfig.class})
+@Import({SecurityConfig.class, SupabaseAuthConfig.class, TimeConfig.class})
 @TestPropertySource(properties = {
         "app.input.max-chars=50",
         "app.rate-limit.per-ip-per-minute=1000",
@@ -90,6 +92,32 @@ class VerificationControllerTest {
                 .andExpect(jsonPath("$.evidence[0].retrievedAt").value("2026-09-30T12:00:01Z"))
                 .andExpect(jsonPath("$.limitations[0]").value("Only two sources."))
                 .andExpect(jsonPath("$.durationMs").value(1234));
+    }
+
+    @Test
+    void aWellFormedEditTokenIsAttachedToTheReportAndAnythingElseIsIgnored() throws Exception {
+        when(service.verifyText("claim", VerificationProgress.NONE, false)).thenReturn(sample());
+        String token = "a".repeat(43);
+
+        mockMvc.perform(post("/api/v2/verifications").header("X-Edit-Token", token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"input\":\"claim\"}"))
+                .andExpect(status().isOk());
+        verify(store).attachEditToken(eq(ID), eq(token), any());
+
+        mockMvc.perform(post("/api/v2/verifications").header("X-Edit-Token", "short")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"input\":\"claim\"}"))
+                .andExpect(status().isOk());
+        verify(store, never()).attachEditToken(any(), eq("short"), any());
+    }
+
+    @Test
+    void deletingAReportPassesTheTokenToTheStore() throws Exception {
+        mockMvc.perform(delete("/api/v2/verifications/" + ID).header("X-Edit-Token", "tok"))
+                .andExpect(status().isNoContent());
+        verify(store).delete(ID, "tok");
+
+        mockMvc.perform(delete("/api/v2/verifications/not-a-uuid"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { ApiError, getVerification } from "../api";
+import { ApiError, deleteVerification, errorMessage, getVerification } from "../api";
+import { formatDate } from "../format";
+import { forgetReportToken, reportToken } from "../reportTokens";
 import type { VerificationResult } from "../types";
 import Link from "./Link";
 import Report from "./Report";
@@ -19,9 +21,60 @@ interface Props {
   reusedAt?: number;
   /** Re-run a text/link input as a fresh check. */
   onRecheck: (input: string) => void;
+  /** After this browser deleted the report. */
+  onDeleted: (id: string) => void;
 }
 
-export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck }: Props) {
+/** Matches the server's retention period (Retention.PERIOD) and the Privacy Policy. */
+const RETENTION_DAYS = 90;
+
+function deletionDate(createdAt: string): string {
+  const created = Date.parse(createdAt);
+  return Number.isNaN(created) ? "" : formatDate(new Date(created + RETENTION_DAYS * 86_400_000).toISOString());
+}
+
+/** When the report will be deleted, and a delete button for the browser that ran the check. */
+function Retention({ result, onDeleted }: { result: VerificationResult; onDeleted: (id: string) => void }) {
+  const token = reportToken(result.id);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const date = deletionDate(result.createdAt);
+
+  async function remove() {
+    if (!token || !window.confirm("Delete this report for everyone? The link will stop working. This can't be undone.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteVerification(result.id, token);
+      forgetReportToken(result.id);
+      onDeleted(result.id);
+    } catch (err) {
+      setBusy(false);
+      setError(errorMessage(err).message);
+    }
+  }
+
+  return (
+    <div className="report-retention small">
+      <p className="muted">
+        {date ? `This report will be deleted automatically on ${date}.` : `Reports are deleted automatically after ${RETENTION_DAYS} days.`}
+        {token ? " You ran this check, so you can delete it now." : ""}
+      </p>
+      {token && (
+        <button type="button" className="text-button" onClick={() => void remove()} disabled={busy}>
+          {busy ? "Deleting…" : "Delete this report"}
+        </button>
+      )}
+      {error && (
+        <p className="report-retention-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck, onDeleted }: Props) {
   const [state, setState] = useState<State>(cached ? { status: "ready", result: cached } : { status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -45,14 +98,17 @@ export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck }
     const { result } = state;
     const canRecheck = result.inputType === "TEXT" || result.inputType === "URL";
     return (
-      <Report
-        result={result}
-        reuse={
-          reusedAt === undefined
-            ? undefined
-            : { submittedAt: reusedAt, onRecheck: canRecheck && result.input.trim() ? () => onRecheck(result.input) : undefined }
-        }
-      />
+      <>
+        <Report
+          result={result}
+          reuse={
+            reusedAt === undefined
+              ? undefined
+              : { submittedAt: reusedAt, onRecheck: canRecheck && result.input.trim() ? () => onRecheck(result.input) : undefined }
+          }
+        />
+        <Retention result={result} onDeleted={onDeleted} />
+      </>
     );
   }
 
@@ -70,7 +126,8 @@ export default function ReportPage({ id, cached, onLoaded, reusedAt, onRecheck }
       <section className="card state-card" aria-labelledby="missing-heading">
         <h1 id="missing-heading">Report not found</h1>
         <p className="muted">
-          There&apos;s no report at this link. It may have been mistyped, or the report may no longer be stored.
+          There&apos;s no report at this link. It may have been mistyped, deleted by the person who ran it, or removed
+          automatically {RETENTION_DAYS} days after it was created.
         </p>
         <Link href="/check" className="button button--primary">
           Check a claim

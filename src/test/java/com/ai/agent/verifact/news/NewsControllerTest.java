@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -64,6 +65,15 @@ class NewsControllerTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/v2/news/checks/not-a-uuid")).andExpect(status().isNotFound());
         verify(store, never()).updateReview(any(), any(), any());
+    }
+
+    @Test
+    void deletingAReviewPassesTheTokenToTheStore() throws Exception {
+        java.util.UUID id = java.util.UUID.fromString("6f1c1a8e-2b3c-4d5e-8f90-1a2b3c4d5e6f");
+        mockMvc.perform(delete("/api/v2/news/checks/" + id).header("X-Edit-Token", "t"))
+                .andExpect(status().isNoContent());
+        verify(store).delete(id, "t");
+        mockMvc.perform(delete("/api/v2/news/checks/not-a-uuid")).andExpect(status().isNotFound());
     }
 
     @Test

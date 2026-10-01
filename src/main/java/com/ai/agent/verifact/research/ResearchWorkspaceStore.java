@@ -2,6 +2,7 @@ package com.ai.agent.verifact.research;
 
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.common.EditTokens;
+import com.ai.agent.verifact.common.Retention;
 import com.ai.agent.verifact.evidence.Grounding;
 import com.ai.agent.verifact.research.ResearchWorkspace.Folder;
 import com.ai.agent.verifact.research.ResearchWorkspace.SavedSource;
@@ -34,7 +35,7 @@ public class ResearchWorkspaceStore {
 
     private static final Logger log = LoggerFactory.getLogger(ResearchWorkspaceStore.class);
 
-    static final Duration RETENTION = Duration.ofDays(90);
+    static final Duration RETENTION = Retention.PERIOD;
     static final int MAX_SOURCES = 200;
     static final int MAX_NOTES_CHARS = 20_000;
     static final int MAX_NOTE_CHARS = 1_000;
