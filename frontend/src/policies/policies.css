@@ -1,0 +1,68 @@
+/* ---------- Privacy Policy and Terms of Use ---------- */
+
+.policy {
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  gap: 28px;
+  line-height: 1.65;
+}
+
+.policy-header {
+  display: grid;
+  gap: 6px;
+}
+
+.policy h1 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.policy-lede {
+  margin-top: 8px;
+  color: var(--text-2);
+}
+
+.policy section {
+  display: grid;
+  gap: 10px;
+}
+
+.policy h2 {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.35rem;
+}
+
+.policy h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.policy ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 1.25rem;
+}
+
+.policy a {
+  overflow-wrap: anywhere;
+}
+
+.policy-footer {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 600px) {
+  .policy {
+    gap: 22px;
+  }
+
+  .policy h1 {
+    font-size: 1.6rem;
+  }
+}

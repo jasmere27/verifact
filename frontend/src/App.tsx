@@ -20,6 +20,7 @@ import ResearchPage from "./research/ResearchPage";
 import StudentWorkspace from "./research/student/StudentWorkspace";
 import NewsPage from "./news/NewsPage";
 import NewsWorkspace from "./news/NewsWorkspace";
+import { CONTACT_EMAIL, PrivacyPage, TermsPage } from "./policies/PolicyPages";
 import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
@@ -50,6 +51,11 @@ const AUTH_TITLES: Partial<Record<Route["name"], string>> = {
   resetPassword: "Choose a new password · VeriFact",
   authCallback: "Signing in · VeriFact",
   account: "Your account · VeriFact",
+};
+
+const PAGE_TITLES: Partial<Record<Route["name"], string>> = {
+  privacy: "Privacy Policy · VeriFact",
+  terms: "Terms of Use · VeriFact",
 };
 
 function App() {
@@ -92,7 +98,7 @@ function App() {
           : "Report · VeriFact"
         : route.name === "notFound"
           ? "Page not found · VeriFact"
-          : (AUTH_TITLES[route.name] ?? "VeriFact · Check claims against the evidence");
+          : (AUTH_TITLES[route.name] ?? PAGE_TITLES[route.name] ?? "VeriFact · Check claims against the evidence");
   }, [route, results]);
 
   useEffect(() => {
@@ -280,6 +286,9 @@ function App() {
         {route.name === "authCallback" && <AuthCallbackPage />}
         {route.name === "account" && <AccountPage />}
 
+        {route.name === "privacy" && <PrivacyPage />}
+        {route.name === "terms" && <TermsPage />}
+
         {route.name === "notFound" && (
           <section className="card state-card" aria-labelledby="nf-heading">
             <h1 id="nf-heading">Page not found</h1>
@@ -314,6 +323,12 @@ function App() {
               <a href="/#trust">Evidence &amp; trust</a>
               <a href="/#pricing">Pricing</a>
               <a href="/#faq">FAQ</a>
+            </div>
+            <div>
+              <p className="site-footer-heading">Legal</p>
+              <Link href="/privacy">Privacy Policy</Link>
+              <Link href="/terms">Terms of Use</Link>
+              <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
             </div>
           </nav>
         </div>
