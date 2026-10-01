@@ -17,6 +17,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -63,6 +64,10 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.email").value("reader@example.com"))
                 .andExpect(jsonPath("$.organizations[0].personal").value(true))
                 .andExpect(jsonPath("$.organizations[0].role").value("OWNER"));
+        mockMvc.perform(delete("/api/v2/me").with(jwt().jwt(j -> j.subject(USER.toString()).claim("email", "reader@example.com"))))
+                .andExpect(status().isNoContent());
+        org.mockito.Mockito.verify(accounts).delete(me);
+        mockMvc.perform(delete("/api/v2/me")).andExpect(status().isUnauthorized());
         mockMvc.perform(patch("/api/v2/me").with(jwt().jwt(j -> j.subject(USER.toString()).claim("email", "reader@example.com")))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"displayName\":\"Reader\"}"))
                 .andExpect(status().isOk());

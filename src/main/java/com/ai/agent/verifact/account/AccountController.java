@@ -2,6 +2,8 @@ package com.ai.agent.verifact.account;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,6 +26,13 @@ public class AccountController {
     @GetMapping
     public AccountService.AccountView me(@AuthenticationPrincipal Jwt jwt) {
         return accounts.me(SignedInUser.from(jwt));
+    }
+
+    /** Permanently deletes the account; the client then signs out locally. */
+    @DeleteMapping
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt) {
+        accounts.delete(SignedInUser.from(jwt));
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping

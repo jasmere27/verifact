@@ -150,5 +150,6 @@ Guarantees: every excerpt is the source's own words (≤300 chars); a verdict ot
 ## Accounts (ADR-18)
 - Auth: `Authorization: Bearer <Supabase access token>` (optional on every existing endpoint; an invalid/expired token → 401 problem+json with `WWW-Authenticate: Bearer`, so the client refreshes).
 - `GET /api/v2/me` → `{id, email, displayName, organizations: [{id, name, personal, role OWNER|ADMIN|MEMBER}]}`; first call provisions the account and its personal organisation. 401 without a valid token.
+- `DELETE /api/v2/me` → 204: deletes the Supabase Auth user (secret key, `apikey` header) then our rows (personal organisation and memberships cascade). 503 without `SUPABASE_SECRET_KEY`; 502 if Supabase fails (nothing deleted).
 - `PATCH /api/v2/me` `{displayName}` (≤80 chars, control characters removed, blank clears) → same shape. Light rate limiter.
 - CORS now allows `PATCH` and the `Authorization` header.
