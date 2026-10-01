@@ -1,5 +1,8 @@
 package com.ai.agent.verifact.legal;
 
+import com.ai.agent.verifact.config.SecurityConfig;
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
+import org.springframework.context.annotation.Import;
 import com.ai.agent.verifact.verification.VerificationProgress;
 import com.ai.agent.verifact.verification.VerificationStreamer;
 import org.junit.jupiter.api.Test;
@@ -23,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(LegalController.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class})
 @TestPropertySource(properties = {
         "app.input.max-chars=200",
         "app.rate-limit.per-ip-per-minute=1000",

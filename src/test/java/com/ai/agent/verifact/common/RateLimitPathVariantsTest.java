@@ -1,6 +1,8 @@
 package com.ai.agent.verifact.common;
 
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
 import com.ai.agent.verifact.config.CorsConfig;
+import com.ai.agent.verifact.config.SecurityConfig;
 import com.ai.agent.verifact.controller.AiController;
 import com.ai.agent.verifact.service.AiService;
 import com.ai.agent.verifact.service.ImageOcrService;
@@ -17,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.net.URI;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -29,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * then shown to be limited (429).
  */
 @WebMvcTest(AiController.class)
-@Import(CorsConfig.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class, CorsConfig.class})
 @TestPropertySource(properties = {
         "app.allowed-origin=http://localhost:5173",
         "app.rate-limit.per-ip-per-minute=1",
@@ -69,7 +72,8 @@ class RateLimitPathVariantsTest {
     void variantsThatReachTheControllerAreCounted(String path) throws Exception {
         when(aiService.isFakeNews(anyString())).thenReturn("report");
 
-        mockMvc.perform(get(URI.create(path))).andExpect(status().isOk());
+        // Spring Security's firewall rejects ";" paths (400) before any controller; either way the request is counted.
+        mockMvc.perform(get(URI.create(path))).andExpect(result -> assertThat(result.getResponse().getStatus()).isIn(200, 400));
         mockMvc.perform(get(URI.create(path))).andExpect(status().isTooManyRequests());
         mockMvc.perform(get(URI.create("/api/v1/isFakeNews?news=a"))).andExpect(status().isTooManyRequests());
     }

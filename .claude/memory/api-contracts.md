@@ -146,3 +146,9 @@ Guarantees: every excerpt is the source's own words (≤300 chars); a verdict ot
 - `POST /api/v2/research/workspaces/{id}/insights` (X-Edit-Token) → `Workspace` with `insights {generatedAt, basedOnSources, coverage, gaps[{statement, kind, basis[keys]}], relations[{key, title, kind, how, quote}], framework[{name, role, sourceKeys, verification}], limitations, notice}`; 400 with fewer than 3 saved sources with abstracts. Counted like checks.
 - `Workspace` now also has `draft` and `insights` (null when absent; older workspaces load unchanged).
 - `DELETE /api/v2/research/workspaces/{id}` (X-Edit-Token) → 204. Workspace writes share the light (feedback) limiter, now 20/min. CORS allows DELETE.
+
+## Accounts (ADR-18)
+- Auth: `Authorization: Bearer <Supabase access token>` (optional on every existing endpoint; an invalid/expired token → 401 problem+json with `WWW-Authenticate: Bearer`, so the client refreshes).
+- `GET /api/v2/me` → `{id, email, displayName, organizations: [{id, name, personal, role OWNER|ADMIN|MEMBER}]}`; first call provisions the account and its personal organisation. 401 without a valid token.
+- `PATCH /api/v2/me` `{displayName}` (≤80 chars, control characters removed, blank clears) → same shape. Light rate limiter.
+- CORS now allows `PATCH` and the `Authorization` header.

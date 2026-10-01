@@ -1,5 +1,8 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.config.SecurityConfig;
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
+import org.springframework.context.annotation.Import;
 import com.ai.agent.verifact.ai.ImageInput;
 import com.ai.agent.verifact.core.assess.Verdict;
 import com.ai.agent.verifact.evidence.Evidence;
@@ -36,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(VerificationController.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class})
 @TestPropertySource(properties = {
         "app.input.max-chars=50",
         "app.rate-limit.per-ip-per-minute=1000",

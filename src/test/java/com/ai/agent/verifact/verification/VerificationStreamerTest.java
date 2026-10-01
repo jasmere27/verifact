@@ -1,6 +1,8 @@
 package com.ai.agent.verifact.verification;
 
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
 import com.ai.agent.verifact.common.ApiException;
+import com.ai.agent.verifact.config.SecurityConfig;
 import com.ai.agent.verifact.model.InputType;
 import com.ai.agent.verifact.service.ImageOcrService;
 import com.ai.agent.verifact.tool.VoiceToTextTool;
@@ -32,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /** Streams through the real VerificationStreamer with a scripted service. */
 @WebMvcTest(VerificationController.class)
-@Import(VerificationStreamer.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class, VerificationStreamer.class})
 @TestPropertySource(properties = {
         "app.rate-limit.per-ip-per-minute=1000",
         "app.rate-limit.per-ip-per-day=1000",
