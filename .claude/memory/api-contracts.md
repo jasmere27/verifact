@@ -118,7 +118,7 @@ Guarantees: `evidenceQuote` and conflict quotes are verbatim from the named work
 ## NewsFact — story checks and reviews (added 2026-09-30, ADR-14)
 - `POST /api/v2/news/checks` JSON `{"input": "<article URL or text>"}` (text ≥60 chars, ≤10,000) → `NewsWorkspace` (includes `editToken` once); `/stream` → SSE (`stage` incl. READING_INPUT for links, `claims`, `sources`, `result`/`error`).
 - `GET /api/v2/news/checks/{id}` → `NewsWorkspace` (`editToken` null). Not rate limited.
-- `NewsCheck.videos` (nullable; older checks): `{claims: [{claimId, query, videos: [{platform, videoId, url, title, channel, publishedAt, durationSeconds, thumbnailUrl, keyFrames, chapters, relevantAt, stance SUPPORTS|CONTRADICTS|CONTEXT, kind NEWS_REPORT|OFFICIAL|EYEWITNESS|OTHER, why, quote, claimsMade, earliestFound}]}], searched, limitations, notice}`.
+- `NewsCheck.videos` (nullable; older checks): `{claims: [{claimId, query, videos: [{platform, videoId, url, title, channel, publishedAt, durationSeconds, thumbnailUrl, keyFrames, chapters, relevantAt, stance SUPPORTS|CONTRADICTS|CONTEXT, kind NEWS_REPORT|OFFICIAL|EYEWITNESS|OTHER, why, quote, claimsMade, earliestFound, embeddable}]}], searched, limitations, notice}`.
 - `PUT /api/v2/news/checks/{id}/review` header `X-Edit-Token`, body `{decisions: {"C1": {status, note}}, editorNote}` → `NewsReview`. 403 without the right token; ids `C1`–`C99`, ≤20 decisions, notes ≤1,000 chars. Shares the feedback limiter (10/min/IP).
 - Errors: `400` · `413` · `422` link unreadable or no claims · `429` · `502` AI · `503` search or save failure.
 ```ts

@@ -71,6 +71,8 @@ export interface SupportingVideo {
   quote: string;
   claimsMade: string[];
   earliestFound: boolean;
+  /** Whether the uploader allows playing it inside VeriFact; missing on older checks. */
+  embeddable?: boolean | null;
 }
 
 export interface NewsVideos {

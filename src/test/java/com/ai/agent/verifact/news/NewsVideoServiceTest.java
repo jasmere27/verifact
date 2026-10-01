@@ -23,7 +23,7 @@ class NewsVideoServiceTest {
 
     static FoundVideo video(String id, String title, String date, String description) {
         return new FoundVideo("youtube", id, "https://www.youtube.com/watch?v=" + id, title, "News Channel", "UC1",
-                date == null ? null : Instant.parse(date), 185, description, "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg");
+                date == null ? null : Instant.parse(date), 185, description, "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg", true);
     }
 
     static class FakeSearch implements VideoSearch {

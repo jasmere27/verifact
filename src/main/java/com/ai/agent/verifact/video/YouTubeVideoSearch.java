@@ -64,7 +64,7 @@ public class YouTubeVideoSearch implements VideoSearch {
             return List.of();
         }
         JsonNode details = get(UriComponentsBuilder.fromUriString(API + "/videos")
-                .queryParam("part", "snippet,contentDetails").queryParam("id", String.join(",", ids)).queryParam("key", apiKey)
+                .queryParam("part", "snippet,contentDetails,status").queryParam("id", String.join(",", ids)).queryParam("key", apiKey)
                 .encode().build().toUri());
         Map<String, FoundVideo> byId = new LinkedHashMap<>();
         for (JsonNode item : details.path("items")) {
@@ -108,9 +108,11 @@ public class YouTubeVideoSearch implements VideoSearch {
         }
         JsonNode thumbs = s.path("thumbnails");
         String thumb = thumbs.path("high").path("url").asString(thumbs.path("medium").path("url").asString(""));
+        JsonNode embeddable = item.path("status").path("embeddable");
         return new FoundVideo("youtube", id, "https://www.youtube.com/watch?v=" + id, title, s.path("channelTitle").asString(""),
                 s.path("channelId").asString(""), published, seconds, s.path("description").asString(""),
-                thumb.startsWith("https://i.ytimg.com/") ? thumb : "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg");
+                thumb.startsWith("https://i.ytimg.com/") ? thumb : "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg",
+                embeddable.isBoolean() ? embeddable.asBoolean() : null);
     }
 
     private JsonNode get(URI uri) {

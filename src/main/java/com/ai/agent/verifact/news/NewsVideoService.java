@@ -172,7 +172,7 @@ public class NewsVideoService {
                     : List.of();
             out.add(new SupportingVideo(v.platform(), v.videoId(), v.url(), v.title(), v.channel(), v.publishedAt(),
                     v.durationSeconds(), v.thumbnailUrl(), frames, ch, at, stance, parse(Kind.class, n.kind(), Kind.OTHER),
-                    why, quote, made, false));
+                    why, quote, made, false, v.embeddable()));
         }
         return out;
     }
@@ -186,7 +186,7 @@ public class NewsVideoService {
         SupportingVideo earliest = dated.stream().min(Comparator.comparing(SupportingVideo::publishedAt)).orElseThrow();
         return videos.stream().map(v -> v != earliest ? v : new SupportingVideo(v.platform(), v.videoId(), v.url(), v.title(),
                 v.channel(), v.publishedAt(), v.durationSeconds(), v.thumbnailUrl(), v.keyFrames(), v.chapters(), v.relevantAt(),
-                v.stance(), v.kind(), v.why(), v.quote(), v.claimsMade(), true)).toList();
+                v.stance(), v.kind(), v.why(), v.quote(), v.claimsMade(), true, v.embeddable())).toList();
     }
 
     /** "0:00 Intro", "12:30 - Mayor speaks", "[1:02:03] Q&A": chapters as the uploader listed them. */
