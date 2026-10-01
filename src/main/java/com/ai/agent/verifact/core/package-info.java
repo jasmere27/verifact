@@ -5,7 +5,7 @@
  *
  * <ul>
  *   <li>{@code provenance}: citations that must be a source's own words</li>
- *   <li>{@code claims}: grounding model-proposed claims in the submitted text</li>
+ *   <li>{@code claims}: grounding model-proposed claims in the submitted text ({@code ClaimGrounder}, {@code ClaimProfile})</li>
  *   <li>{@code assess}: the shared verdict taxonomy and the rules that let a verdict stand</li>
  * </ul>
  *

@@ -4,12 +4,14 @@ import com.ai.agent.verifact.ai.LlmClient;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.core.assess.Verdict;
 import com.ai.agent.verifact.core.assess.VerdictRules;
+import com.ai.agent.verifact.core.claims.ClaimCandidate;
+import com.ai.agent.verifact.core.claims.ClaimGrounder;
+import com.ai.agent.verifact.core.claims.ClaimProfile;
 import com.ai.agent.verifact.core.provenance.CitationValidator;
 import com.ai.agent.verifact.core.provenance.QuoteVerifier;
 import com.ai.agent.verifact.core.provenance.SourceExcerpt;
 import com.ai.agent.verifact.evidence.Evidence;
 import com.ai.agent.verifact.evidence.EvidenceRetriever;
-import com.ai.agent.verifact.evidence.Grounding;
 import com.ai.agent.verifact.evidence.Urls;
 import com.ai.agent.verifact.fetch.FetchFailedException;
 import com.ai.agent.verifact.fetch.SafeUrlFetcher;
@@ -41,6 +43,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.ai.agent.verifact.core.claims.ClaimGrounder.clean;
 import static com.ai.agent.verifact.evidence.Grounding.material;
 import static com.ai.agent.verifact.evidence.Grounding.words;
 
@@ -66,6 +69,10 @@ public class NewsCheckService {
     static final int MAX_SEARCHES = 10;
     static final int MAX_SOURCES = 16;
     static final int MAX_EXCERPT_CHARS = 300;
+
+    static final ClaimProfile CLAIM_PROFILE = new ClaimProfile(
+            java.util.Arrays.stream(ClaimType.values()).map(Enum::name).collect(java.util.stream.Collectors.toSet()),
+            ClaimType.FACT.name(), ClaimType.QUOTE.name(), ClaimType.ATTRIBUTION.name(), MAX_CLAIMS);
 
     static final String NOTICE = "Automated first pass for an editor: every verdict shows the source's own words, "
             + "and quotes are checked word for word against the sources found. \"Not located\" means not found in "
@@ -201,46 +208,14 @@ public class NewsCheckService {
 
     /** Claims whose sentence (and quoted words) are really in the article; speakers only as the article names them. */
     private static List<ArticleClaim> claims(ClaimExtraction extraction, String article) {
-        List<ArticleClaim> out = new ArrayList<>();
         if (extraction == null || extraction.claims() == null) {
-            return out;
+            return new ArrayList<>();
         }
-        for (ArticleClaim c : extraction.claims()) {
-            if (c == null || c.quote() == null) {
-                continue;
-            }
-            String q = words(c.quote());
-            if (q.split(" ").length < 4 || !article.contains(" " + q + " ")) {
-                continue;
-            }
-            ClaimType type = type(c.type());
-            String quotedWords = clean(c.quotedWords(), 400);
-            if (type == ClaimType.QUOTE && (words(quotedWords).split(" ").length < 3
-                    || !article.contains(" " + words(quotedWords) + " "))) {
-                type = ClaimType.ATTRIBUTION; // no verifiable quoted words in the article
-                quotedWords = "";
-            }
-            String speaker = clean(c.speaker(), 120);
-            if (!speaker.isEmpty() && !article.contains(" " + words(speaker) + " ")) {
-                speaker = "";
-            }
-            String claim = clean(c.claim(), 400);
-            if (claim.isBlank() || !Grounding.supported(claim, article)) {
-                claim = clean(c.quote(), 400);
-            }
-            List<String> queries = new ArrayList<>();
-            if (c.searchQueries() != null) {
-                c.searchQueries().stream().map(EvidenceRetriever::cleanQuery).filter(x -> !x.isBlank()).limit(2).forEach(queries::add);
-            }
-            if (queries.isEmpty()) {
-                queries.add(EvidenceRetriever.cleanQuery(claim));
-            }
-            out.add(new ArticleClaim(type.name(), clean(c.quote(), 400), claim, speaker, quotedWords, queries));
-            if (out.size() == MAX_CLAIMS) {
-                break;
-            }
-        }
-        return out;
+        List<ClaimCandidate> candidates = extraction.claims().stream().map(c -> c == null ? null
+                : new ClaimCandidate(c.type(), c.quote(), c.claim(), c.speaker(), c.quotedWords(), c.searchQueries())).toList();
+        return ClaimGrounder.ground(candidates, article, CLAIM_PROFILE).stream()
+                .map(g -> new ArticleClaim(g.type(), g.quote(), g.claim(), g.speaker(), g.quotedWords(), g.searchQueries()))
+                .toList();
     }
 
     /**
@@ -276,28 +251,12 @@ public class NewsCheckService {
         return CitationValidator.verbatim(sourceId, excerpt, byId, 5, MAX_EXCERPT_CHARS);
     }
 
-    private static ClaimType type(String s) {
-        try {
-            return ClaimType.valueOf(s == null ? "FACT" : s.trim().toUpperCase(Locale.ROOT).replaceAll("[\\s-]+", "_"));
-        } catch (IllegalArgumentException e) {
-            return ClaimType.FACT;
-        }
-    }
-
     private static ContextIssue contextIssue(String s) {
         try {
             return s == null ? ContextIssue.NONE : ContextIssue.valueOf(s.trim().toUpperCase(Locale.ROOT).replaceAll("[\\s-]+", "_"));
         } catch (IllegalArgumentException e) {
             return ContextIssue.NONE;
         }
-    }
-
-    private static String clean(String text, int max) {
-        if (text == null) {
-            return "";
-        }
-        String s = text.replaceAll("\\s+", " ").trim();
-        return s.length() > max ? s.substring(0, max) : s;
     }
 
     private static String emptyToNull(String s) {
