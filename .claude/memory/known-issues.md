@@ -76,3 +76,4 @@ for context; delete them once they stop being useful._
 - (review) OCR memory exhaustion → 16 MP cap, at most 2 concurrent OCR jobs.
 - (Phase 1 review) Self-corroborating links, subdomain/`site:` strength inflation, stance inversion on debunking articles, MISLEADING hedging, unbacked model summaries, prose-wrapped JSON → all fixed with tests.
 - (review) Malformed redirect → 500; non-multipart upload → 500; requestId missing on Spring's own errors; health check tied to DB → all fixed.
+19. **Accounts (ADR-18):** every new table needs `ENABLE ROW LEVEL SECURITY` in a Postgres-only migration (`db/vendor/postgresql`), or the Supabase Data API exposes it to anyone with the public key. Disable the Data API in the Supabase dashboard as well. Spring Security's firewall now rejects `;` and some encoded paths with 400 (still rate-limited first). Account deletion and the frontend arrive in phase B.

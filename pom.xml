@@ -27,6 +27,12 @@
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
+        <!-- Accounts: Supabase Auth access tokens (JWT) verified against the project's public keys -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+        </dependency>
+
         <!-- Auto-configured HTTP clients (RestClient/RestTemplate builders, timeouts) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -74,6 +80,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- In-memory database so the application context can start in tests -->

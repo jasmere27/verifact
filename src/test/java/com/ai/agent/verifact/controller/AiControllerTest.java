@@ -1,7 +1,9 @@
 package com.ai.agent.verifact.controller;
 
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.config.CorsConfig;
+import com.ai.agent.verifact.config.SecurityConfig;
 import com.ai.agent.verifact.model.InputType;
 import com.ai.agent.verifact.service.AiService;
 import com.ai.agent.verifact.service.ImageOcrService;
@@ -32,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AiController.class)
-@Import(CorsConfig.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class, CorsConfig.class})
 @TestPropertySource(properties = {
         "app.allowed-origin=http://localhost:5173",
         "app.input.max-chars=50",

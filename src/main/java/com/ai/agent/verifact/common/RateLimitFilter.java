@@ -63,6 +63,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** ResearchFact workspace changes (create, save a source, edit, delete): same light limiter; reads are free. */
     static final java.util.regex.Pattern WORKSPACE_PATH =
             java.util.regex.Pattern.compile("^/api/v2/research/workspaces(/[^/]+(/sources|/draft)?)?$");
+    /** Profile changes: the light limiter; reading your own account is free. */
+    static final String ACCOUNT_PATH = "/api/v2/me";
     /** Uploading a draft and generating insights call the model: counted like checks. */
     static final java.util.regex.Pattern HEAVY_WORKSPACE_PATH =
             java.util.regex.Pattern.compile("^/api/v2/research/workspaces/[^/]+/(draft|insights)$");
@@ -119,6 +121,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static boolean isLightWrite(HttpServletRequest request, String path) {
         return FEEDBACK_PATH.matcher(path).matches()
+                || (ACCOUNT_PATH.equals(path) && !"GET".equalsIgnoreCase(request.getMethod()))
                 || (WORKSPACE_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod()) && !isHeavy(request, path));
     }
 

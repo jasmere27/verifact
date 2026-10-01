@@ -1,5 +1,8 @@
 package com.ai.agent.verifact.news;
 
+import com.ai.agent.verifact.config.SecurityConfig;
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
+import org.springframework.context.annotation.Import;
 import com.ai.agent.verifact.verification.VerificationStreamer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(NewsController.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class})
 @TestPropertySource(properties = {
         "app.input.max-chars=300",
         "app.rate-limit.per-ip-per-minute=1000",

@@ -1,5 +1,7 @@
 package com.ai.agent.verifact.feedback;
 
+import com.ai.agent.verifact.account.SupabaseAuthConfig;
+import com.ai.agent.verifact.config.SecurityConfig;
 import com.ai.agent.verifact.verification.VerificationRecordRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(FeedbackController.class)
-@Import(com.ai.agent.verifact.config.TimeConfig.class)
+@Import({SecurityConfig.class, SupabaseAuthConfig.class, com.ai.agent.verifact.config.TimeConfig.class})
 @TestPropertySource(properties = "app.rate-limit.feedback-per-ip-per-minute=1000")
 class FeedbackControllerTest {
 

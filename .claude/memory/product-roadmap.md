@@ -31,7 +31,7 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 - ◐ NewsFact supporting videos: V1 (YouTube metadata search per claim) built 2026-10-01; V2 video upload analysis, V3 reused-footage check planned (ADR-16)
 
 ## Phase 4 — Accounts
-- ☐ Auth (evaluate Supabase Auth JWT verified by Spring Security vs. alternatives)
+- ◐ Auth (ADR-18): Supabase Auth + Spring Security JWKS verification; phase A (backend, /me, organisations, RLS) built 2026-10-01; B frontend, C ownership, D usage limits next
 - ☐ Private history, saved reports, shareable public report pages (opt-in)
 
 ## Commercial priorities (2026-09-30; see revenue-strategy.md, product-validation.md, experiments.md)
