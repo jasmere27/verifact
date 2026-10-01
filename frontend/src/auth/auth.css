@@ -223,6 +223,58 @@
   text-decoration: none;
 }
 
+.theme-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-switch svg {
+  flex: none;
+  color: var(--text-2);
+}
+
+.theme-switch-label {
+  flex: 1;
+}
+
+.theme-switch-track {
+  flex: none;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background-color 160ms ease;
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  transition: transform 160ms ease;
+}
+
+.theme-switch[aria-checked="true"] .theme-switch-track {
+  background: var(--accent);
+}
+
+.theme-switch[aria-checked="true"] .theme-switch-thumb {
+  transform: translateX(16px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-track,
+  .theme-switch-thumb {
+    transition: none;
+  }
+}
+
 /* Account page */
 
 .account-page {

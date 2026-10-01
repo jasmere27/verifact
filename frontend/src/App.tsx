@@ -252,7 +252,8 @@ function App() {
           </Link>
           <div className="header-end">
             <SiteNav route={route.name} />
-            <ThemeToggle />
+            {/* Signed in, the theme switch is in the account menu instead. */}
+            {!userId && <ThemeToggle />}
             <AccountMenu />
           </div>
         </div>
