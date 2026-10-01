@@ -6,11 +6,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /** Accounts against the real schema (Flyway V6 on H2): provisioning, profile and organisation isolation. */
 @SpringBootTest
@@ -25,6 +29,10 @@ class AccountServiceTest {
     private MembershipRepository memberships;
     @Autowired
     private OrganizationRepository organizations;
+    @Autowired
+    private AppUserRepository users;
+    @MockitoBean
+    private SupabaseAdmin admin;
 
     private static SignedInUser newUser(String email) {
         return new SignedInUser(UUID.randomUUID(), email);
@@ -89,6 +97,36 @@ class AccountServiceTest {
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
         assertThat(Role.OWNER.atLeast(Role.ADMIN)).isTrue();
         assertThat(Role.MEMBER.atLeast(Role.OWNER)).isFalse();
+    }
+
+    @Test
+    void deletingAnAccountRemovesTheSignInFirstThenTheUserAndPersonalWorkspace() {
+        when(admin.enabled()).thenReturn(true);
+        SignedInUser user = newUser("leaving@example.com");
+        UUID org = accounts.me(user).organizations().get(0).id();
+
+        accounts.delete(user);
+
+        verify(admin).deleteUser(user.id());
+        assertThat(users.findById(user.id())).isEmpty();
+        assertThat(organizations.findById(org)).isEmpty();
+        assertThat(memberships.findByUserId(user.id())).isEmpty();
+    }
+
+    @Test
+    void ifSupabaseFailsNothingIsDeletedAndWithoutAdminAccessDeletionIsUnavailable() {
+        SignedInUser user = newUser("staying@example.com");
+        accounts.me(user);
+        when(admin.enabled()).thenReturn(true);
+        doThrow(new SupabaseAdmin.AdminException("down")).when(admin).deleteUser(user.id());
+
+        assertThatThrownBy(() -> accounts.delete(user))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_GATEWAY));
+        assertThat(users.findById(user.id())).isPresent();
+
+        when(admin.enabled()).thenReturn(false);
+        assertThatThrownBy(() -> accounts.delete(user))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
     }
 
     private static void notFound(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {

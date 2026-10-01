@@ -37,18 +37,8 @@
       href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;0,6..72,600;1,6..72,400&family=Sora:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
-    <script>
-      // Apply a saved Light/Dark choice before first paint (see src/theme.ts).
-      try {
-        var t = localStorage.getItem("verifact.theme");
-        if (t === "light" || t === "dark") {
-          document.documentElement.setAttribute("data-theme", t);
-          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
-            m.content = t === "dark" ? "#0a0f1d" : "#f4f6fb";
-          });
-        }
-      } catch (e) {}
-    </script>
+    <!-- Applies a saved Light/Dark choice before first paint (a file, not inline, so the CSP can forbid inline scripts). -->
+    <script src="/theme-init.js"></script>
     <title>VeriFact — Verify Truth, Fight the False</title>
   </head>
   <body>

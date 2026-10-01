@@ -32,6 +32,9 @@ services:
       # Accounts: Supabase project URL (tokens verified with its public keys); optional
       - key: SUPABASE_URL
         sync: false
+      # Supabase secret key for account deletion (backend only)
+      - key: SUPABASE_SECRET_KEY
+        sync: false
       # NewsFact supporting videos (YouTube Data API v3); optional
       - key: YOUTUBE_API_KEY
         sync: false

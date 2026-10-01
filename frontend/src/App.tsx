@@ -1,5 +1,5 @@
 import Brand from "./components/BrandMark";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, verifyFileStream, verifyTextStream } from "./api";
 import type { StreamHandlers } from "./api";
 import CheckForm from "./components/CheckForm";
@@ -9,6 +9,11 @@ import Link from "./components/Link";
 import RecentChecks from "./components/RecentChecks";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
+import AccountMenu from "./auth/AccountMenu";
+import { AccountPage } from "./auth/AccountPage";
+import { AuthCallbackPage, ForgotPasswordPage, ResetPasswordPage, SignInPage, SignUpPage } from "./auth/AuthPages";
+import { authEnabled } from "./auth/client";
+import "./auth/auth.css";
 import Landing from "./landing/Landing";
 import LegalPage from "./legal/LegalPage";
 import ResearchPage from "./research/ResearchPage";
@@ -19,6 +24,7 @@ import { formatRelative } from "./format";
 import { clearRecent, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
+import type { Route } from "./router";
 import type { SourcesFound, StageId, VerificationResult } from "./types";
 import { verdictMeta } from "./verdicts";
 import "./App.css";
@@ -37,8 +43,22 @@ interface ReusedReport {
   submittedAt: number;
 }
 
+const AUTH_TITLES: Partial<Record<Route["name"], string>> = {
+  signIn: "Sign in · VeriFact",
+  signUp: "Create your account · VeriFact",
+  forgotPassword: "Reset your password · VeriFact",
+  resetPassword: "Choose a new password · VeriFact",
+  authCallback: "Signing in · VeriFact",
+  account: "Your account · VeriFact",
+};
+
 function App() {
-  const route = parseRoute(usePathname());
+  const pathname = usePathname();
+  const route = useMemo<Route>(() => {
+    const parsed = parseRoute(pathname);
+    // Without accounts configured in this build, the account pages don't exist.
+    return !authEnabled && parsed.name in AUTH_TITLES ? { name: "notFound" } : parsed;
+  }, [pathname]);
   const [check, setCheck] = useState<CheckState>({ status: "idle" });
   const [results, setResults] = useState<Record<string, VerificationResult>>({});
   const [recent, setRecent] = useState<RecentCheck[]>(() => loadRecent());
@@ -72,7 +92,7 @@ function App() {
           : "Report · VeriFact"
         : route.name === "notFound"
           ? "Page not found · VeriFact"
-          : "VeriFact · Check claims against the evidence";
+          : (AUTH_TITLES[route.name] ?? "VeriFact · Check claims against the evidence");
   }, [route, results]);
 
   useEffect(() => {
@@ -166,6 +186,7 @@ function App() {
               </Link>
             </nav>
             <ThemeToggle />
+            <AccountMenu />
           </div>
         </div>
       </header>
@@ -251,6 +272,13 @@ function App() {
         {route.name === "news" && <NewsPage />}
 
         {route.name === "newsWorkspace" && <NewsWorkspace key={route.id} id={route.id} />}
+
+        {route.name === "signIn" && <SignInPage />}
+        {route.name === "signUp" && <SignUpPage />}
+        {route.name === "forgotPassword" && <ForgotPasswordPage />}
+        {route.name === "resetPassword" && <ResetPasswordPage />}
+        {route.name === "authCallback" && <AuthCallbackPage />}
+        {route.name === "account" && <AccountPage />}
 
         {route.name === "notFound" && (
           <section className="card state-card" aria-labelledby="nf-heading">

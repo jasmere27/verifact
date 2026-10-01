@@ -33,14 +33,16 @@ public class AccountService {
     private final MembershipRepository memberships;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final SupabaseAdmin admin;
 
     public AccountService(AppUserRepository users, OrganizationRepository organizations, MembershipRepository memberships,
-                          TransactionTemplate tx, Clock clock) {
+                          TransactionTemplate tx, Clock clock, SupabaseAdmin admin) {
         this.users = users;
         this.organizations = organizations;
         this.memberships = memberships;
         this.tx = tx;
         this.clock = clock;
+        this.admin = admin;
     }
 
     public record OrganizationView(UUID id, String name, boolean personal, Role role) {}
@@ -59,6 +61,28 @@ public class AccountService {
             users.findById(user.id()).orElseThrow().rename(name, now());
             return view(user.id());
         });
+    }
+
+    /**
+     * Deletes the account: first the Supabase Auth user (so nobody can sign in as it any more), then our rows.
+     * The personal organisation and memberships go with the user (ON DELETE CASCADE).
+     */
+    public void delete(SignedInUser user) {
+        if (!admin.enabled()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Account deletion isn't available right now. Please try again later.");
+        }
+        try {
+            admin.deleteUser(user.id());
+        } catch (SupabaseAdmin.AdminException e) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY,
+                    "We couldn't delete your account just now. Nothing was deleted; please try again.", e);
+        }
+        tx.executeWithoutResult(s -> {
+            organizations.deleteByPersonalOwnerId(user.id());
+            users.deleteById(user.id());
+        });
+        log.info("Account deleted");
     }
 
     /** Creates the user, their personal organisation and owner membership once; keeps the email current. */

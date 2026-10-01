@@ -4,7 +4,7 @@
 
 | Part | Where | How to redeploy |
 |---|---|---|
-| Frontend | https://verifact-blf.pages.dev (Cloudflare Pages project `verifact`, direct upload incl. `functions/` for link previews, not Git-connected) | `cd frontend && VITE_API_BASE_URL=https://verifact-backend-5mux.onrender.com npm run build && npx wrangler pages deploy dist --project-name verifact --branch main` |
+| Frontend | https://verifact-blf.pages.dev (Cloudflare Pages project `verifact`, direct upload incl. `functions/` for link previews, not Git-connected) | `cd frontend && VITE_API_BASE_URL=https://verifact-backend-5mux.onrender.com VITE_SUPABASE_URL=https://yappnvazdkscgqzipdxd.supabase.co VITE_SUPABASE_PUBLISHABLE_KEY=<publishable key> npm run build && npx wrangler pages deploy dist --project-name verifact --branch main` (the build also writes `dist/_headers`: CSP from these URLs; both Supabase values are public) |
 | Backend | https://verifact-backend-5mux.onrender.com (Render `verifact-backend`, `srv-dad6lhrncjis7387if1g`, free plan, Singapore) | automatic on every push to `main` (or `render deploys create srv-dad6lhrncjis7387if1g`) |
 | Database | Supabase project `yappnvazdkscgqzipdxd` (ap-southeast-2), Session pooler | migrations run on backend start |
 
@@ -130,3 +130,9 @@ Check the Render logs once for `X-Forwarded-For` behaviour: per-IP rate limits a
 - Backend: Render → service → **Events** → redeploy a previous deploy.
 - Frontend: Cloudflare Pages → **Deployments** → roll back.
 - Database: migrations only add tables; to undo, add a new forward migration (never edit applied ones).
+
+## Accounts (Supabase Auth, ADR-18)
+- Backend (Render): `SUPABASE_URL` (project URL) to verify sign-in tokens; `SUPABASE_SECRET_KEY` (`sb_secret_...`, never in the frontend or chat) for account deletion. Without them, signed-out use works and accounts are off.
+- Frontend build: `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (public). Without them the account UI is hidden.
+- Supabase dashboard: asymmetric JWT signing keys (ES256) active; Data API off; Authentication → URL Configuration: Site URL `https://verifact-blf.pages.dev`, redirect URLs `https://verifact-blf.pages.dev/**`, `http://localhost:5173/**`; Email provider with "Confirm email"; custom SMTP; minimum password length 8; Google provider (OAuth client redirect URI `https://<ref>.supabase.co/auth/v1/callback`).
+- Security headers: `frontend/scripts/write-headers.mjs` writes `dist/_headers` at build (CSP without inline scripts; the theme pre-paint script is `public/theme-init.js`). A new external origin (image host, API) must be added there, or the browser blocks it.
