@@ -33,7 +33,7 @@ export function PrivacyPage() {
       <section>
         <h2>Who we are</h2>
         <p>
-          VeriFact (verifact-blf.pages.dev) is an independent project that checks claims against published sources. It includes
+          VeriFact (verifact-ai.pages.dev) is an independent project that checks claims against published sources. It includes
           VeriFact, NewsFact, LegalFact and ResearchFact. For anything about your data, contact <Mail />.
         </p>
       </section>

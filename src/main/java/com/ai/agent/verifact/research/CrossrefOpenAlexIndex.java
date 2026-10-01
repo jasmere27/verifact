@@ -49,7 +49,7 @@ public class CrossrefOpenAlexIndex implements ScholarlyIndex {
         this.contactEmail = contactEmail == null ? "" : contactEmail.strip();
         this.openAlexKey = openAlexKey == null ? "" : openAlexKey.strip();
         this.http = builder
-                .defaultHeader("User-Agent", "ResearchFact/1.0 (https://verifact-blf.pages.dev"
+                .defaultHeader("User-Agent", "ResearchFact/1.0 (https://verifact-ai.pages.dev"
                         + (this.contactEmail.isEmpty() ? "" : "; mailto:" + this.contactEmail) + ")")
                 .build();
         this.jsonMapper = jsonMapper;
