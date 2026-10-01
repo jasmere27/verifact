@@ -41,4 +41,18 @@ public final class NewsOutputs {
             @JsonPropertyDescription("Exactly one of: NONE, OUTDATED, OLD_EVENT_AS_NEW, MISSING_CONTEXT, MISATTRIBUTED")
             String contextIssue,
             @JsonPropertyDescription("At most two plain sentences for the editor, referring to what the sources say") String explanation) {}
+
+    public record VideoReview(List<VideoNote> videos) {}
+
+    public record VideoNote(
+            @JsonPropertyDescription("The video's id, e.g. V2") String videoId,
+            @JsonPropertyDescription("True only if the title/description are about this claim's event or subject") boolean relevant,
+            @JsonPropertyDescription("Exactly one of: SUPPORTS, CONTRADICTS, CONTEXT") String stance,
+            @JsonPropertyDescription("Exactly one of: NEWS_REPORT, OFFICIAL, EYEWITNESS, OTHER (from the channel name and description)")
+            String kind,
+            @JsonPropertyDescription("One plain sentence on how the video relates to the claim") String why,
+            @JsonPropertyDescription("Words copied verbatim from the video's title or description that your sentence rests on") String quote,
+            @JsonPropertyDescription("Up to 3 claims the video's title/description makes, each copied verbatim") List<String> claimsMade,
+            @JsonPropertyDescription("A chapter label from the video's CHAPTERS list that covers the claim, copied exactly; or null")
+            String chapter) {}
 }

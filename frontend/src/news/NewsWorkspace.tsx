@@ -1,3 +1,4 @@
+import SupportingVideos from "./Videos";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage } from "../api";
 import { formatDateTime, formatDuration, safeHttpUrl } from "../format";
@@ -5,7 +6,7 @@ import Link from "../components/Link";
 import VerdictBadge from "../components/VerdictBadge";
 import type { Evidence } from "../types";
 import { getNewsWorkspace, saveNewsReview, savedToken } from "./api";
-import type { ClaimType, ContextIssue, DecisionStatus, NewsClaim, NewsReview, NewsWorkspace as Workspace } from "./types";
+import type { ClaimType, ContextIssue, DecisionStatus, NewsClaim, NewsReview, NewsWorkspace as Workspace, SupportingVideo } from "./types";
 import "./news.css";
 
 const TYPE_LABEL: Record<ClaimType, string> = {
@@ -62,12 +63,14 @@ function SourceLink({ source }: { source: Evidence | undefined }) {
 function ClaimCard({
   c,
   sources,
+  videos,
   decision,
   editable,
   onDecide,
 }: {
   c: NewsClaim;
   sources: Map<string, Evidence>;
+  videos: { query: string; videos: SupportingVideo[] } | undefined;
   decision: { status: DecisionStatus; note: string | null } | undefined;
   editable: boolean;
   onDecide: (status: DecisionStatus, note: string | null) => void;
@@ -114,6 +117,7 @@ function ClaimCard({
           <SourceLink source={sources.get(c.contradicting.sourceId)} />
         </div>
       )}
+      {videos && <SupportingVideos videos={videos.videos} query={videos.query} />}
       <div className="news-review">
         {editable ? (
           <>
@@ -172,6 +176,9 @@ function markdown(w: Workspace): string {
     if (c.contextIssue !== "NONE") lines.push(`- Context: ${CONTEXT_LABEL[c.contextIssue]}`);
     if (c.supporting) lines.push(`- Supports: "${c.supporting.excerpt}" (${src.get(c.supporting.sourceId)?.url ?? ""})`);
     if (c.contradicting) lines.push(`- Contradicts: "${c.contradicting.excerpt}" (${src.get(c.contradicting.sourceId)?.url ?? ""})`);
+    for (const v of check.videos?.claims.find((x) => x.claimId === c.id)?.videos ?? []) {
+      lines.push(`- Video (${v.stance.toLowerCase()}): "${v.title}", ${v.channel}${v.publishedAt ? `, ${v.publishedAt.slice(0, 10)}` : ""} ${v.url}${v.relevantAt ? `&t=${v.relevantAt.seconds}s` : ""}`);
+    }
     if (d?.note) lines.push(`- Editor note: ${d.note}`);
     lines.push("");
   }
@@ -336,6 +343,7 @@ export default function NewsWorkspace({ id }: { id: string }) {
                 key={c.id}
                 c={c}
                 sources={sources}
+                videos={check.videos?.claims.find((v) => v.claimId === c.id)}
                 decision={review.decisions[c.id]}
                 editable={editable}
                 onDecide={(status, note) => decide(c.id, status, note)}
@@ -348,6 +356,18 @@ export default function NewsWorkspace({ id }: { id: string }) {
                 <li key={l}>{l}</li>
               ))}
             </ul>
+          )}
+          {check.videos && (check.videos.searched || check.videos.limitations.length > 0) && (
+            <div className="news-video-notes">
+              {check.videos.limitations.length > 0 && (
+                <ul className="limitations">
+                  {check.videos.limitations.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              )}
+              {check.videos.searched && <p className="muted small">{check.videos.notice}</p>}
+            </div>
           )}
         </section>
       ) : (

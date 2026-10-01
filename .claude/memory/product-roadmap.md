@@ -27,7 +27,8 @@ _Last updated: 2026-09-30. Status: ☐ not started · ◐ in progress · ☑ don
 ## Phase 3 — Multimodal
 - ◐ Image: vision model reads screenshot directly (claims + visible context), OCR fallback — deployed 2026-09-30 (ADR-11)
 - ☐ Audio: transcription via the configured AI provider; language support
-- ☐ (Later) reverse image search / metadata signals; video only if clear demand
+- ☐ (Later) reverse image search / metadata signals
+- ◐ NewsFact supporting videos: V1 (YouTube metadata search per claim) built 2026-10-01; V2 video upload analysis, V3 reused-footage check planned (ADR-16)
 
 ## Phase 4 — Accounts
 - ☐ Auth (evaluate Supabase Auth JWT verified by Spring Security vs. alternatives)

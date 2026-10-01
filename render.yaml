@@ -29,6 +29,9 @@ services:
         sync: false
       - key: ALLOWED_ORIGIN
         sync: false
+      # NewsFact supporting videos (YouTube Data API v3); optional
+      - key: YOUTUBE_API_KEY
+        sync: false
       # Render's proxy appends the client IP to X-Forwarded-For; needed for per-IP rate limits.
       - key: TRUST_FORWARDED_FOR
         value: "true"

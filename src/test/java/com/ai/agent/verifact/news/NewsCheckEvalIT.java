@@ -19,7 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Live NewsFact check against the REAL model and search provider on a short article with known
- * answers. Costs a little, so it only runs with {@code RUN_EVALS=true} plus OPEN_AI_API_KEY and TAVILY_API_KEY:
+ * answers. Costs a little, so it only runs with {@code RUN_EVALS=true} plus OPEN_AI_API_KEY and TAVILY_API_KEY
+ * (and YOUTUBE_API_KEY to include supporting videos; uses ~4 of the ~100 daily searches):
  *
  * <pre>RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=NewsCheckEvalIT</pre>
  */
@@ -47,6 +48,12 @@ class NewsCheckEvalIT {
         Files.writeString(out, jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(r));
         r.claims().forEach(c -> System.out.println("EVAL " + c.type() + " " + c.verdict() + " quote=" + c.quoteStatus()
                 + " context=" + c.contextIssue() + " conflict=" + c.sourcesConflict() + " | " + c.claim()));
+        if (r.videos() != null) {
+            System.out.println("EVAL videos searched=" + r.videos().searched() + " limitations=" + r.videos().limitations());
+            r.videos().claims().forEach(cv -> cv.videos().forEach(v -> System.out.println("EVAL video " + cv.claimId() + " "
+                    + v.stance() + " " + v.kind() + " " + v.channel() + " | " + v.title() + " | quote=" + v.quote()
+                    + " at=" + v.relevantAt() + " earliest=" + v.earliestFound())));
+        }
 
         NewsClaim kennedy = find(r, "ask not");
         assertThat(kennedy.quoteStatus()).isEqualTo(QuoteStatus.FOUND_VERBATIM);

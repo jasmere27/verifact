@@ -32,7 +32,7 @@ class NewsStoreTest {
 
     private static NewsCheck check() {
         return new NewsCheck(UUID.randomUUID(), Instant.parse("2026-09-30T12:00:00Z"), null, "t", null, List.of(), List.of(),
-                Map.of(Verdict.SUPPORTED, 0), List.of(), "n", "fake", 1);
+                Map.of(Verdict.SUPPORTED, 0), List.of(), "n", "fake", 1, null);
     }
 
     @Test

@@ -88,7 +88,7 @@ class NewsCheckServiceTest {
         search = new FakeSearch();
         fetcher = mock(SafeUrlFetcher.class);
         service = new NewsCheckService(llm, new EvidenceRetriever(search), fetcher,
-                Clock.fixed(Instant.parse("2026-09-30T12:00:00Z"), ZoneOffset.UTC), 20_000);
+                Clock.fixed(Instant.parse("2026-09-30T12:00:00Z"), ZoneOffset.UTC), 20_000, null);
     }
 
     private static ArticleClaim claim(String type, String quote, String claim, String speaker, String quoted) {

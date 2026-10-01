@@ -11,14 +11,15 @@ import java.util.UUID;
 /**
  * NewsFact's automated check of one article: typed claims, each with a verdict backed by a source's
  * own words, a quote check done in code, date/context issues, and conflicts between sources. The
- * editor's decisions live separately in {@link NewsReview}.
+ * editor's decisions live separately in {@link NewsReview}. {@code videos} is null for checks saved before
+ * supporting videos existed.
  *
  * @param articleUrl null for pasted text
  * @param articleDate as the article states it, if it does
  */
 public record NewsCheck(UUID id, Instant createdAt, String articleUrl, String articleTitle, String articleDate,
                         List<NewsClaim> claims, List<Evidence> sources, Map<Verdict, Integer> verdictCounts,
-                        List<String> limitations, String notice, String searchProvider, long durationMs) {
+                        List<String> limitations, String notice, String searchProvider, long durationMs, NewsVideos videos) {
 
     public enum ClaimType { FACT, STATISTIC, QUOTE, DATE_TIME, ATTRIBUTION }
 
