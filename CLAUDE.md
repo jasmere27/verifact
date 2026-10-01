@@ -31,6 +31,7 @@ The JDK is not on PATH in this environment:
 export JAVA_HOME=$(ls -d ~/.local/jdks/jdk-21*) PATH=$JAVA_HOME/bin:$PATH
 ./mvnw test                         # all backend tests (no keys, DB, or network needed)
 ./mvnw test -Dtest=AiServiceTest    # one class
+./mvnw test -Dtest=PostgresMigrationsTest   # all migrations (incl. Postgres-only RLS) on an embedded real Postgres
 ./mvnw clean package                # build jar (run `clean` after dependency changes; incremental builds hide errors)
 ./mvnw spring-boot:run              # needs .env values exported (see .env.example)
 RUN_EVALS=true OPEN_AI_API_KEY=... TAVILY_API_KEY=... ./mvnw test -Dtest=VerificationEvalIT   # live eval (costs money)
