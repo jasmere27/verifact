@@ -2006,10 +2006,9 @@ div.state-card {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   padding: 4px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: saturate(160%) blur(14px);
-  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  background: var(--surface);
   border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px -8px rgb(18 22 38 / 0.18);
 }
 
 .bottom-nav-item {
@@ -2031,10 +2030,6 @@ div.state-card {
   -webkit-tap-highlight-color: transparent;
 }
 
-.bottom-nav-item svg {
-  transition: transform 150ms ease;
-}
-
 .bottom-nav-item[aria-current="page"],
 .bottom-nav-item[data-current],
 .bottom-nav-item[aria-expanded="true"] {
@@ -2042,17 +2037,28 @@ div.state-card {
   font-weight: 600;
 }
 
-/* Active tab: a soft pill behind the icon. */
-.bottom-nav-item svg {
+/* Active tab: a soft pill behind a filled icon, which pops in when you switch. */
+.bottom-nav-item .tab-icon {
   box-sizing: content-box;
-  padding: 3px 16px;
+  padding: 4px 18px;
   border-radius: 999px;
+  transition: background-color 180ms ease;
 }
 
-.bottom-nav-item[aria-current="page"] svg,
-.bottom-nav-item[data-current] svg,
-.bottom-nav-item[aria-expanded="true"] svg {
+.bottom-nav-item[aria-current="page"] .tab-icon,
+.bottom-nav-item[data-current] .tab-icon,
+.bottom-nav-item[aria-expanded="true"] .tab-icon {
   background: var(--accent-soft);
+  animation: tab-pop 260ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes tab-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .bottom-nav-item:active {
@@ -2146,8 +2152,9 @@ div.state-card {
   .sheet-backdrop {
     animation: none;
   }
-  .bottom-nav-item svg {
+  .bottom-nav-item .tab-icon {
     transition: none;
+    animation: none;
   }
 }
 
