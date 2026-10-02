@@ -87,3 +87,7 @@ abstracts (PubMed fallback), no OVERSTATED status.
 - Next steps: "N suggested links to review" (REVIEW_LINKS); "sources aren't linked" now opens suggestions.
 - Next (phase 4+): group projects, usage limits, E7 pilot; use uploaded papers' full text for links.
 
+## Simpler capstone projects (ADR-25, 2026-10-02)
+- Signed-in start = upload Chapter 1/proposal (title, questions, expected answers filled from it, student confirms on Home); typing a title is the fallback.
+- Tabs: Home (Do this next) · Sources (By question / Saved / Find studies / Not yet studied) · My paper · Notes. Starter guide on first visit, "Show me around" to replay.
+

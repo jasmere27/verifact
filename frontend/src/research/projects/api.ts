@@ -14,6 +14,18 @@ export async function createProject(title: string, field: string, country: strin
   return (await authed(BASE, { method: "POST", ...json({ title, field, country }) })).json() as Promise<Project>;
 }
 
+/** Where the new project's title came from: printed in the file, suggested by AI, or neither (file name). */
+export type TitleSource = "DOCUMENT" | "SUGGESTED" | "NONE";
+
+/** "Start from your Chapter 1": the server reads the file (about 20–60 seconds) and sets up the project. */
+export async function startFromFile(file: File, country: string | null, label: string): Promise<{ project: Project; titleSource: TitleSource }> {
+  const form = new FormData();
+  form.append("file", file);
+  if (country) form.append("country", country);
+  if (label.trim()) form.append("label", label.trim());
+  return (await authed(`${BASE}/from-file`, { method: "POST", body: form })).json() as Promise<{ project: Project; titleSource: TitleSource }>;
+}
+
 export async function importWorkspace(workspaceId: string, editToken: string): Promise<Project> {
   return (await authed(`${BASE}/import`, { method: "POST", ...json({ workspaceId, editToken }) })).json() as Promise<Project>;
 }

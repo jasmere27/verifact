@@ -125,6 +125,15 @@
   font-size: 1rem;
 }
 
+.rf-file {
+  padding: 10px;
+  cursor: pointer;
+}
+
+.rf-start-note--left {
+  text-align: left;
+}
+
 .rf-start-note {
   text-align: center;
   font-size: 0.8rem;

@@ -29,13 +29,27 @@ import type { ItemChanges } from "./api";
 import GapsTab from "./GapsTab";
 import LibraryTab from "./LibraryTab";
 import type { LibraryFilter } from "./LibraryTab";
-import NextStepsTab from "./NextStepsTab";
+import HomeTab from "./HomeTab";
+import Tour from "./Tour";
+import { tourSeen } from "./tourStorage";
+import type { TourStep } from "./Tour";
+import type { TitleSource } from "./api";
 import QuestionsTab from "./QuestionsTab";
 import type { FindKind } from "./QuestionsTab";
 import { questionLabel } from "./types";
 import type { FileKind, NextStep, Project, Question } from "./types";
 
-type Tab = "next" | "questions" | "library" | "find" | "gaps" | "files" | "citations" | "notes";
+type Tab = "home" | "sources" | "paper" | "notes";
+/** Sources holds what used to be four tabs. */
+type SourcesView = "questions" | "saved" | "find" | "gaps";
+
+const TITLE_SOURCES: TitleSource[] = ["DOCUMENT", "SUGGESTED", "NONE"];
+
+/** `?setup=document` after "Start from your Chapter 1": show the check-what-we-found card once. */
+function setupFromUrl(): TitleSource | null {
+  const value = new URLSearchParams(window.location.search).get("setup")?.toUpperCase();
+  return TITLE_SOURCES.find((t) => t === value) ?? null;
+}
 
 const CATEGORY_LABEL: Partial<Record<Category, string>> = {
   RRL: "Related literature (RRL)",
@@ -50,7 +64,10 @@ export default function ProjectPage({ id }: { id: string }) {
   const { ready, session } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("next");
+  const [tab, setTab] = useState<Tab>("home");
+  const [view, setView] = useState<SourcesView>("questions");
+  const [setup, setSetup] = useState<TitleSource | null>(setupFromUrl);
+  const [touring, setTouring] = useState(() => !tourSeen());
   const [filter, setFilter] = useState<LibraryFilter>("all");
   const [request, setRequest] = useState<SearchRequest | null>(null);
   const [openFile, setOpenFile] = useState<string | null>(null);
@@ -75,6 +92,18 @@ export default function ProjectPage({ id }: { id: string }) {
   useEffect(() => () => {
     if (noteTimer.current) clearTimeout(noteTimer.current);
   }, []);
+
+  // A new tab or view starts at its top. The tabs are sticky, so measure a plain marker placed just above them.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
+  }, [tab, view]);
+
+  // The setup flag is for this visit only; keep the address clean (and Back/refresh from showing it again).
+  useEffect(() => {
+    if (window.location.search) navigate(`/research/p/${id}`, { replace: true });
+  }, [id]);
 
   if (ready && !signedIn) {
     return (
@@ -118,8 +147,13 @@ export default function ProjectPage({ id }: { id: string }) {
     }
   }
 
+  function sources(next: SourcesView) {
+    setTab("sources");
+    setView(next);
+  }
+
   function find(category: Category, label: string, text: string | null = null, questionId: string | null = null) {
-    setTab("find");
+    sources("find");
     setRequest({ category, label, text, questionId, nonce: Date.now() });
   }
 
@@ -132,7 +166,7 @@ export default function ProjectPage({ id }: { id: string }) {
 
   /** Opens the Questions tab at the suggested links. */
   function openLinks() {
-    setTab("questions");
+    sources("questions");
     requestAnimationFrame(() => {
       const el = document.getElementById("pj-links");
       el?.scrollIntoView({ block: "start" });
@@ -143,13 +177,13 @@ export default function ProjectPage({ id }: { id: string }) {
   function onAction(step: NextStep) {
     switch (step.action) {
       case "ADD_QUESTIONS":
-        setTab("questions");
+        sources("questions");
         break;
       case "FIND_SOURCES": {
         const q = step.questionId ? p.questions.find((x) => x.id === step.questionId) : undefined;
         if (q) findFor(q);
         else if (step.category) find(step.category, CATEGORY_LABEL[step.category] ?? "Sources");
-        else setTab("find");
+        else sources("find");
         break;
       }
       case "LINK_SOURCES":
@@ -158,25 +192,25 @@ export default function ProjectPage({ id }: { id: string }) {
         break;
       case "OPEN_LIBRARY":
         setFilter("to-read");
-        setTab("library");
+        sources("saved");
         break;
       case "REVIEW_RETRACTED":
         setFilter("retracted");
-        setTab("library");
+        sources("saved");
         break;
       case "WRITE_GAP":
       case "GENERATE_INSIGHTS":
-        setTab("gaps");
+        sources("gaps");
         break;
       case "UPLOAD_DRAFT":
         setOpenFile(null);
         setUploadKind("DRAFT");
-        setTab("files");
+        setTab("paper");
         break;
       default:
         // Draft claims, reference checks, unsaved papers: open the file the step is about.
         setOpenFile(step.fileId);
-        setTab("files");
+        setTab("paper");
     }
   }
 
@@ -199,14 +233,25 @@ export default function ProjectPage({ id }: { id: string }) {
 
   const citations = p.library.map((i) => apa(i.source)).sort((a, b) => a.localeCompare(b));
   const tabs: { value: Tab; label: string }[] = [
-    { value: "next", label: "Next steps" },
-    { value: "questions", label: `Questions (${p.questions.length})` },
-    { value: "library", label: `Library (${p.library.length})` },
-    { value: "find", label: "Find sources" },
-    { value: "gaps", label: "Gaps & framework" },
-    { value: "files", label: `Files (${p.files.length})` },
-    { value: "citations", label: "Citations" },
+    { value: "home", label: "Home" },
+    { value: "sources", label: "Sources" },
+    { value: "paper", label: "My paper" },
     { value: "notes", label: "Notes" },
+  ];
+  const views: { value: SourcesView; label: string }[] = [
+    { value: "questions", label: "By question" },
+    { value: "saved", label: `Saved (${p.library.length})` },
+    { value: "find", label: "Find studies" },
+    { value: "gaps", label: "Not yet studied" },
+  ];
+  const tourSteps: TourStep[] = [
+    ...(setup
+      ? [{ target: "setup", title: "First, check what we found", body: "We read your file and filled in your title and research questions. Fix anything that's not right, then tap Looks right." }]
+      : []),
+    { target: "next", title: "Start here", body: "This card always shows the one thing to do next. Tap its button and we'll take you straight there." },
+    { target: "tab-sources", title: "Sources", body: "Find studies for each research question, save the good ones, and see which question each one answers." },
+    { target: "tab-paper", title: "My paper", body: "Upload your chapters. We point out statements that need a citation and check your reference list." },
+    { target: "progress", title: "Your progress", body: "Every step you finish fills this up. Everything saves to your account automatically." },
   ];
 
   return (
@@ -222,9 +267,18 @@ export default function ProjectPage({ id }: { id: string }) {
           for 12 months.
         </p>
       </header>
+      <div className="pj-tabs-anchor" ref={tabsRef} aria-hidden="true" />
       <div className="pj-tabs" role="tablist" aria-label="Project">
         {tabs.map((t) => (
-          <button key={t.value} type="button" role="tab" className="mode-tab" aria-selected={tab === t.value} onClick={() => setTab(t.value)}>
+          <button
+            key={t.value}
+            type="button"
+            role="tab"
+            className="mode-tab"
+            aria-selected={tab === t.value}
+            data-tour={`tab-${t.value}`}
+            onClick={() => setTab(t.value)}
+          >
             {t.label}
           </button>
         ))}
@@ -233,9 +287,31 @@ export default function ProjectPage({ id }: { id: string }) {
         {status}
       </p>
 
-      {tab === "next" && <NextStepsTab project={p} onAction={onAction} />}
+      {tab === "home" && (
+        <HomeTab
+          project={p}
+          setup={setup}
+          onSetupDone={() => setSetup(null)}
+          onRename={(title) => apply(updateProject(id, { title }), "Title saved.")}
+          onEditQuestions={() => {
+            setSetup(null);
+            sources("questions");
+          }}
+          onAction={onAction}
+        />
+      )}
 
-      {tab === "questions" && (
+      {tab === "sources" && (
+        <div className="pj-views" role="group" aria-label="Sources">
+          {views.map((v) => (
+            <button key={v.value} type="button" className="pj-view" aria-pressed={view === v.value} onClick={() => setView(v.value)}>
+              {v.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "sources" && view === "questions" && (
         <QuestionsTab
           key={p.questions.map((q) => q.id + q.text + (q.hypothesis ?? "")).join("|")}
           project={p}
@@ -255,12 +331,12 @@ export default function ProjectPage({ id }: { id: string }) {
           onReview={(key, qid, accept) => apply(reviewLink(id, key, qid, accept), accept ? "Linked." : "Got it, we won't suggest that one again.")}
           onOpenLibrary={(qid) => {
             setFilter(`rq:${qid}`);
-            setTab("library");
+            sources("saved");
           }}
         />
       )}
 
-      {tab === "library" && (
+      {tab === "sources" && view === "saved" && (
         <LibraryTab
           project={p}
           filter={filter}
@@ -270,7 +346,7 @@ export default function ProjectPage({ id }: { id: string }) {
         />
       )}
 
-      {tab === "find" && (
+      {tab === "sources" && view === "find" && (
         <FindSources
           topic={p.title}
           country={p.country}
@@ -282,7 +358,7 @@ export default function ProjectPage({ id }: { id: string }) {
         />
       )}
 
-      {tab === "gaps" && (
+      {tab === "sources" && view === "gaps" && (
         <GapsTab
           key={p.gaps.map((g) => g.id + g.statement + g.sourceKeys.join(",")).join("|")}
           project={p}
@@ -291,7 +367,7 @@ export default function ProjectPage({ id }: { id: string }) {
         />
       )}
 
-      {tab === "files" && (
+      {tab === "paper" && (
         <FilesTab
           project={p}
           openId={openFile}
@@ -317,8 +393,9 @@ export default function ProjectPage({ id }: { id: string }) {
         />
       )}
 
-      {tab === "citations" && (
-        <section className="report-section" aria-label="Citations">
+      {tab === "paper" && !openFile && (
+        <section className="report-section" aria-labelledby="pj-refs-heading">
+          <h2 id="pj-refs-heading">Your reference list</h2>
           {citations.length === 0 ? (
             <p className="pj-empty">Save sources to build your reference list.</p>
           ) : (
@@ -354,11 +431,31 @@ export default function ProjectPage({ id }: { id: string }) {
         </section>
       )}
 
-      <p className="small">
+      <p className="small pj-foot">
+        <button
+          type="button"
+          className="text-button"
+          onClick={() => {
+            setTab("home");
+            setTouring(true);
+          }}
+        >
+          Show me around
+        </button>
         <button type="button" className="text-button" onClick={() => void remove()}>
           Delete this project
         </button>
       </p>
+
+      {touring && (
+        <Tour
+          steps={tourSteps}
+          onClose={() => {
+            setTouring(false);
+            setTab("home");
+          }}
+        />
+      )}
     </article>
   );
 }

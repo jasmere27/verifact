@@ -33,4 +33,8 @@ final class StudentOutputs {
     record LinkReview(List<LinkProposal> links) {}
 
     record LinkProposal(String workId, String questionId, String role, String stance, String how, String quote) {}
+
+    record SetupReading(String title, String workingTitle, String field, List<SetupQuestion> questions) {}
+
+    record SetupQuestion(String question, String expectedAnswer) {}
 }

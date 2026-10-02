@@ -104,10 +104,15 @@ public class ResearchProjectStore {
         }).toList();
     }
 
-    public ResearchProject create(UUID owner, String title, String field, String country) {
+    /** Refuses before an uploaded file is read or analysed. */
+    public void requireRoomForProject(UUID owner) {
         if (repository.countByOwnerId(owner) >= MAX_PROJECTS) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "You already have " + MAX_PROJECTS + " projects. Delete one you no longer need first.");
         }
+    }
+
+    public ResearchProject create(UUID owner, String title, String field, String country) {
+        requireRoomForProject(owner);
         ProjectData d = new ProjectData(topic(title), cap(field, 120), country(country), List.of(), List.of(), List.of(), null, null, null);
         ResearchProjectRecord r = new ResearchProjectRecord(UUID.randomUUID(), owner, now(), json(d));
         repository.save(r);
