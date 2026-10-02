@@ -41,10 +41,11 @@ public class ResearchProjectController {
     private final DraftAnalysisService drafts;
     private final PaperAnalysisService papers;
     private final ResearchInsightsService insights;
+    private final QuestionLinkService links;
 
     public ResearchProjectController(ResearchProjectStore projects, ResearchWorkspaceStore workspaces, AccountService accounts,
                                      DocumentExtractor extractor, DraftAnalysisService drafts, PaperAnalysisService papers,
-                                     ResearchInsightsService insights) {
+                                     ResearchInsightsService insights, QuestionLinkService links) {
         this.projects = projects;
         this.workspaces = workspaces;
         this.accounts = accounts;
@@ -52,6 +53,7 @@ public class ResearchProjectController {
         this.drafts = drafts;
         this.papers = papers;
         this.insights = insights;
+        this.links = links;
     }
 
     @GetMapping
@@ -168,6 +170,31 @@ public class ResearchProjectController {
         UUID owner = user(jwt).id();
         UUID uuid = uuid(id);
         return projects.setInsights(owner, uuid, insights.generate(projects.asWorkspace(owner, uuid)));
+    }
+
+    /** @param found how many new suggestions this run produced; limitations: what was left out */
+    public record SuggestResult(ResearchProject project, int found, List<String> limitations) {}
+
+    /** AI-suggested source ↔ question links for the student to review (ADR-24); replaces the pending ones. */
+    @PostMapping("/{id}/links/suggest")
+    public SuggestResult suggestLinks(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id) {
+        UUID owner = user(jwt).id();
+        UUID uuid = uuid(id);
+        List<String> limitations = new java.util.ArrayList<>();
+        List<ResearchProject.LinkSuggestion> found = links.suggest(projects.read(owner, uuid), limitations);
+        ResearchProject project = projects.setSuggestions(owner, uuid, found);
+        return new SuggestResult(project, project.suggestions().size(), limitations);
+    }
+
+    public record LinkReview(String key, String questionId, Boolean accept) {}
+
+    @PostMapping("/{id}/links/review")
+    public ResearchProject reviewLink(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id,
+                                      @RequestBody(required = false) LinkReview body) {
+        if (body == null || body.key() == null || body.questionId() == null || body.accept() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Missing suggestion.");
+        }
+        return projects.reviewLink(user(jwt).id(), uuid(id), body.key(), body.questionId(), body.accept());
     }
 
     @DeleteMapping("/{id}")

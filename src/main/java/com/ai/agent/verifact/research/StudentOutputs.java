@@ -29,4 +29,8 @@ final class StudentOutputs {
     record RelationReview(List<RelationNote> works) {}
 
     record RelationNote(String workId, String kind, String how, String quote) {}
+
+    record LinkReview(List<LinkProposal> links) {}
+
+    record LinkProposal(String workId, String questionId, String role, String stance, String how, String quote) {}
 }

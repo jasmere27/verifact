@@ -18,6 +18,8 @@ import {
   getProject,
   relabelProjectFile,
   removeFromLibrary,
+  reviewLink,
+  suggestLinks,
   updateLibraryItem,
   updateProject,
   uploadProjectFile,
@@ -29,6 +31,7 @@ import LibraryTab from "./LibraryTab";
 import type { LibraryFilter } from "./LibraryTab";
 import NextStepsTab from "./NextStepsTab";
 import QuestionsTab from "./QuestionsTab";
+import type { FindKind } from "./QuestionsTab";
 import { questionLabel } from "./types";
 import type { FileKind, NextStep, Project, Question } from "./types";
 
@@ -120,8 +123,21 @@ export default function ProjectPage({ id }: { id: string }) {
     setRequest({ category, label, text, questionId, nonce: Date.now() });
   }
 
-  function findFor(q: Question) {
-    find("FOR_TEXT", `Studies for ${questionLabel(p.questions, q.id)}`, q.text, q.id);
+  function findFor(q: Question, kind: FindKind = "studies") {
+    const rq = questionLabel(p.questions, q.id);
+    if (kind === "supporting" && q.hypothesis) find("SUPPORTING", `Studies that support your expected answer to ${rq}`, q.hypothesis, q.id);
+    else if (kind === "conflicting" && q.hypothesis) find("CONTRADICTING", `Studies that point the other way on ${rq}`, q.hypothesis, q.id);
+    else find("FOR_TEXT", `Studies for ${rq}`, q.text, q.id);
+  }
+
+  /** Opens the Questions tab at the suggested links. */
+  function openLinks() {
+    setTab("questions");
+    requestAnimationFrame(() => {
+      const el = document.getElementById("pj-links");
+      el?.scrollIntoView({ block: "start" });
+      el?.focus({ preventScroll: true });
+    });
   }
 
   function onAction(step: NextStep) {
@@ -137,8 +153,8 @@ export default function ProjectPage({ id }: { id: string }) {
         break;
       }
       case "LINK_SOURCES":
-        setFilter("unlinked");
-        setTab("library");
+      case "REVIEW_LINKS":
+        openLinks();
         break;
       case "OPEN_LIBRARY":
         setFilter("to-read");
@@ -221,10 +237,22 @@ export default function ProjectPage({ id }: { id: string }) {
 
       {tab === "questions" && (
         <QuestionsTab
-          key={p.questions.map((q) => q.id + q.text).join("|")}
+          key={p.questions.map((q) => q.id + q.text + (q.hypothesis ?? "")).join("|")}
           project={p}
           onSave={(rows) => apply(updateProject(id, { questions: rows }), "Questions saved.")}
           onFind={findFor}
+          onSuggest={async () => {
+            try {
+              setStatus("");
+              const r = await suggestLinks(id);
+              setProject(r.project);
+              return r;
+            } catch (err) {
+              setStatus(errorMessage(err).message);
+              return null;
+            }
+          }}
+          onReview={(key, qid, accept) => apply(reviewLink(id, key, qid, accept), accept ? "Linked." : "Got it, we won't suggest that one again.")}
           onOpenLibrary={(qid) => {
             setFilter(`rq:${qid}`);
             setTab("library");

@@ -4,6 +4,29 @@ import type { Category, Draft, Folder, FoundSource, Insights } from "../student/
 export interface Question {
   id: string;
   text: string;
+  /** What the student expects to find, in their own words. */
+  hypothesis: string | null;
+}
+
+/* ---------- Source ↔ question links (ADR-24) ---------- */
+
+/** FINDING: a result about the question · METHOD: a design or instrument to reuse · BACKGROUND: context or theory. */
+export type LinkRole = "FINDING" | "METHOD" | "BACKGROUND";
+/** A finding compared with the expected answer. */
+export type LinkStance = "SUPPORTS" | "CONTRADICTS" | "MIXED";
+
+/** The AI's reading kept with an accepted link: `how` is AI interpretation, `quote` the abstract's own words. */
+export interface LinkNote {
+  questionId: string;
+  role: LinkRole;
+  stance: LinkStance | null;
+  how: string;
+  quote: string;
+}
+
+export interface LinkSuggestion extends LinkNote {
+  key: string;
+  title: string;
 }
 
 export type ReadingStatus = "TO_READ" | "READ" | "CITED";
@@ -20,6 +43,8 @@ export interface LibraryItem {
   method: string | null;
   questionIds: string[];
   savedAt: string;
+  /** Readings for links accepted from suggestions. */
+  linkNotes: LinkNote[];
 }
 
 export interface GapNote {
@@ -48,7 +73,8 @@ export type Action =
   | "UPLOAD_DRAFT"
   | "REVIEW_DRAFT_CLAIMS"
   | "CHECK_CITATIONS"
-  | "OPEN_FILES";
+  | "OPEN_FILES"
+  | "REVIEW_LINKS";
 
 export interface NextStep {
   id: string;
@@ -78,6 +104,8 @@ export interface Project {
   draft: Draft | null;
   insights: Insights | null;
   files: FileSummary[];
+  /** AI-suggested links waiting for the student. */
+  suggestions: LinkSuggestion[];
   progress: { percent: number; milestones: Milestone[] };
   nextSteps: NextStep[];
 }

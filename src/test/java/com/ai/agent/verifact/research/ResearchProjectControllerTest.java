@@ -47,6 +47,8 @@ class ResearchProjectControllerTest {
     private PaperAnalysisService papers;
     @MockitoBean
     private ResearchInsightsService insights;
+    @MockitoBean
+    private QuestionLinkService links;
 
     @Test
     void signedOutRequestsAreRefused() throws Exception {
@@ -70,5 +72,19 @@ class ResearchProjectControllerTest {
 
         mockMvc.perform(get("/api/v2/me/projects/not-a-uuid").with(jwt().jwt(j -> j.subject(USER.toString()))))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void linkSuggestionsAreSignedInOnlyAndAReviewNeedsAnAnswer() throws Exception {
+        mockMvc.perform(post("/api/v2/me/projects/" + PROJECT + "/links/suggest")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v2/me/projects/" + PROJECT + "/links/review").with(jwt().jwt(j -> j.subject(USER.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"key\":\"10.1/a\",\"questionId\":\"q1\"}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(links);
+
+        mockMvc.perform(post("/api/v2/me/projects/" + PROJECT + "/links/review").with(jwt().jwt(j -> j.subject(USER.toString())))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"key\":\"10.1/a\",\"questionId\":\"q1\",\"accept\":false}"))
+                .andExpect(status().isOk());
+        verify(projects).reviewLink(USER, PROJECT, "10.1/a", "q1", false);
     }
 }

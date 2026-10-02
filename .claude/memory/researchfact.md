@@ -82,3 +82,8 @@ abstracts (PubMed fallback), no OVERSTATED status.
 - "Files" tab replaces "My draft": upload "My draft" (chapter label) or "A research paper". Drafts open in the existing draft view; papers open in `PaperView` (record match + Add to library, In plain words, Key findings with the paper's words and supporting/contradicting search, How the study was done, Limitations the authors state).
 - Live run: see ADR-23. Next (phase 3): AI-suggested source↔RQ links with quotes for the student to confirm; per-RQ supporting/conflicting search.
 
+## Capstone question links (ADR-24, phase 3, 2026-10-02)
+- Questions tab: optional "What do you expect to find?" per RQ; Find studies / Supporting studies / Conflicting studies per RQ; "What your sources say about RQn" (grouped by stance/role, "Studies disagree" callout); "Which sources answer which question?" with AI-suggested links (quote from the abstract) to accept ("Link to RQn") or reject ("Doesn't fit").
+- Next steps: "N suggested links to review" (REVIEW_LINKS); "sources aren't linked" now opens suggestions.
+- Next (phase 4+): group projects, usage limits, E7 pilot; use uploaded papers' full text for links.
+
