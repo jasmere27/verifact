@@ -179,13 +179,6 @@
   color: var(--accent);
 }
 
-/* The one-line descriptions, the share button and the menu button only appear in the phone menu. */
-.site-nav-hint,
-.site-nav-share,
-.nav-toggle {
-  display: none;
-}
-
 /* Footer "Share VeriFact": a button styled like the footer links. */
 .site-footer-share {
   padding: 0;
@@ -202,84 +195,7 @@
   text-decoration: underline;
 }
 
-@media (max-width: 760px) {
-  .site-header-inner {
-    flex-wrap: nowrap;
-  }
-  .header-end {
-    gap: 8px;
-  }
-  .theme-toggle-label {
-    display: none;
-  }
-  .theme-toggle {
-    padding: 6px 10px;
-  }
-  /* Phone header, left to right: theme (signed out only), menu, account. */
-  .header-end > .theme-toggle {
-    order: 1;
-  }
-  .nav-toggle {
-    order: 2;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--surface-2);
-    color: var(--text-2);
-    cursor: pointer;
-  }
-  .nav-toggle:hover,
-  .nav-toggle[aria-expanded="true"] {
-    color: var(--accent);
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
-    background: var(--accent-soft);
-  }
-  .site-nav {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 16px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    box-shadow: 0 16px 28px -14px rgb(18 22 38 / 0.28);
-  }
-  .site-nav.is-open {
-    display: flex;
-  }
-  .site-nav a {
-    display: grid;
-    gap: 2px;
-    padding: 12px 14px;
-    border-radius: 12px;
-    font-size: 1rem;
-  }
-  .header-end > .account-menu,
-  .header-end > .account-signin {
-    order: 3;
-  }
-  .site-nav-share {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 14px 0;
-    border-top: 1px solid var(--line);
-    margin-top: 6px;
-  }
-  .site-nav-hint {
-    display: block;
-    font-size: 0.82rem;
-    font-weight: 400;
-    color: var(--muted);
-  }
-}
+
 
 .theme-toggle {
   display: inline-flex;
@@ -1934,7 +1850,7 @@ div.state-card {
 
 /* ---------- Narrow screens: mobile action bar ---------- */
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .hero-actions {
     display: none;
   }
@@ -2063,4 +1979,307 @@ div.state-card {
   justify-items: center;
   gap: 8px;
   margin-top: 6px;
+}
+
+/* ---------- Mobile app shell (≤760px; see useMobile.ts) ---------- */
+
+/* Room for the tab bar, so it never covers the end of a page. */
+.app--mobile {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+
+.app--mobile .site-header-inner {
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+}
+
+.app--mobile .main {
+  padding: 20px 16px 28px;
+  gap: 20px;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  padding: 4px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  -webkit-backdrop-filter: saturate(160%) blur(14px);
+  border-top: 1px solid var(--line);
+}
+
+.bottom-nav-item {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 4px 0;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-item svg {
+  transition: transform 150ms ease;
+}
+
+.bottom-nav-item[aria-current="page"],
+.bottom-nav-item[data-current],
+.bottom-nav-item[aria-expanded="true"] {
+  color: var(--accent);
+}
+
+.bottom-nav-item[aria-current="page"] svg {
+  transform: translateY(-1px);
+}
+
+.bottom-nav-item:active {
+  background: var(--surface-2);
+}
+
+/* Bottom sheet */
+.sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(10 15 29 / 0.45);
+  animation: sheet-fade 180ms ease;
+}
+
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 88vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -10px 30px rgb(10 15 29 / 0.25);
+  animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+.sheet-grip {
+  width: 40px;
+  height: 4px;
+  margin: 4px auto 6px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sheet-head h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.sheet-close {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.sheet-body {
+  display: grid;
+  gap: 14px;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .sheet-backdrop {
+    animation: none;
+  }
+  .bottom-nav-item svg {
+    transition: none;
+  }
+}
+
+/* More sheet */
+.more-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.more-account-who {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  overflow-wrap: anywhere;
+}
+
+.more-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.more-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.more-item,
+.more-list .account-dropdown-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.more-list .theme-switch {
+  display: flex;
+}
+
+.more-item-label {
+  font-weight: 500;
+}
+
+.more-item-hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.more-item--button {
+  font-weight: 500;
+}
+
+.more-links {
+  list-style: none;
+  padding: 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.more-links a,
+.more-links .text-button {
+  display: inline-block;
+  padding: 8px 0;
+  color: var(--text-2);
+  font-size: 0.9rem;
+}
+
+.more-note {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* The report's own action bar sits directly above the tab bar. */
+.app--mobile .action-bar {
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: 10px;
+}
+
+.app--mobile.app--report {
+  padding-bottom: calc(64px + 68px + env(safe-area-inset-bottom));
+}
+
+/* Typing on a phone: the keyboard is open, so the tab bar steps aside. */
+.app--typing .bottom-nav {
+  display: none;
+}
+
+.app--mobile.app--typing {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Check page: the main action stays within thumb reach while you type or scroll. "clip" still trims the card's
+   gradient edge but, unlike "hidden", doesn't stop the sticky button. */
+.app--mobile .form-card {
+  overflow: clip;
+}
+
+.app--mobile .form-actions {
+  position: sticky;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 8px);
+  z-index: 3;
+  padding: 8px 0;
+  background: var(--surface);
+}
+
+.app--mobile.app--typing .form-actions {
+  bottom: 8px;
+}
+
+/* Touch targets: at least 44px on phones. */
+.app--mobile .button--small {
+  min-height: 44px;
+}
+
+.app--mobile .text-button {
+  min-height: 40px;
+}
+
+.app--mobile .mode-tab {
+  min-height: 44px;
+}
+
+/* Long project and workspace pages: the tab strip stays under the header. */
+.app--mobile .pj-tabs {
+  position: sticky;
+  top: 64px;
+  z-index: 4;
+  box-shadow: 0 6px 14px -10px rgb(18 22 38 / 0.35);
 }

@@ -9,6 +9,7 @@ import ProjectList from "./projects/ProjectList";
 import RecentWorkspaces from "./student/RecentWorkspaces";
 import StartWorkspace from "./student/StartWorkspace";
 import type { ResearchCheck } from "./types";
+import { useIsMobile } from "../useMobile";
 import "./research.css";
 
 const MIN_CHARS = 30;
@@ -59,6 +60,7 @@ const FEATURES = [
 ];
 
 export default function ResearchPage() {
+  const isMobile = useIsMobile();
   const [text, setText] = useState("");
   const [showCheck, setShowCheck] = useState(false);
   const [state, setState] = useState<State>({ status: "idle" });
@@ -130,8 +132,9 @@ export default function ResearchPage() {
             Build your thesis research on <span className="headline-accent">real sources.</span>
           </h1>
           <p className="rf-lede">
-            Find related literature and studies, local and foreign, for your topic, check your draft, and keep everything
-            in one workspace. Every source comes from a scholarly index; nothing is made up.
+            {isMobile
+              ? "Find real studies for your topic, check your draft, and keep it all in one place. Nothing is made up."
+              : "Find related literature and studies, local and foreign, for your topic, check your draft, and keep everything in one workspace. Every source comes from a scholarly index; nothing is made up."}
           </p>
         </div>
         <StartWorkspace />

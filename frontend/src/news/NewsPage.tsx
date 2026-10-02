@@ -3,6 +3,7 @@ import { errorMessage } from "../api";
 import type { StreamHandlers } from "../api";
 import { plural } from "../format";
 import { navigate } from "../router";
+import { useIsMobile } from "../useMobile";
 import type { SourcesFound, StageId } from "../types";
 import { runNewsCheck } from "./api";
 import "./news.css";
@@ -23,7 +24,17 @@ const STEPS: { id: StageId; title: string; detail: string }[] = [
 ];
 
 /** NewsFact start page: paste a link or text, watch progress, land in the saved workspace. */
+const Points = () => (
+  <ul className="news-points" aria-label="What it checks">
+    <li>Facts, statistics, dates and attributions</li>
+    <li>Quotes, word for word</li>
+    <li>Outdated figures and old events presented as new</li>
+    <li>Sources that disagree</li>
+  </ul>
+);
+
 export default function NewsPage() {
+  const isMobile = useIsMobile();
   const [input, setInput] = useState("");
   const [state, setState] = useState<State>({ status: "idle" });
   const [problem, setProblem] = useState<string | null>(null);
@@ -88,17 +99,25 @@ export default function NewsPage() {
           <span className="news-brand-name">NewsFact</span> by VeriFact
         </p>
         <h1 id="news-heading">Fact-check a story before it runs.</h1>
-        <p className="lede">
-          Paste an article or its link. NewsFact lists every claim, checks each against sources in their own words,
-          verifies quotes word for word, flags outdated or conflicting information, and gives your desk a review
-          workspace and a report.
-        </p>
-        <ul className="news-points" aria-label="What it checks">
-          <li>Facts, statistics, dates and attributions</li>
-          <li>Quotes, word for word</li>
-          <li>Outdated figures and old events presented as new</li>
-          <li>Sources that disagree</li>
-        </ul>
+        {isMobile ? (
+          // Phones: the form first; the details one tap away.
+          <>
+            <p className="lede">Paste an article or its link. Every claim is checked against sources, quotes word for word.</p>
+            <details className="news-more">
+              <summary>What it checks</summary>
+              <Points />
+            </details>
+          </>
+        ) : (
+          <>
+            <p className="lede">
+              Paste an article or its link. NewsFact lists every claim, checks each against sources in their own words,
+              verifies quotes word for word, flags outdated or conflicting information, and gives your desk a review
+              workspace and a report.
+            </p>
+            <Points />
+          </>
+        )}
       </section>
 
       {state.status === "error" && (

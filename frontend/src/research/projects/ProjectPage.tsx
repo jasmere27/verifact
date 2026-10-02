@@ -195,17 +195,17 @@ export default function ProjectPage({ id }: { id: string }) {
           Saved to your account. Kept while you work on it; deleted on {formatDate(p.deletesAt)} only if you make no changes
           for 12 months.
         </p>
-        <div className="pj-tabs" role="tablist" aria-label="Project">
-          {tabs.map((t) => (
-            <button key={t.value} type="button" role="tab" className="mode-tab" aria-selected={tab === t.value} onClick={() => setTab(t.value)}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <p className="small" aria-live="polite">
-          {status}
-        </p>
       </header>
+      <div className="pj-tabs" role="tablist" aria-label="Project">
+        {tabs.map((t) => (
+          <button key={t.value} type="button" role="tab" className="mode-tab" aria-selected={tab === t.value} onClick={() => setTab(t.value)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <p className="small pj-status" aria-live="polite">
+        {status}
+      </p>
 
       {tab === "next" && <NextStepsTab project={p} onAction={onAction} />}
 

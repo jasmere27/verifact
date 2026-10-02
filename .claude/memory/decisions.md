@@ -160,3 +160,10 @@ Only record decisions with real tradeoffs.
 - Retention: 12 months after the last change (`Retention.PROJECT_PERIOD`), deleted with the account (FK cascade); quick no-sign-in workspaces stay (90 days, edit token) and can be copied into a project (`/import`, needs the edit token).
 - Next (phases 2–5, not built): multiple files (chapter drafts, uploaded papers) with plain-language explanations, method and findings (verbatim quotes, numbers checked); AI-suggested source↔RQ links with quotes for the student to confirm; per-RQ supporting/conflicting search; group projects (sharing); usage limits; E7 pilot.
 
+## ADR-22 — Mobile app shell (≤760px)
+**Accepted** · 2026-10-02 (owner request: "feel like a native app, not a responsive website")
+- Phones (`useIsMobile`, `(max-width: 760px)`) render a different shell, not CSS-hidden desktop parts: compact header (logo + account), a fixed **bottom tab bar** (Home · Check · Research · News · More) with safe-area padding, and a **More bottom sheet** (account, LegalFact, Get the app, Share, Dark mode, How it works, Privacy, Terms, Contact, Sign out). The desktop header nav, theme button and footer aren't rendered on phones. Tablets and desktops are unchanged.
+- **Home on phones is a dashboard** (`home/MobileHome.tsx`): quick actions, Continue (capstone projects, research workspaces, NewsFact reviews from this browser), recent checks (account or browser). The marketing page moved to `/about` (still `/` on desktop).
+- Interaction rules: the tab bar hides while a text field is focused (`useTyping`), since Android lifts fixed bars above the keyboard; primary form actions (`.form-actions`) are sticky above the tab bar; the report's action bar stacks above it; project tabs stick under the header; touch targets ≥ 44px; `BottomSheet` is a modal dialog (focus trap, Escape, backdrop, scroll lock, reduced motion).
+- Verified with an emulated phone at 360 and 320 px: no horizontal scroll, the tab bar never covers the end of a page (Playwright `chromium-headless-shell` runs here with libnss3/libnspr4/libasound2 extracted to a local folder, `LD_LIBRARY_PATH`).
+
