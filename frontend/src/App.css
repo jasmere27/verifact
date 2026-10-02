@@ -2039,10 +2039,20 @@ div.state-card {
 .bottom-nav-item[data-current],
 .bottom-nav-item[aria-expanded="true"] {
   color: var(--accent);
+  font-weight: 600;
 }
 
-.bottom-nav-item[aria-current="page"] svg {
-  transform: translateY(-1px);
+/* Active tab: a soft pill behind the icon. */
+.bottom-nav-item svg {
+  box-sizing: content-box;
+  padding: 3px 16px;
+  border-radius: 999px;
+}
+
+.bottom-nav-item[aria-current="page"] svg,
+.bottom-nav-item[data-current] svg,
+.bottom-nav-item[aria-expanded="true"] svg {
+  background: var(--accent-soft);
 }
 
 .bottom-nav-item:active {

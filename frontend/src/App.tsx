@@ -35,7 +35,8 @@ import { formatRelative } from "./format";
 import { clearRecent, forgetCheck, loadRecent, rememberCheck } from "./recent";
 import type { RecentCheck } from "./recent";
 import { newEditToken, saveReportToken } from "./reportTokens";
-import { sharedInput } from "./shared";
+import { checkIntent } from "./shared";
+import type { CheckIntent } from "./shared";
 import { navigate, parseRoute, reportPath, usePathname } from "./router";
 import type { Route } from "./router";
 import type { OverallVerdict, SourcesFound, StageId, VerificationResult } from "./types";
@@ -86,7 +87,9 @@ function App() {
   const [announcement, setAnnouncement] = useState("");
   const [reused, setReused] = useState<ReusedReport | null>(null);
   // Shared from another app (installed app's share menu): pre-fill the check box once, then tidy the URL.
-  const [shared, setShared] = useState(() => (route.name === "check" ? sharedInput(window.location.search) : null));
+  // How /check was opened (shared text, starting tab, "run now" from the Home search bar); read on each visit.
+  const [intent, setIntent] = useState<CheckIntent | null>(() => (route.name === "check" ? checkIntent(window.location.search) : null));
+  const ranIntent = useRef<string | null>(null);
   // Signed in: the account's history (null until loaded) replaces this browser's recent checks.
   const userId = useAuth().session?.user.id ?? null;
   // Phones get an app shell: compact header, bottom tab bar (with a More sheet for the rest), a dashboard at "/".
@@ -123,6 +126,15 @@ function App() {
     if (route.name === "check" && window.location.search) navigate("/check", { replace: true });
   }, [route.name]);
 
+  // "Check" pressed on the Home search bar: start right away, once.
+  useEffect(() => {
+    if (route.name !== "check" || !intent?.run || !intent.text) return;
+    if (ranIntent.current === intent.text) return;
+    ranIntent.current = intent.text;
+    void runCheck({ mode: "text", text: intent.text });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.name, intent]);
+
   const cacheResult = useCallback((result: VerificationResult) => {
     setResults((prev) => (prev[result.id] ? prev : { ...prev, [result.id]: result }));
   }, []);
@@ -133,6 +145,7 @@ function App() {
     setLastRouteName(route.name);
     if (route.name !== "check" && check.status !== "idle") setCheck({ status: "idle" });
     if (route.name === "check" && reused) setReused(null);
+    if (route.name === "check") setIntent(checkIntent(window.location.search));
   }
   useEffect(() => {
     if (route.name === "check") return;
@@ -327,9 +340,10 @@ function App() {
 
             <div className="card form-card" hidden={loading}>
               <CheckForm
-                initialText={shared ?? undefined}
+                initialText={intent?.text ?? undefined}
+                initialMode={intent?.mode}
                 onSubmit={(submission) => {
-                  setShared(null);
+                  setIntent(null);
                   void runCheck(submission);
                 }}
               />

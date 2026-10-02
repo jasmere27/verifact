@@ -13,3 +13,23 @@ export function sharedInput(search: string): string | null {
   const combined = parts.join("\n\n");
   return combined ? combined.slice(0, 10_000) : null;
 }
+
+export type CheckMode = "text" | "image" | "audio";
+
+/**
+ * What /check was opened with: shared text (above), a starting tab (`?mode=image|audio`), and `?run=1` when the
+ * person already pressed Check somewhere else (the Home search bar), so the check starts without a second tap.
+ */
+export interface CheckIntent {
+  text: string | null;
+  mode: CheckMode;
+  run: boolean;
+}
+
+export function checkIntent(search: string): CheckIntent {
+  const params = new URLSearchParams(search);
+  const text = sharedInput(search);
+  const m = params.get("mode");
+  const mode: CheckMode = m === "image" || m === "audio" ? m : "text";
+  return { text, mode, run: Boolean(text) && mode === "text" && params.get("run") === "1" };
+}
