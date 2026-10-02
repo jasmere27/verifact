@@ -44,6 +44,8 @@ class ResearchProjectControllerTest {
     @MockitoBean
     private DraftAnalysisService drafts;
     @MockitoBean
+    private PaperAnalysisService papers;
+    @MockitoBean
     private ResearchInsightsService insights;
 
     @Test

@@ -327,3 +327,188 @@
   min-height: 0;
   resize: vertical;
 }
+
+/* ---------- Files (ADR-23) ---------- */
+
+.fl-upload {
+  display: grid;
+  gap: 12px;
+}
+
+.fl-pick {
+  justify-self: start;
+  cursor: pointer;
+}
+
+.fl-pick.is-busy {
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.fl-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.fl-item {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fl-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.fl-kind {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fl-kind--draft {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.fl-kind--paper {
+  background: color-mix(in srgb, var(--accent-2) 14%, transparent);
+  color: var(--accent-2);
+}
+
+.fl-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.fl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.fl-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.fl-back {
+  justify-self: start;
+}
+
+.fl-head {
+  display: grid;
+  gap: 6px;
+}
+
+/* Paper view */
+.pv {
+  display: grid;
+  gap: 18px;
+}
+
+.pv-record {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.pv-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pv-section {
+  display: grid;
+  gap: 8px;
+}
+
+.pv-section h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.pv-ai {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pv-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.pv-list li {
+  display: grid;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 3px solid var(--accent-soft);
+}
+
+.pv-statement {
+  font-weight: 500;
+}
+
+.pv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.pv-method {
+  display: grid;
+  gap: 10px;
+}
+
+.pv-method > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.pv-method dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.pv-method dd {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}

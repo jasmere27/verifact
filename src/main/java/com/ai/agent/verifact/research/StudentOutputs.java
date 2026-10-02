@@ -12,6 +12,14 @@ final class StudentOutputs {
 
     record Uncited(String quote, String why) {}
 
+    /** A research paper as the model read it; title/authors/year/doi are used only to look the paper up. */
+    record PaperReading(String title, List<String> authors, Integer year, String doi, String plainSummary, List<PaperNote> findings,
+                        List<MethodNote> method, List<PaperNote> limitations) {}
+
+    record PaperNote(String statement, String quote) {}
+
+    record MethodNote(String aspect, String statement, String quote) {}
+
     record InsightDraft(List<GapNote> gaps, List<VariableNote> variables) {}
 
     record GapNote(String statement, String kind, List<String> sourceIds) {}
