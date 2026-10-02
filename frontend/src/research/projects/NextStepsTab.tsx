@@ -11,6 +11,7 @@ const ACTION_LABEL: Record<NextStep["action"], string> = {
   UPLOAD_DRAFT: "Upload draft",
   REVIEW_DRAFT_CLAIMS: "Show statements",
   CHECK_CITATIONS: "Check citations",
+  OPEN_FILES: "Add to library",
 };
 
 const PRIORITY_LABEL: Record<NextStep["priority"], string> = { HIGH: "Do this first", MEDIUM: "Next", LOW: "When you can" };

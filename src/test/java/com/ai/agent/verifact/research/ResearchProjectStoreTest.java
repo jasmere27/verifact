@@ -49,6 +49,10 @@ class ResearchProjectStoreTest {
     private ResearchProjectRepository repository;
     @Autowired
     private JdbcTemplate jdbc;
+    @Autowired
+    private ProjectFileRepository files;
+    @Autowired
+    private tools.jackson.databind.json.JsonMapper jsonMapper;
     @MockitoBean
     private ScholarlyIndex index;
     @MockitoBean
@@ -194,5 +198,101 @@ class ResearchProjectStoreTest {
         accounts.delete(user);
 
         assertThat(repository.existsById(p.id())).isFalse();
+    }
+
+    // ---------------------------------------------------------------- files (ADR-23)
+
+    private static DocumentExtractor.Extracted doc(String text) {
+        return new DocumentExtractor.Extracted(DocumentExtractor.Kind.DOCX, text, 4, false);
+    }
+
+    private static Draft draft(int uncited) {
+        List<Draft.Statement> statements = java.util.stream.IntStream.range(0, uncited)
+                .mapToObj(i -> new Draft.Statement("Claim " + i + " with no source.", "no citation")).toList();
+        return new Draft("ch2.docx", DocumentExtractor.Kind.DOCX, 4, 900, false, Instant.now(), "draft text", "summary", List.of(),
+                statements, 3, 2, "check", List.of());
+    }
+
+    private static PaperAnalysis paper() {
+        Discovery.FoundSource src = new Discovery.FoundSource("10.1/real", "10.1/real", "https://doi.org/10.1/real", "Flipped classroom study",
+                List.of("Reyes"), 2023, "J", "article", List.of("PH"), true, false, 1, true, null, null, null, Discovery.Verification.VERIFIED);
+        return new PaperAnalysis(Instant.now(), new PaperAnalysis.Match(PaperAnalysis.MatchStatus.VERIFIED, src, "DOI printed in the paper"),
+                "Plain summary.", List.of(new PaperAnalysis.Quoted("Scores rose.", "Students in the flipped classroom scored higher")),
+                List.of(), List.of(), List.of(), "notice");
+    }
+
+    @Test
+    void draftsAndPapersAreSummarisedInTheProjectAndOpenedInFull() {
+        ResearchProject p = project();
+        p = store.addFile(user.id(), p.id(), ProjectFile.Kind.DRAFT, "Chapter 2", "ch2.docx", doc("draft text"), draft(2), null);
+        p = store.addFile(user.id(), p.id(), ProjectFile.Kind.PAPER, null, "reyes.pdf", doc("The whole paper text."), null, paper());
+
+        assertThat(p.files()).hasSize(2);
+        ProjectFile.Summary paperSummary = p.files().stream().filter(f -> f.kind() == ProjectFile.Kind.PAPER).findFirst().orElseThrow();
+        assertThat(paperSummary.matchedKey()).isEqualTo("10.1/real");
+        assertThat(paperSummary.title()).isEqualTo("Flipped classroom study");
+        assertThat(paperSummary.findings()).isEqualTo(1);
+        assertThat(p.nextSteps()).extracting(ResearchProject.NextStep::id).contains("draft-claims", "papers");
+
+        ProjectFile full = store.file(user.id(), p.id(), paperSummary.id());
+        assertThat(full.text()).isEqualTo("The whole paper text.");
+        assertThat(full.paper().findings()).hasSize(1);
+        UUID projectId = p.id();
+        assertThatThrownBy(() -> store.file(newUser().id(), projectId, paperSummary.id())).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void filesCanBeRelabelledAndDeleted() {
+        ResearchProject p = project();
+        p = store.addFile(user.id(), p.id(), ProjectFile.Kind.DRAFT, "Draft", "ch1.docx", doc("text"), draft(0), null);
+        UUID fileId = p.files().get(0).id();
+
+        p = store.relabelFile(user.id(), p.id(), fileId, "Chapter 1");
+        assertThat(p.files().get(0).label()).isEqualTo("Chapter 1");
+        assertThat(store.file(user.id(), p.id(), fileId).label()).isEqualTo("Chapter 1");
+
+        p = store.deleteFile(user.id(), p.id(), fileId);
+        assertThat(p.files()).isEmpty();
+        assertThat(files.existsById(fileId)).isFalse();
+    }
+
+    @Test
+    void aProjectHoldsAtMost20Files() {
+        ResearchProject p = project();
+        for (int i = 0; i < ResearchProjectStore.MAX_FILES; i++) {
+            store.addFile(user.id(), p.id(), ProjectFile.Kind.DRAFT, "D" + i, "d.txt", doc("t"), draft(0), null);
+        }
+        UUID id = p.id();
+        assertThatThrownBy(() -> store.requireRoomForFile(user.id(), id))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+    }
+
+    @Test
+    void aPhase1DraftBecomesTheFirstFileWhenTheProjectIsOpened() {
+        ResearchProject p = project();
+        ResearchProjectRecord r = repository.findById(p.id()).orElseThrow();
+        ProjectData d = jsonMapper.readValue(r.getDataJson(), ProjectData.class);
+        r.update(jsonMapper.writeValueAsString(d.withDraft(draft(3))), OffsetDateTime.now(ZoneOffset.UTC));
+        repository.save(r);
+
+        ResearchProject opened = store.get(user.id(), p.id());
+
+        assertThat(opened.draft()).isNull();
+        assertThat(opened.files()).singleElement().satisfies(f -> {
+            assertThat(f.kind()).isEqualTo(ProjectFile.Kind.DRAFT);
+            assertThat(f.needsCitation()).isEqualTo(3);
+        });
+        assertThat(store.get(user.id(), p.id()).files()).hasSize(1); // only once
+    }
+
+    @Test
+    void deletingAProjectDeletesItsFiles() {
+        ResearchProject p = project();
+        p = store.addFile(user.id(), p.id(), ProjectFile.Kind.DRAFT, "Chapter 1", "ch1.docx", doc("text"), draft(0), null);
+        UUID fileId = p.files().get(0).id();
+
+        store.delete(user.id(), p.id());
+
+        assertThat(files.existsById(fileId)).isFalse();
     }
 }

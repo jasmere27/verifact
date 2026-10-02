@@ -50,14 +50,19 @@ public class ResearchProjectStore {
     static final int MAX_GAP_CHARS = 1_500;
     static final int MAX_LIBRARY = 300;
     static final int MAX_ITEM_TEXT = 3_000;
+    static final int MAX_FILES = 20;
+    static final int MAX_LABEL = 80;
 
     private final ResearchProjectRepository repository;
+    private final ProjectFileRepository files;
     private final SourceVerifier verifier;
     private final JsonMapper jsonMapper;
     private final Clock clock;
 
-    public ResearchProjectStore(ResearchProjectRepository repository, SourceVerifier verifier, JsonMapper jsonMapper, Clock clock) {
+    public ResearchProjectStore(ResearchProjectRepository repository, ProjectFileRepository files, SourceVerifier verifier,
+                                JsonMapper jsonMapper, Clock clock) {
         this.repository = repository;
+        this.files = files;
         this.verifier = verifier;
         this.jsonMapper = jsonMapper;
         this.clock = clock;
@@ -81,7 +86,7 @@ public class ResearchProjectStore {
         return repository.findTop50ByOwnerIdOrderByUpdatedAtDesc(owner).stream().map(r -> {
             ProjectData d = data(r);
             return new ResearchProject.Summary(r.getId(), d.title(), r.getUpdatedAt().toInstant(), deletesAt(r),
-                    d.library().size(), d.questions().size(), ProjectAdvisor.progress(d, year).percent());
+                    d.library().size(), d.questions().size(), ProjectAdvisor.progress(d, summaries(r.getId()), year).percent());
         }).toList();
     }
 
@@ -106,9 +111,76 @@ public class ResearchProjectStore {
         return save(r, d);
     }
 
+    @Transactional
     public ResearchProject get(UUID owner, UUID id) {
         ResearchProjectRecord r = owned(owner, id);
-        return view(r, data(r));
+        ProjectData d = data(r);
+        if (d.draft() != null) {
+            // Projects from before files (phase 1) had one draft: it becomes the first file.
+            Draft old = d.draft();
+            saveFile(r.getId(), new ProjectFile(UUID.randomUUID(), ProjectFile.Kind.DRAFT, "Draft", old.fileName(), old.kind(), old.pages(),
+                    old.chars(), old.truncated(), old.uploadedAt(), null, old, null));
+            return save(r, d.withDraft(null));
+        }
+        return view(r, d);
+    }
+
+    // ---------------------------------------------------------------- files (ADR-23)
+
+    /** Refuses before the upload is read or analysed. */
+    public void requireRoomForFile(UUID owner, UUID id) {
+        owned(owner, id);
+        if (files.countByProjectId(id) >= MAX_FILES) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "This project already has " + MAX_FILES + " files. Delete one you no longer need first.");
+        }
+    }
+
+    @Transactional
+    public ResearchProject addFile(UUID owner, UUID id, ProjectFile.Kind kind, String label, String fileName, DocumentExtractor.Extracted doc,
+                                   Draft draft, PaperAnalysis paper) {
+        ResearchProjectRecord r = owned(owner, id);
+        ProjectFile f = new ProjectFile(UUID.randomUUID(), kind, cap(label, MAX_LABEL), cap(fileName, 200), doc.kind(), doc.pages(),
+                doc.text().length(), doc.truncated(), clock.instant(), kind == ProjectFile.Kind.PAPER ? doc.text() : null, draft, paper);
+        saveFile(r.getId(), f);
+        return save(r, data(r)); // touch: the project changed
+    }
+
+    public ProjectFile file(UUID owner, UUID id, UUID fileId) {
+        owned(owner, id);
+        return jsonMapper.readValue(fileRecord(id, fileId).getDetailJson(), ProjectFile.class);
+    }
+
+    @Transactional
+    public ResearchProject relabelFile(UUID owner, UUID id, UUID fileId, String label) {
+        ResearchProjectRecord r = owned(owner, id);
+        ProjectFileRecord fr = fileRecord(id, fileId);
+        ProjectFile f = jsonMapper.readValue(fr.getDetailJson(), ProjectFile.class);
+        ProjectFile next = new ProjectFile(f.id(), f.kind(), cap(label, MAX_LABEL), f.fileName(), f.docKind(), f.pages(), f.chars(),
+                f.truncated(), f.uploadedAt(), f.text(), f.draft(), f.paper());
+        fr.relabel(next.label(), jsonMapper.writeValueAsString(next.summary()), jsonMapper.writeValueAsString(next));
+        files.save(fr);
+        return save(r, data(r));
+    }
+
+    @Transactional
+    public ResearchProject deleteFile(UUID owner, UUID id, UUID fileId) {
+        ResearchProjectRecord r = owned(owner, id);
+        files.delete(fileRecord(id, fileId));
+        return save(r, data(r));
+    }
+
+    private void saveFile(UUID projectId, ProjectFile f) {
+        files.save(new ProjectFileRecord(f.id(), projectId, f.kind().name(), f.label(), f.fileName(), f.uploadedAt().atOffset(ZoneOffset.UTC),
+                jsonMapper.writeValueAsString(f.summary()), jsonMapper.writeValueAsString(f)));
+    }
+
+    private ProjectFileRecord fileRecord(UUID projectId, UUID fileId) {
+        return files.findByIdAndProjectId(fileId, projectId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That file isn't in this project (it may have been deleted)."));
+    }
+
+    private List<ProjectFile.Summary> summaries(UUID projectId) {
+        return files.summaries(projectId).stream().map(j -> jsonMapper.readValue(j, ProjectFile.Summary.class)).toList();
     }
 
     @Transactional
@@ -197,12 +269,6 @@ public class ResearchProjectStore {
     }
 
     @Transactional
-    public ResearchProject setDraft(UUID owner, UUID id, Draft draft) {
-        ResearchProjectRecord r = owned(owner, id);
-        return save(r, data(r).withDraft(draft));
-    }
-
-    @Transactional
     public ResearchProject setInsights(UUID owner, UUID id, Insights insights) {
         ResearchProjectRecord r = owned(owner, id);
         return save(r, data(r).withInsights(insights));
@@ -255,9 +321,10 @@ public class ResearchProjectStore {
 
     private ResearchProject view(ResearchProjectRecord r, ProjectData d) {
         int year = year();
+        List<ProjectFile.Summary> fileSummaries = summaries(r.getId());
         return new ResearchProject(r.getId(), r.getCreatedAt().toInstant(), r.getUpdatedAt().toInstant(), deletesAt(r), d.title(), d.field(),
-                d.country(), d.questions(), d.library(), d.gaps(), d.notes(), d.draft(), d.insights(),
-                ProjectAdvisor.progress(d, year), ProjectAdvisor.nextSteps(d, year));
+                d.country(), d.questions(), d.library(), d.gaps(), d.notes(), d.draft(), d.insights(), fileSummaries,
+                ProjectAdvisor.progress(d, fileSummaries, year), ProjectAdvisor.nextSteps(d, fileSummaries, year));
     }
 
     private static Instant deletesAt(ResearchProjectRecord r) {

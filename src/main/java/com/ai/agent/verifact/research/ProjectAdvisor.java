@@ -1,6 +1,7 @@
 package com.ai.agent.verifact.research;
 
 import com.ai.agent.verifact.research.Discovery.Category;
+import com.ai.agent.verifact.research.ProjectFile.Kind;
 import com.ai.agent.verifact.research.ResearchProject.Action;
 import com.ai.agent.verifact.research.ResearchProject.LibraryItem;
 import com.ai.agent.verifact.research.ResearchProject.Milestone;
@@ -13,7 +14,9 @@ import com.ai.agent.verifact.research.ResearchWorkspace.Folder;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * "What should I do next?" and the progress checklist, computed in code from what the project actually
@@ -51,7 +54,8 @@ final class ProjectAdvisor {
         return y != null && y > year - RECENT_YEARS;
     }
 
-    static Progress progress(ProjectData p, int year) {
+    static Progress progress(ProjectData p, List<ProjectFile.Summary> files, int year) {
+        List<ProjectFile.Summary> drafts = drafts(files);
         List<Milestone> m = new ArrayList<>();
         List<LibraryItem> lib = p.library();
         m.add(new Milestone("topic", "Topic or working title", p.title() != null && !p.title().isBlank(), null));
@@ -70,11 +74,11 @@ final class ProjectAdvisor {
         long theories = lib.stream().filter(i -> i.folder() == Folder.THEORY).count();
         m.add(new Milestone("framework", "Theory or framework chosen", theories > 0, theories + " saved"));
         m.add(new Milestone("gap", "Research gap stated in your words", !p.gaps().isEmpty(), p.gaps().size() + " written"));
-        m.add(new Milestone("draft", "Draft uploaded", p.draft() != null, p.draft() == null ? null : p.draft().fileName()));
-        boolean claimsCited = p.draft() != null && (p.draft().needsCitation() == null || p.draft().needsCitation().isEmpty());
-        m.add(new Milestone("cited", "Draft claims have citations", claimsCited,
-                p.draft() == null ? "Upload a draft" : p.draft().needsCitation() == null ? null
-                        : p.draft().needsCitation().size() + " statement" + (p.draft().needsCitation().size() == 1 ? "" : "s") + " may need one"));
+        m.add(new Milestone("draft", "Draft uploaded", !drafts.isEmpty(),
+                drafts.isEmpty() ? null : drafts.size() + " draft" + (drafts.size() == 1 ? "" : "s")));
+        int uncited = uncited(drafts);
+        m.add(new Milestone("cited", "Draft claims have citations", !drafts.isEmpty() && uncited == 0,
+                drafts.isEmpty() ? "Upload a draft" : uncited + " statement" + (uncited == 1 ? "" : "s") + " may need one"));
         int done = (int) m.stream().filter(Milestone::done).count();
         return new Progress(Math.round(100f * done / m.size()), m);
     }
@@ -83,8 +87,9 @@ final class ProjectAdvisor {
         return !i.source().local() && i.source().countries() != null && !i.source().countries().isEmpty();
     }
 
-    static List<NextStep> nextSteps(ProjectData p, int year) {
+    static List<NextStep> nextSteps(ProjectData p, List<ProjectFile.Summary> files, int year) {
         List<NextStep> steps = new ArrayList<>();
+        List<ProjectFile.Summary> drafts = drafts(files);
         List<LibraryItem> lib = p.library();
 
         List<String> retracted = lib.stream().filter(i -> i.source().retracted()).map(LibraryItem::key).toList();
@@ -113,11 +118,24 @@ final class ProjectAdvisor {
                         Action.FIND_SOURCES, Category.FOR_TEXT, q.id(), List.of(n + " linked")));
             }
         }
-        if (p.draft() != null && p.draft().needsCitation() != null && !p.draft().needsCitation().isEmpty()) {
-            int k = p.draft().needsCitation().size();
-            steps.add(step("draft-claims", Priority.HIGH, plural(k, "statement", "statements") + " in your draft may need citations",
+        int uncited = uncited(drafts);
+        if (uncited > 0) {
+            ProjectFile.Summary worst = drafts.stream().filter(d -> d.needsCitation() != null && d.needsCitation() > 0)
+                    .max(Comparator.comparing(ProjectFile.Summary::needsCitation)).orElseThrow();
+            steps.add(new NextStep("draft-claims", Priority.HIGH, plural(uncited, "statement", "statements") + " in your "
+                    + (drafts.size() == 1 ? "draft" : "drafts") + " may need citations",
                     "Each one makes a claim without a source. Find a source for it, or rephrase it as your own reasoning.",
-                    Action.REVIEW_DRAFT_CLAIMS, null, null, List.of(p.draft().fileName())));
+                    Action.REVIEW_DRAFT_CLAIMS, null, null, worst.id().toString(),
+                    drafts.stream().filter(d -> d.needsCitation() != null && d.needsCitation() > 0).map(ProjectAdvisor::name).toList()));
+        }
+        Set<String> saved = new HashSet<>(lib.stream().map(i -> i.key().toLowerCase(java.util.Locale.ROOT)).toList());
+        List<ProjectFile.Summary> unsaved = files.stream()
+                .filter(f -> f.kind() == Kind.PAPER && f.matchedKey() != null && !saved.contains(f.matchedKey().toLowerCase(java.util.Locale.ROOT)))
+                .toList();
+        if (!unsaved.isEmpty()) {
+            steps.add(new NextStep("papers", Priority.MEDIUM, plural(unsaved.size(), "uploaded paper isn't", "uploaded papers aren't") + " in your library yet",
+                    "Add them so they count towards your questions, gaps and reference list.",
+                    Action.OPEN_FILES, null, null, unsaved.get(0).id().toString(), unsaved.stream().map(ProjectAdvisor::name).toList()));
         }
         List<String> unlinked = lib.stream().filter(i -> i.questionIds() == null || i.questionIds().isEmpty()).map(LibraryItem::key).toList();
         if (!p.questions().isEmpty() && unlinked.size() >= 3) {
@@ -152,12 +170,14 @@ final class ProjectAdvisor {
                     "Most capstones need a theoretical or conceptual framework. Find theories used by studies like yours.",
                     Action.FIND_SOURCES, Category.THEORIES, null, List.of()));
         }
-        if (p.draft() != null && p.draft().referenceEntries() > 0) {
-            steps.add(step("citations", Priority.LOW, "Check the " + plural(p.draft().referenceEntries(), "reference", "references") + " in your draft",
+        ProjectFile.Summary withRefs = drafts.stream().filter(d -> d.referenceEntries() > 0).findFirst().orElse(null);
+        if (withRefs != null) {
+            steps.add(new NextStep("citations", Priority.LOW, "Check the " + plural(withRefs.referenceEntries(), "reference", "references")
+                    + " in " + name(withRefs),
                     "Confirms each one exists, isn't retracted, and that the cited paper's abstract supports what you wrote.",
-                    Action.CHECK_CITATIONS, null, null, List.of(p.draft().fileName())));
+                    Action.CHECK_CITATIONS, null, null, withRefs.id().toString(), List.of(name(withRefs))));
         }
-        if (p.draft() == null && lib.size() >= 5) {
+        if (drafts.isEmpty() && lib.size() >= 5) {
             steps.add(step("draft", Priority.LOW, "Upload your draft",
                     "Get statements that may need citations and a check of your reference list.",
                     Action.UPLOAD_DRAFT, null, null, List.of()));
@@ -178,7 +198,19 @@ final class ProjectAdvisor {
 
     private static NextStep step(String id, Priority priority, String title, String detail, Action action, Category category,
                                  String questionId, List<String> basis) {
-        return new NextStep(id, priority, title, detail, action, category, questionId, basis);
+        return new NextStep(id, priority, title, detail, action, category, questionId, null, basis);
+    }
+
+    private static List<ProjectFile.Summary> drafts(List<ProjectFile.Summary> files) {
+        return files == null ? List.of() : files.stream().filter(f -> f.kind() == Kind.DRAFT).toList();
+    }
+
+    private static int uncited(List<ProjectFile.Summary> drafts) {
+        return drafts.stream().mapToInt(d -> d.needsCitation() == null ? 0 : d.needsCitation()).sum();
+    }
+
+    private static String name(ProjectFile.Summary f) {
+        return f.label() != null ? f.label() : f.title() != null ? f.title() : f.fileName() != null ? f.fileName() : "your file";
     }
 
     private static String plural(int n, String one, String many) {

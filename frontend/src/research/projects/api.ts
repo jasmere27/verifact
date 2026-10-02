@@ -1,6 +1,6 @@
 import { authed } from "../../auth/api";
 import type { Folder, FoundSource } from "../student/types";
-import type { LibraryItem, Project, ProjectSummary } from "./types";
+import type { FileKind, LibraryItem, Project, ProjectFile, ProjectSummary } from "./types";
 
 /** Capstone projects: signed-in only (`authed` sends the session token and refreshes it once on 401). */
 const BASE = "/api/v2/me/projects";
@@ -51,14 +51,25 @@ export async function removeFromLibrary(id: string, key: string): Promise<Projec
   return (await authed(`${BASE}/${encodeURIComponent(id)}/library?${q}`, { method: "DELETE" })).json() as Promise<Project>;
 }
 
-export async function uploadProjectDraft(id: string, file: File): Promise<Project> {
+/** Upload a chapter draft or a research paper; the server reads and analyses it (about 15–60 seconds). */
+export async function uploadProjectFile(id: string, file: File, kind: FileKind, label: string): Promise<Project> {
   const form = new FormData();
   form.append("file", file);
-  return (await authed(`${BASE}/${encodeURIComponent(id)}/draft`, { method: "POST", body: form })).json() as Promise<Project>;
+  form.append("kind", kind);
+  if (label.trim()) form.append("label", label.trim());
+  return (await authed(`${BASE}/${encodeURIComponent(id)}/files`, { method: "POST", body: form })).json() as Promise<Project>;
 }
 
-export async function deleteProjectDraft(id: string): Promise<Project> {
-  return (await authed(`${BASE}/${encodeURIComponent(id)}/draft`, { method: "DELETE" })).json() as Promise<Project>;
+export async function getProjectFile(id: string, fileId: string): Promise<ProjectFile> {
+  return (await authed(`${BASE}/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`)).json() as Promise<ProjectFile>;
+}
+
+export async function relabelProjectFile(id: string, fileId: string, label: string): Promise<Project> {
+  return (await authed(`${BASE}/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`, { method: "PUT", ...json({ label }) })).json() as Promise<Project>;
+}
+
+export async function deleteProjectFile(id: string, fileId: string): Promise<Project> {
+  return (await authed(`${BASE}/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`, { method: "DELETE" })).json() as Promise<Project>;
 }
 
 export async function generateProjectInsights(id: string): Promise<Project> {

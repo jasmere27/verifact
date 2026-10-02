@@ -39,15 +39,18 @@ public class ResearchProjectController {
     private final AccountService accounts;
     private final DocumentExtractor extractor;
     private final DraftAnalysisService drafts;
+    private final PaperAnalysisService papers;
     private final ResearchInsightsService insights;
 
     public ResearchProjectController(ResearchProjectStore projects, ResearchWorkspaceStore workspaces, AccountService accounts,
-                                     DocumentExtractor extractor, DraftAnalysisService drafts, ResearchInsightsService insights) {
+                                     DocumentExtractor extractor, DraftAnalysisService drafts, PaperAnalysisService papers,
+                                     ResearchInsightsService insights) {
         this.projects = projects;
         this.workspaces = workspaces;
         this.accounts = accounts;
         this.extractor = extractor;
         this.drafts = drafts;
+        this.papers = papers;
         this.insights = insights;
     }
 
@@ -113,26 +116,50 @@ public class ResearchProjectController {
         return projects.removeItem(user(jwt).id(), uuid(id), key);
     }
 
-    /** Upload a draft (PDF, DOCX, PPTX, TXT; 10 MB). Only the extracted text and analysis are kept. */
-    @PostMapping("/{id}/draft")
-    public ResearchProject uploadDraft(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id,
-                                       @RequestParam("file") MultipartFile file) {
+    /**
+     * Upload a chapter draft or a research paper (PDF, DOCX, PPTX, TXT; 10 MB), ADR-23. Only the extracted text and
+     * the analysis are kept. Drafts: statements needing citations and the reference check; papers: the index record
+     * and a plain-language reading with the paper's own words.
+     */
+    @PostMapping("/{id}/files")
+    public ResearchProject uploadFile(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id,
+                                      @RequestParam("file") MultipartFile file, @RequestParam("kind") ProjectFile.Kind kind,
+                                      @RequestParam(value = "label", required = false) String label) {
         UUID owner = user(jwt).id();
         UUID uuid = uuid(id);
-        projects.requireOwner(owner, uuid); // before reading the file or calling the model
+        projects.requireRoomForFile(owner, uuid); // before reading the file or calling the model
         byte[] bytes;
         try {
             bytes = file.getBytes();
         } catch (IOException e) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "The file couldn't be read. Please try again.");
         }
-        Draft draft = drafts.analyze(file.getOriginalFilename(), extractor.extract(bytes));
-        return projects.setDraft(owner, uuid, draft);
+        DocumentExtractor.Extracted doc = extractor.extract(bytes);
+        if (kind == ProjectFile.Kind.DRAFT) {
+            Draft draft = drafts.analyze(file.getOriginalFilename(), doc);
+            return projects.addFile(owner, uuid, kind, label, file.getOriginalFilename(), doc, draft, null);
+        }
+        String country = projects.get(owner, uuid).country();
+        PaperAnalysis paper = papers.analyze(doc, country);
+        return projects.addFile(owner, uuid, kind, label, file.getOriginalFilename(), doc, null, paper);
     }
 
-    @DeleteMapping("/{id}/draft")
-    public ResearchProject deleteDraft(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id) {
-        return projects.setDraft(user(jwt).id(), uuid(id), null);
+    @GetMapping("/{id}/files/{fileId}")
+    public ProjectFile file(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id, @PathVariable("fileId") String fileId) {
+        return projects.file(user(jwt).id(), uuid(id), uuid(fileId));
+    }
+
+    public record FileLabel(String label) {}
+
+    @PutMapping("/{id}/files/{fileId}")
+    public ResearchProject relabelFile(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id, @PathVariable("fileId") String fileId,
+                                       @RequestBody(required = false) FileLabel body) {
+        return projects.relabelFile(user(jwt).id(), uuid(id), uuid(fileId), body == null ? null : body.label());
+    }
+
+    @DeleteMapping("/{id}/files/{fileId}")
+    public ResearchProject deleteFile(@AuthenticationPrincipal Jwt jwt, @PathVariable("id") String id, @PathVariable("fileId") String fileId) {
+        return projects.deleteFile(user(jwt).id(), uuid(id), uuid(fileId));
     }
 
     /** Gaps, relations and framework variables from the library's abstracts (same analysis as workspaces). */

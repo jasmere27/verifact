@@ -78,3 +78,7 @@ abstracts (PubMed fallback), no OVERSTATED status.
 - Shared frontend pieces: `research/student/FindSources.tsx`, `categories.ts`, prop-driven `DraftTab`/`InsightsTab`.
 - Next phases: see ADR-21.
 
+## Capstone files (ADR-23, phase 2, 2026-10-02)
+- "Files" tab replaces "My draft": upload "My draft" (chapter label) or "A research paper". Drafts open in the existing draft view; papers open in `PaperView` (record match + Add to library, In plain words, Key findings with the paper's words and supporting/contradicting search, How the study was done, Limitations the authors state).
+- Live run: see ADR-23. Next (phase 3): AI-suggested source↔RQ links with quotes for the student to confirm; per-RQ supporting/conflicting search.
+

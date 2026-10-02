@@ -18,7 +18,8 @@ import java.util.UUID;
  */
 public record ResearchProject(UUID id, Instant createdAt, Instant updatedAt, Instant deletesAt, String title, String field,
                               String country, List<Question> questions, List<LibraryItem> library, List<GapNote> gaps,
-                              String notes, Draft draft, Insights insights, Progress progress, List<NextStep> nextSteps) {
+                              String notes, Draft draft, Insights insights, List<ProjectFile.Summary> files, Progress progress,
+                              List<NextStep> nextSteps) {
 
     /** A research question. {@code id} is stable; the label (RQ1, RQ2…) follows the order. */
     public record Question(String id, String text) {}
@@ -57,7 +58,9 @@ public record ResearchProject(UUID id, Instant createdAt, Instant updatedAt, Ins
         GENERATE_INSIGHTS,
         UPLOAD_DRAFT,
         REVIEW_DRAFT_CLAIMS,
-        CHECK_CITATIONS
+        CHECK_CITATIONS,
+        /** Uploaded papers not yet in the library. */
+        OPEN_FILES
     }
 
     /**
@@ -65,10 +68,11 @@ public record ResearchProject(UUID id, Instant createdAt, Instant updatedAt, Ins
      *
      * @param category   for FIND_SOURCES: what to search for
      * @param questionId for FIND_SOURCES/LINK_SOURCES: the research question it's about, or null
+     * @param fileId     for draft and paper steps: the file to open, or null
      * @param basis      the facts it rests on (counts, source keys), shown to the student
      */
     public record NextStep(String id, Priority priority, String title, String detail, Action action,
-                           Discovery.Category category, String questionId, List<String> basis) {}
+                           Discovery.Category category, String questionId, String fileId, List<String> basis) {}
 
     /** The list page: enough to choose a project. */
     public record Summary(UUID id, String title, Instant updatedAt, Instant deletesAt, int sources, int questions, int percent) {}

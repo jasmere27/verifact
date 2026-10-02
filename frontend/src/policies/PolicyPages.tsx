@@ -55,7 +55,7 @@ export function PrivacyPage() {
           </li>
           <li>
             <strong>ResearchFact capstone projects</strong> (signed in): your topic, research questions, saved sources with your
-            reading notes, gap statements, notes, and the text of a draft you upload (not the file). They&apos;re linked to your
+            reading notes, gap statements, notes, and the text of drafts and research papers you upload (not the files). They&apos;re linked to your
             account and only you can open them.
           </li>
           <li>

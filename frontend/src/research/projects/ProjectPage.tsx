@@ -5,7 +5,6 @@ import Link from "../../components/Link";
 import { formatDate } from "../../format";
 import { navigate } from "../../router";
 import { apa } from "../student/apa";
-import DraftTab from "../student/DraftTab";
 import FindSources from "../student/FindSources";
 import type { SearchRequest } from "../student/FindSources";
 import type { Category } from "../student/types";
@@ -14,14 +13,16 @@ import "./projects.css";
 import {
   addToLibrary,
   deleteProject,
-  deleteProjectDraft,
+  deleteProjectFile,
   generateProjectInsights,
   getProject,
+  relabelProjectFile,
   removeFromLibrary,
   updateLibraryItem,
   updateProject,
-  uploadProjectDraft,
+  uploadProjectFile,
 } from "./api";
+import FilesTab from "./FilesTab";
 import type { ItemChanges } from "./api";
 import GapsTab from "./GapsTab";
 import LibraryTab from "./LibraryTab";
@@ -29,9 +30,9 @@ import type { LibraryFilter } from "./LibraryTab";
 import NextStepsTab from "./NextStepsTab";
 import QuestionsTab from "./QuestionsTab";
 import { questionLabel } from "./types";
-import type { NextStep, Project, Question } from "./types";
+import type { FileKind, NextStep, Project, Question } from "./types";
 
-type Tab = "next" | "questions" | "library" | "find" | "gaps" | "draft" | "citations" | "notes";
+type Tab = "next" | "questions" | "library" | "find" | "gaps" | "files" | "citations" | "notes";
 
 const CATEGORY_LABEL: Partial<Record<Category, string>> = {
   RRL: "Related literature (RRL)",
@@ -49,6 +50,8 @@ export default function ProjectPage({ id }: { id: string }) {
   const [tab, setTab] = useState<Tab>("next");
   const [filter, setFilter] = useState<LibraryFilter>("all");
   const [request, setRequest] = useState<SearchRequest | null>(null);
+  const [openFile, setOpenFile] = useState<string | null>(null);
+  const [uploadKind, setUploadKind] = useState<FileKind>("DRAFT");
   const [status, setStatus] = useState("");
   const [notes, setNotes] = useState("");
   const [copied, setCopied] = useState(false);
@@ -149,8 +152,15 @@ export default function ProjectPage({ id }: { id: string }) {
       case "GENERATE_INSIGHTS":
         setTab("gaps");
         break;
+      case "UPLOAD_DRAFT":
+        setOpenFile(null);
+        setUploadKind("DRAFT");
+        setTab("files");
+        break;
       default:
-        setTab("draft");
+        // Draft claims, reference checks, unsaved papers: open the file the step is about.
+        setOpenFile(step.fileId);
+        setTab("files");
     }
   }
 
@@ -178,7 +188,7 @@ export default function ProjectPage({ id }: { id: string }) {
     { value: "library", label: `Library (${p.library.length})` },
     { value: "find", label: "Find sources" },
     { value: "gaps", label: "Gaps & framework" },
-    { value: "draft", label: "My draft" },
+    { value: "files", label: `Files (${p.files.length})` },
     { value: "citations", label: "Citations" },
     { value: "notes", label: "Notes" },
   ];
@@ -253,13 +263,28 @@ export default function ProjectPage({ id }: { id: string }) {
         />
       )}
 
-      {tab === "draft" && (
-        <DraftTab
-          draft={p.draft}
-          canEdit
-          busy={false}
-          onUpload={(file) => apply(uploadProjectDraft(id, file), "Draft analysed.")}
-          onRemove={() => apply(deleteProjectDraft(id))}
+      {tab === "files" && (
+        <FilesTab
+          project={p}
+          openId={openFile}
+          defaultKind={uploadKind}
+          onOpen={setOpenFile}
+          onUpload={async (file, kind, label) => {
+            try {
+              setStatus("");
+              const next = await uploadProjectFile(id, file, kind, label);
+              setProject(next);
+              setStatus(kind === "DRAFT" ? "Draft analysed." : "Paper read.");
+              setOpenFile(next.files[0]?.id ?? null); // newest first: open what was just uploaded
+              return true;
+            } catch (err) {
+              setStatus(errorMessage(err).message);
+              return false;
+            }
+          }}
+          onRelabel={(fid, label) => void apply(relabelProjectFile(id, fid, label), "Saved.")}
+          onDelete={(fid) => apply(deleteProjectFile(id, fid), "File deleted.")}
+          onAdd={(source, folder, questionId) => void apply(addToLibrary(id, source, folder, questionId), "Added to your library.")}
           onSearch={(category, passage, label) => find(category, label, passage)}
         />
       )}
