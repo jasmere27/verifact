@@ -49,6 +49,8 @@ class ResearchProjectControllerTest {
     private ResearchInsightsService insights;
     @MockitoBean
     private QuestionLinkService links;
+    @MockitoBean
+    private ProjectSetupService setup;
 
     @Test
     void signedOutRequestsAreRefused() throws Exception {

@@ -42,10 +42,12 @@ public class ResearchProjectController {
     private final PaperAnalysisService papers;
     private final ResearchInsightsService insights;
     private final QuestionLinkService links;
+    private final ProjectSetupService setup;
 
     public ResearchProjectController(ResearchProjectStore projects, ResearchWorkspaceStore workspaces, AccountService accounts,
                                      DocumentExtractor extractor, DraftAnalysisService drafts, PaperAnalysisService papers,
-                                     ResearchInsightsService insights, QuestionLinkService links) {
+                                     ResearchInsightsService insights, QuestionLinkService links,
+                                     ProjectSetupService setup) {
         this.projects = projects;
         this.workspaces = workspaces;
         this.accounts = accounts;
@@ -54,6 +56,7 @@ public class ResearchProjectController {
         this.papers = papers;
         this.insights = insights;
         this.links = links;
+        this.setup = setup;
     }
 
     @GetMapping
@@ -68,6 +71,50 @@ public class ResearchProjectController {
         }
         SignedInUser user = provisioned(jwt);
         return projects.create(user.id(), r.title(), r.field(), r.country());
+    }
+
+    /** @param titleSource where the title came from, so the student knows what to check */
+    public record StartResult(ResearchProject project, ProjectSetupService.TitleSource titleSource) {}
+
+    /**
+     * "Start from your Chapter 1" (ADR-25): a proposal or chapter becomes a project with its title and research questions
+     * filled in (the document's own words) and the file analysed as the first draft. The student confirms on Home.
+     */
+    @PostMapping("/from-file")
+    public StartResult startFromFile(@AuthenticationPrincipal Jwt jwt, @RequestParam("file") MultipartFile file,
+                                     @RequestParam(value = "country", required = false) String country,
+                                     @RequestParam(value = "label", required = false) String label) {
+        SignedInUser user = provisioned(jwt);
+        projects.requireRoomForProject(user.id()); // before reading the file or calling the model
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The file couldn't be read. Please try again.");
+        }
+        DocumentExtractor.Extracted doc = extractor.extract(bytes);
+        ProjectSetupService.Setup found;
+        Draft draft;
+        try (var pool = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var reading = pool.submit(() -> setup.read(file.getOriginalFilename(), doc));
+            var analysis = pool.submit(() -> drafts.analyze(file.getOriginalFilename(), doc));
+            found = reading.get();
+            draft = analysis.get();
+        } catch (java.util.concurrent.ExecutionException e) {
+            if (e.getCause() instanceof ApiException api) {
+                throw api;
+            }
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "The analysis service is unavailable right now. Please try again shortly.", e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Reading your file was interrupted. Please try again.");
+        }
+        ResearchProject created = projects.create(user.id(), found.title(), found.field(), country);
+        if (!found.questions().isEmpty()) {
+            projects.update(user.id(), created.id(), new ResearchProjectStore.Update(null, null, null, null, found.questions(), null));
+        }
+        ResearchProject project = projects.addFile(user.id(), created.id(), ProjectFile.Kind.DRAFT, label, file.getOriginalFilename(), doc, draft, null);
+        return new StartResult(project, found.titleSource());
     }
 
     /** Copies a quick workspace (needs its edit token) into a new project; the workspace itself is left as it is. */

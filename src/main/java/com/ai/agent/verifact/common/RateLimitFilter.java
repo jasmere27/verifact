@@ -65,9 +65,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             java.util.regex.Pattern.compile("^/api/v2/research/workspaces(/[^/]+(/sources|/draft)?)?$");
     /** Profile changes: the light limiter; reading your own account is free. */
     static final String ACCOUNT_PATH = "/api/v2/me";
-    /** Uploading a draft, generating insights and suggesting question links call the model: counted like checks. */
+    /** Uploading a draft, starting a project from a file, generating insights and suggesting question links call the model: counted like checks. */
     static final java.util.regex.Pattern HEAVY_WORKSPACE_PATH =
-            java.util.regex.Pattern.compile("^/api/v2/(research/workspaces|me/projects)/[^/]+/(draft|insights|files|links/suggest)$");
+            java.util.regex.Pattern.compile("^/api/v2/((research/workspaces|me/projects)/[^/]+/(draft|insights|files|links/suggest)|me/projects/from-file)$");
     /** Capstone project changes (ADR-21): the light limiter, like workspaces; reads are free. */
     static final java.util.regex.Pattern PROJECT_PATH =
             java.util.regex.Pattern.compile("^/api/v2/me/projects(/[^/]+(/library|/links/review|/files(/[^/]+)?)?)?$");

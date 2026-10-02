@@ -44,7 +44,7 @@ export default function LibraryTab({
 
   return (
     <section className="report-section" aria-labelledby="pj-lib-heading">
-      <h2 id="pj-lib-heading">Evidence library</h2>
+      <h2 id="pj-lib-heading">Your saved studies</h2>
       <label className="pj-filter">
         <span className="st-why-label">Show</span>
         <select className="st-select" value={filter} onChange={(e) => onFilter(e.target.value as LibraryFilter)}>

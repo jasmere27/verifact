@@ -105,7 +105,7 @@ final class ProjectAdvisor {
         }
         if (lib.isEmpty()) {
             steps.add(step("start-library", Priority.HIGH, "Find your first sources",
-                    "Start with reviews and key works on your topic (RRL), then empirical studies (RRS).",
+                    "Start with reviews of your topic (for your RRL), then studies that collected data (for your RRS).",
                     Action.FIND_SOURCES, Category.RRL, null, List.of()));
         }
         for (Question q : p.questions()) {
@@ -113,8 +113,8 @@ final class ProjectAdvisor {
             if (n < SOURCES_PER_QUESTION) {
                 String rq = label(p.questions(), q.id());
                 steps.add(step("coverage-" + q.id(), n == 0 ? Priority.HIGH : Priority.MEDIUM,
-                        n == 0 ? rq + " has no supporting literature yet" : rq + " has limited supporting literature (" + n + " source" + (n == 1 ? "" : "s") + ")",
-                        "Aim for at least " + SOURCES_PER_QUESTION + " sources that address “" + shorten(q.text()) + "”.",
+                        n == 0 ? rq + " has no studies yet" : rq + " has only " + n + " " + (n == 1 ? "study" : "studies"),
+                        "Aim for at least " + SOURCES_PER_QUESTION + " studies about “" + shorten(q.text()) + "”.",
                         Action.FIND_SOURCES, Category.FOR_TEXT, q.id(), List.of(n + " linked")));
             }
         }

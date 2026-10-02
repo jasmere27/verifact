@@ -150,6 +150,7 @@ class RateLimitTest {
 
         assertThat(call(filter, project + "/links/suggest", "1.1.1.1", null).getStatus()).isEqualTo(200);
         assertThat(call(filter, "/api/v2/verifications", "1.1.1.1", null).getStatus()).isEqualTo(429);
+        assertThat(call(filter, "/api/v2/me/projects/from-file", "1.1.1.1", null).getStatus()).isEqualTo(429);
         assertThat(call(filter, project + "/links/review", "1.1.1.1", null).getStatus()).isEqualTo(200);
         assertThat(call(filter, project + "/links/review", "1.1.1.1", null).getStatus()).isEqualTo(429);
     }

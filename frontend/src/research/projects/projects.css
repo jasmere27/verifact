@@ -13,8 +13,13 @@
   border-radius: 999px;
 }
 
+.pj-tabs-anchor {
+  height: 0;
+  scroll-margin-top: 72px;
+}
+
 .pj-tabs .mode-tab {
-  flex: none;
+  flex: 1 0 auto;
   min-height: 36px;
   padding: 6px 12px;
   font-size: 0.88rem;
@@ -618,4 +623,235 @@
 .pj-sg-stance.is-contradicts {
   background: color-mix(in srgb, var(--v-misleading) 14%, transparent);
   color: var(--v-misleading);
+}
+
+/* Home: setup check, "Do this next", later steps (ADR-25) */
+.pj-home {
+  display: grid;
+  gap: 16px;
+}
+
+.pj-next-card {
+  padding: 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 70%, #7c3aed) 100%);
+  color: #fff;
+  box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.pj-next-kicker {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.pj-next-title {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.pj-next-detail {
+  margin: 0 0 14px;
+  opacity: 0.92;
+}
+
+.pj-next-card .pj-next-button {
+  background: #fff;
+  color: var(--accent);
+  border-color: #fff;
+  min-height: 44px;
+}
+
+.pj-setup .pj-next-kicker {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.pj-setup {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 2px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.pj-setup-heading {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+}
+
+.pj-setup-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.pj-setup-row .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pj-setup-warn {
+  color: var(--v-misleading);
+}
+
+.pj-setup-questions {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.pj-later summary,
+.pj-progress details summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 32px;
+}
+
+.pj-later .pj-steps {
+  margin-top: 8px;
+}
+
+/* Sources: one tab, four views */
+.pj-views {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0 6px;
+}
+
+.pj-view {
+  flex: none;
+  padding: 8px 14px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pj-view[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pj-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+/* Starter guide */
+.tour {
+  position: fixed;
+  z-index: 20;
+  right: 24px;
+  bottom: 24px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px 18px 12px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 50px -12px rgb(15 23 42 / 0.45);
+  animation: tour-in 220ms ease-out;
+}
+
+.app--mobile .tour {
+  left: 16px;
+  right: 16px;
+  width: auto;
+  bottom: calc(64px + env(safe-area-inset-bottom) + 12px);
+}
+
+.tour:focus {
+  outline: none;
+}
+
+.tour-count {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.tour-title {
+  margin: 2px 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.tour-body {
+  margin: 0 0 12px;
+  color: var(--text-2);
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tour-spacer {
+  flex: 1;
+}
+
+.tour-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tour-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.tour-dots span.is-on {
+  width: 18px;
+  background: var(--accent);
+}
+
+.tour-target {
+  position: relative;
+  z-index: 1;
+  border-radius: 14px;
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+  animation: tour-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes tour-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+@keyframes tour-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour,
+  .tour-target {
+    animation: none;
+  }
+}
+
+.pj-status:empty {
+  display: none;
 }

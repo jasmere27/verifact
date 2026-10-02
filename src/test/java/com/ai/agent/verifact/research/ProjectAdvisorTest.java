@@ -58,7 +58,7 @@ class ProjectAdvisorTest {
 
         assertThat(ids(steps)).contains("coverage-q2").doesNotContain("coverage-q1");
         NextStep rq2 = steps.stream().filter(s -> s.id().equals("coverage-q2")).findFirst().orElseThrow();
-        assertThat(rq2.title()).isEqualTo("RQ2 has no supporting literature yet");
+        assertThat(rq2.title()).isEqualTo("RQ2 has no studies yet");
         assertThat(rq2.priority()).isEqualTo(Priority.HIGH);
         assertThat(rq2.action()).isEqualTo(Action.FIND_SOURCES);
         assertThat(rq2.category()).isEqualTo(Discovery.Category.FOR_TEXT);

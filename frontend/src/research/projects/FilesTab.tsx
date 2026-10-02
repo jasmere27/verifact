@@ -66,7 +66,7 @@ export default function FilesTab({
 
   return (
     <section className="report-section" aria-labelledby="pj-files-heading">
-      <h2 id="pj-files-heading">Files</h2>
+      <h2 id="pj-files-heading">Your chapters and studies</h2>
       <div className="card fl-upload">
         <div className="mode-tabs" role="radiogroup" aria-label="What are you uploading?">
           <button type="button" role="radio" className="mode-tab" aria-checked={kind === "DRAFT"} onClick={() => setKind("DRAFT")}>

@@ -51,7 +51,7 @@ export default function LinkSuggestions({
       </p>
       <div className="row">
         <button type="button" className="button button--primary button--small" disabled={busy || !ready} onClick={() => void run()}>
-          {busy ? "Reading your sources…" : pending.length ? "Look again" : "Suggest links"}
+          {busy ? "Reading your sources…" : pending.length ? "Look again" : "Match my sources to questions"}
         </button>
         {!ready && <span className="muted small">Add a research question and save some sources first.</span>}
         {busy && <span className="muted small">This takes about 20–40 seconds.</span>}
@@ -89,7 +89,7 @@ export default function LinkSuggestions({
                     disabled={reviewing === id}
                     onClick={() => void review(s.key, s.questionId, true)}
                   >
-                    Link to {questionLabel(project.questions, s.questionId)}
+                    Use for {questionLabel(project.questions, s.questionId)}
                   </button>
                   <button type="button" className="text-button" disabled={reviewing === id} onClick={() => void review(s.key, s.questionId, false)}>
                     Doesn&apos;t fit
