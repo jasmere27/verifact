@@ -51,10 +51,12 @@ interface Props {
   onSubmit: (submission: Submission) => void;
   /** Pre-filled text, e.g. shared from another app. */
   initialText?: string;
+  /** Starting tab, e.g. the Home "Screenshot" shortcut. */
+  initialMode?: Mode;
 }
 
-export default function CheckForm({ onSubmit, initialText }: Props) {
-  const [mode, setMode] = useState<Mode>("text");
+export default function CheckForm({ onSubmit, initialText, initialMode }: Props) {
+  const [mode, setMode] = useState<Mode>(initialMode ?? "text");
   const [text, setText] = useState(initialText ?? "");
   const [files, setFiles] = useState<Record<"image" | "audio", File | null>>({ image: null, audio: null });
   const [problem, setProblem] = useState<string | null>(null);
