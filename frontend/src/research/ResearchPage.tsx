@@ -5,6 +5,7 @@ import { plural } from "../format";
 import type { SourcesFound, StageId } from "../types";
 import { checkResearchStream } from "./api";
 import ResearchReport from "./ResearchReport";
+import ProjectList from "./projects/ProjectList";
 import RecentWorkspaces from "./student/RecentWorkspaces";
 import StartWorkspace from "./student/StartWorkspace";
 import type { ResearchCheck } from "./types";
@@ -135,6 +136,8 @@ export default function ResearchPage() {
         </div>
         <StartWorkspace />
       </section>
+
+      <ProjectList />
 
       <RecentWorkspaces />
 

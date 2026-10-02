@@ -54,6 +54,11 @@ export function PrivacyPage() {
             taken from it and the analysis, not the file.
           </li>
           <li>
+            <strong>ResearchFact capstone projects</strong> (signed in): your topic, research questions, saved sources with your
+            reading notes, gap statements, notes, and the text of a draft you upload (not the file). They&apos;re linked to your
+            account and only you can open them.
+          </li>
+          <li>
             <strong>LegalFact:</strong> what you enter is used to produce your result and is not stored.
           </li>
           <li>
@@ -132,7 +137,7 @@ export function PrivacyPage() {
         <h2>Who can see your results</h2>
         <p>
           Reports, NewsFact reviews and research workspaces have hard-to-guess links. Anyone you give the link to can read them, so
-          share carefully.
+          share carefully. Capstone projects can only be opened by your account.
         </p>
       </section>
 
@@ -141,6 +146,10 @@ export function PrivacyPage() {
         <ul>
           <li>VeriFact reports, and any feedback on them, are deleted automatically 90 days after the check.</li>
           <li>NewsFact reviews and research workspaces are deleted automatically 90 days after the last change.</li>
+          <li>
+            Capstone projects are kept while you work on them and deleted automatically 12 months after the last change (a
+            capstone usually takes a school year), or when you delete them or your account.
+          </li>
           <li>Account details are kept until you delete your account.</li>
           <li>Logs are kept only as long as our hosting providers retain them, typically days to weeks.</li>
         </ul>
@@ -156,7 +165,8 @@ export function PrivacyPage() {
           </li>
           <li>
             <strong>Delete your account</strong> at any time from your <Link href="/account">account page</Link>. This removes your
-            sign-in, profile, &quot;Your checks&quot; and the reports you created while signed in, straight away.
+            sign-in, profile, &quot;Your checks&quot;, your capstone projects and the reports you created while signed in, straight
+            away.
           </li>
           <li>
             <strong>Ask us</strong> to see, correct or delete data about you, including a specific report or review (send its link),

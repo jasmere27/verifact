@@ -36,7 +36,7 @@ class ResearchWorkspaceStoreTest {
         }
     };
     private final Clock clock = Clock.fixed(Instant.parse("2026-09-30T12:00:00Z"), ZoneOffset.UTC);
-    private final ResearchWorkspaceStore store = new ResearchWorkspaceStore(repository, index, JsonMapper.builder().build(), clock);
+    private final ResearchWorkspaceStore store = new ResearchWorkspaceStore(repository, new SourceVerifier(index), JsonMapper.builder().build(), clock);
 
     private ResearchWorkspaceRecord record;
     private String token;
@@ -110,7 +110,7 @@ class ResearchWorkspaceStoreTest {
 
     @Test
     void expiredWorkspacesAreGoneAndCleanedUp() {
-        ResearchWorkspaceStore later = new ResearchWorkspaceStore(repository, index, JsonMapper.builder().build(),
+        ResearchWorkspaceStore later = new ResearchWorkspaceStore(repository, new SourceVerifier(index), JsonMapper.builder().build(),
                 Clock.fixed(Instant.parse("2027-01-01T00:00:00Z"), ZoneOffset.UTC));
         assertThat(later.find(id)).isEmpty();
         assertThatThrownBy(() -> later.update(id, token, new ResearchWorkspaceStore.Update(null, null, null, "x", null)))

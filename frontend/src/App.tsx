@@ -24,6 +24,7 @@ import Landing from "./landing/Landing";
 import LegalPage from "./legal/LegalPage";
 import ResearchPage from "./research/ResearchPage";
 import StudentWorkspace from "./research/student/StudentWorkspace";
+import ProjectPage from "./research/projects/ProjectPage";
 import NewsPage from "./news/NewsPage";
 import NewsWorkspace from "./news/NewsWorkspace";
 import { CONTACT_EMAIL, PrivacyPage, TermsPage } from "./policies/PolicyPages";
@@ -64,6 +65,7 @@ const AUTH_TITLES: Partial<Record<Route["name"], string>> = {
 const PAGE_TITLES: Partial<Record<Route["name"], string>> = {
   privacy: "Privacy Policy · VeriFact",
   install: "Get the VeriFact app",
+  researchProject: "Capstone project · ResearchFact",
   terms: "Terms of Use · VeriFact",
 };
 
@@ -364,6 +366,8 @@ function App() {
         {route.name === "research" && <ResearchPage />}
 
         {route.name === "researchWorkspace" && <StudentWorkspace key={route.id} id={route.id} />}
+
+        {route.name === "researchProject" && <ProjectPage key={route.id} id={route.id} />}
 
         {route.name === "news" && <NewsPage />}
 
