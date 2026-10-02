@@ -45,6 +45,20 @@ function saveToken(id: string, token: string) {
   }
 }
 
+/** Ids of reviews this browser created (it holds their edit tokens), for "continue where you left off". */
+export function savedReviewIds(): string[] {
+  try {
+    const ids: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("newsfact.token.")) ids.push(key.slice("newsfact.token.".length));
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
 function forgetToken(id: string) {
   try {
     localStorage.removeItem(TOKEN_KEY(id));

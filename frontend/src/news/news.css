@@ -421,3 +421,13 @@ button.news-video-thumb:focus-visible .news-video-play {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Phones: "What it checks" collapses under the short intro. */
+.news-more summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--accent);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}

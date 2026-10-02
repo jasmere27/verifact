@@ -10,6 +10,9 @@ import RecentChecks from "./components/RecentChecks";
 import InstallPage from "./components/InstallPage";
 import ShareSite from "./components/ShareSite";
 import SiteNav from "./components/SiteNav";
+import BottomNav from "./components/BottomNav";
+import MobileHome from "./home/MobileHome";
+import { useIsMobile, useTyping } from "./useMobile";
 import ReportPage from "./components/ReportPage";
 import ThemeToggle from "./components/ThemeToggle";
 import AccountMenu from "./auth/AccountMenu";
@@ -65,6 +68,7 @@ const AUTH_TITLES: Partial<Record<Route["name"], string>> = {
 const PAGE_TITLES: Partial<Record<Route["name"], string>> = {
   privacy: "Privacy Policy · VeriFact",
   install: "Get the VeriFact app",
+  about: "How VeriFact works",
   researchProject: "Capstone project · ResearchFact",
   terms: "Terms of Use · VeriFact",
 };
@@ -85,6 +89,9 @@ function App() {
   const [shared, setShared] = useState(() => (route.name === "check" ? sharedInput(window.location.search) : null));
   // Signed in: the account's history (null until loaded) replaces this browser's recent checks.
   const userId = useAuth().session?.user.id ?? null;
+  // Phones get an app shell: compact header, bottom tab bar (with a More sheet for the rest), a dashboard at "/".
+  const isMobile = useIsMobile();
+  const typing = useTyping();
   const [myChecks, setMyChecks] = useState<MyCheck[] | null>(null);
   const [myChecksError, setMyChecksError] = useState<string | null>(null);
   const [lastUserId, setLastUserId] = useState(userId);
@@ -246,7 +253,11 @@ function App() {
   const loading = check.status === "loading";
 
   return (
-    <div className={route.name === "report" ? "app app--report" : "app"}>
+    <div
+      className={["app", route.name === "report" ? "app--report" : "", isMobile ? "app--mobile" : "", isMobile && typing ? "app--typing" : ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -256,16 +267,20 @@ function App() {
             <Brand />
           </Link>
           <div className="header-end">
-            <SiteNav route={route.name} />
+            {!isMobile && <SiteNav route={route.name} />}
             {/* Signed in, the theme switch is in the account menu instead. */}
-            {!userId && <ThemeToggle />}
+            {!isMobile && !userId && <ThemeToggle />}
             <AccountMenu />
           </div>
         </div>
       </header>
 
-      <main id="main" className={route.name === "landing" ? "main main--wide" : route.name === "research" ? "main main--research" : "main"}>
-        {route.name === "landing" && <Landing />}
+      <main
+        id="main"
+        className={(route.name === "landing" && !isMobile) || route.name === "about" ? "main main--wide" : route.name === "research" ? "main main--research" : "main"}
+      >
+        {route.name === "landing" && (isMobile ? <MobileHome /> : <Landing />)}
+        {route.name === "about" && <Landing />}
 
         {route.name === "check" && (
           <>
@@ -274,6 +289,7 @@ function App() {
               <p className="lede">
                 Paste a post, a link or a screenshot and see what fact-checkers, news and reference sources say.
               </p>
+              {!isMobile && (
               <ol className="how-steps" aria-label="How it works">
                 <li>
                   <span className="how-num" aria-hidden="true">1</span>
@@ -288,6 +304,7 @@ function App() {
                   <span>See the evidence</span>
                 </li>
               </ol>
+              )}
             </section>
 
             {check.status === "error" && (
@@ -395,6 +412,8 @@ function App() {
         )}
       </main>
 
+      {/* On phones the footer's links live in the tab bar's More sheet. */}
+      {!isMobile && (
       <footer className="site-footer">
         <div className="site-footer-inner">
           <div className="site-footer-brand">
@@ -434,6 +453,9 @@ function App() {
           acting on them.
         </p>
       </footer>
+      )}
+
+      {isMobile && <BottomNav route={route.name} />}
 
       <div className="visually-hidden" aria-live="polite" aria-atomic="true">
         {announcement}

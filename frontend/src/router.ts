@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact, with `/research/w/{id}` workspaces and `/research/p/{id}` capstone projects), `/news`, `/privacy`, `/terms`, `/install`, and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
+/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact, with `/research/w/{id}` workspaces and `/research/p/{id}` capstone projects), `/news`, `/privacy`, `/terms`, `/install`, `/about` (the full homepage; phones show a dashboard at `/`), and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
 export type Route =
   | { name: "landing" }
   | { name: "check" }
@@ -19,6 +19,7 @@ export type Route =
   | { name: "account" }
   | { name: "privacy" }
   | { name: "install" }
+  | { name: "about" }
   | { name: "terms" }
   | { name: "notFound" };
 
@@ -43,6 +44,7 @@ export function parseRoute(pathname: string): Route {
   if (pathname === "/research" || pathname === "/research/") return { name: "research" };
   if (pathname === "/privacy" || pathname === "/privacy/") return { name: "privacy" };
   if (pathname === "/install" || pathname === "/install/") return { name: "install" };
+  if (pathname === "/about" || pathname === "/about/") return { name: "about" };
   if (pathname === "/terms" || pathname === "/terms/") return { name: "terms" };
   const workspace = RESEARCH_WORKSPACE_PATH.exec(pathname);
   if (workspace) return { name: "researchWorkspace", id: workspace[1] };
