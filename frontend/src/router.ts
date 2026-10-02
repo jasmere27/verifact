@@ -79,8 +79,43 @@ export function usePathname(): string {
  */
 export function navigate(path: string, options: { replace?: boolean } = {}) {
   if (path === window.location.pathname + window.location.search) return;
-  if (options.replace) window.history.replaceState(null, "", path);
-  else window.history.pushState(null, "", path);
+  const depth = historyDepth();
+  if (options.replace) window.history.replaceState({ depth }, "", path);
+  else window.history.pushState({ depth: depth + 1 }, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
   window.scrollTo(0, 0);
+}
+
+/** How many in-app pages are behind this one in the history (0 when the app was opened on this page). */
+function historyDepth(): number {
+  const state: unknown = window.history.state;
+  const depth = state && typeof state === "object" ? (state as { depth?: unknown }).depth : undefined;
+  return typeof depth === "number" ? depth : 0;
+}
+
+/** The tab-bar pages: they need no Back button. */
+const TOP_LEVEL: ReadonlySet<Route["name"]> = new Set(["landing", "check", "research", "news"]);
+
+/** Where Back goes when there's no in-app page behind this one, e.g. the app was opened from a shared link. */
+function parentPath(route: Route["name"]): string | null {
+  if (TOP_LEVEL.has(route)) return null;
+  switch (route) {
+    case "report":
+      return "/check";
+    case "researchWorkspace":
+    case "researchProject":
+      return "/research";
+    case "newsWorkspace":
+      return "/news";
+    default:
+      return "/";
+  }
+}
+
+export const hasBack = (route: Route["name"]) => parentPath(route) !== null;
+
+/** Back inside the app: the previous in-app page if there is one, otherwise this page's parent. */
+export function goBack(route: Route["name"]) {
+  if (historyDepth() > 0) window.history.back();
+  else navigate(parentPath(route) ?? "/", { replace: true });
 }

@@ -11,6 +11,8 @@ import InstallPage from "./components/InstallPage";
 import ShareSite from "./components/ShareSite";
 import SiteNav from "./components/SiteNav";
 import BottomNav from "./components/BottomNav";
+import BackButton from "./components/BackButton";
+import { useInstall } from "./install";
 import MobileHome from "./home/MobileHome";
 import { useIsMobile, useTyping } from "./useMobile";
 import ReportPage from "./components/ReportPage";
@@ -37,7 +39,7 @@ import type { RecentCheck } from "./recent";
 import { newEditToken, saveReportToken } from "./reportTokens";
 import { checkIntent } from "./shared";
 import type { CheckIntent } from "./shared";
-import { navigate, parseRoute, reportPath, usePathname } from "./router";
+import { hasBack, navigate, parseRoute, reportPath, usePathname } from "./router";
 import type { Route } from "./router";
 import type { OverallVerdict, SourcesFound, StageId, VerificationResult } from "./types";
 import { verdictMeta } from "./verdicts";
@@ -95,6 +97,9 @@ function App() {
   // Phones get an app shell: compact header, bottom tab bar (with a More sheet for the rest), a dashboard at "/".
   const isMobile = useIsMobile();
   const typing = useTyping();
+  // The installed app has no browser Back button (and iPhone no system Back): pages below the tabs get one.
+  const { installed } = useInstall();
+  const showBack = isMobile && installed && hasBack(route.name);
   const [myChecks, setMyChecks] = useState<MyCheck[] | null>(null);
   const [myChecksError, setMyChecksError] = useState<string | null>(null);
   const [lastUserId, setLastUserId] = useState(userId);
@@ -276,9 +281,12 @@ function App() {
       </a>
       <header className="site-header">
         <div className="site-header-inner">
-          <Link href="/" className="wordmark" aria-label="VeriFact home">
-            <Brand />
-          </Link>
+          <div className="header-start">
+            {showBack && <BackButton route={route.name} />}
+            <Link href="/" className="wordmark" aria-label="VeriFact home">
+              <Brand />
+            </Link>
+          </div>
           <div className="header-end">
             {!isMobile && <SiteNav route={route.name} />}
             {/* Signed in, the theme switch is in the account menu instead. */}
