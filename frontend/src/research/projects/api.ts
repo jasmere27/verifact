@@ -27,7 +27,7 @@ export interface ProjectChanges {
   field?: string;
   country?: string;
   notes?: string;
-  questions?: { id: string | null; text: string }[];
+  questions?: { id: string | null; text: string; hypothesis: string }[];
   gaps?: { id: string | null; statement: string; sourceKeys: string[] }[];
 }
 
@@ -74,6 +74,22 @@ export async function deleteProjectFile(id: string, fileId: string): Promise<Pro
 
 export async function generateProjectInsights(id: string): Promise<Project> {
   return (await authed(`${BASE}/${encodeURIComponent(id)}/insights`, { method: "POST" })).json() as Promise<Project>;
+}
+
+export interface SuggestResult {
+  project: Project;
+  /** Suggestions now waiting for review. */
+  found: number;
+  limitations: string[];
+}
+
+/** Reads the library's abstracts against the research questions (about 15–40 seconds). */
+export async function suggestLinks(id: string): Promise<SuggestResult> {
+  return (await authed(`${BASE}/${encodeURIComponent(id)}/links/suggest`, { method: "POST" })).json() as Promise<SuggestResult>;
+}
+
+export async function reviewLink(id: string, key: string, questionId: string, accept: boolean): Promise<Project> {
+  return (await authed(`${BASE}/${encodeURIComponent(id)}/links/review`, { method: "POST", ...json({ key, questionId, accept }) })).json() as Promise<Project>;
 }
 
 export async function deleteProject(id: string): Promise<void> {

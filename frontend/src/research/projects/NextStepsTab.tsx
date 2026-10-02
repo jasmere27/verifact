@@ -3,7 +3,7 @@ import type { NextStep, Project } from "./types";
 const ACTION_LABEL: Record<NextStep["action"], string> = {
   ADD_QUESTIONS: "Write questions",
   FIND_SOURCES: "Find studies",
-  LINK_SOURCES: "Link sources",
+  LINK_SOURCES: "Get link suggestions",
   OPEN_LIBRARY: "Open library",
   REVIEW_RETRACTED: "Review them",
   WRITE_GAP: "Write your gap",
@@ -12,6 +12,7 @@ const ACTION_LABEL: Record<NextStep["action"], string> = {
   REVIEW_DRAFT_CLAIMS: "Show statements",
   CHECK_CITATIONS: "Check citations",
   OPEN_FILES: "Add to library",
+  REVIEW_LINKS: "Review suggestions",
 };
 
 const PRIORITY_LABEL: Record<NextStep["priority"], string> = { HIGH: "Do this first", MEDIUM: "Next", LOW: "When you can" };

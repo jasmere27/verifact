@@ -4,6 +4,8 @@ import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.common.Retention;
 import com.ai.agent.verifact.research.ResearchProject.GapNote;
 import com.ai.agent.verifact.research.ResearchProject.LibraryItem;
+import com.ai.agent.verifact.research.ResearchProject.LinkNote;
+import com.ai.agent.verifact.research.ResearchProject.LinkSuggestion;
 import com.ai.agent.verifact.research.ResearchProject.Question;
 import com.ai.agent.verifact.research.ResearchProject.ReadingStatus;
 import com.ai.agent.verifact.research.ResearchWorkspace.Folder;
@@ -24,7 +26,10 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 import static com.ai.agent.verifact.research.ResearchWorkspaceStore.cap;
@@ -46,12 +51,15 @@ public class ResearchProjectStore {
     static final int MAX_PROJECTS = 20;
     static final int MAX_QUESTIONS = 10;
     static final int MAX_QUESTION_CHARS = 400;
+    static final int MAX_HYPOTHESIS_CHARS = 600;
     static final int MAX_GAPS = 20;
     static final int MAX_GAP_CHARS = 1_500;
     static final int MAX_LIBRARY = 300;
     static final int MAX_ITEM_TEXT = 3_000;
     static final int MAX_FILES = 20;
     static final int MAX_LABEL = 80;
+    static final int MAX_SUGGESTIONS = 40;
+    static final int MAX_DISMISSED = 1_000;
 
     private final ResearchProjectRepository repository;
     private final ProjectFileRepository files;
@@ -68,7 +76,13 @@ public class ResearchProjectStore {
         this.clock = clock;
     }
 
-    public record QuestionInput(String id, String text) {}
+    /** {@code hypothesis}: null keeps the current one, blank clears it. */
+    public record QuestionInput(String id, String text, String hypothesis) {
+
+        public QuestionInput(String id, String text) {
+            this(id, text, null);
+        }
+    }
 
     public record GapInput(String id, String statement, List<String> sourceKeys) {}
 
@@ -189,10 +203,16 @@ public class ResearchProjectStore {
         ProjectData d = data(r);
         List<Question> questions = u.questions() == null ? d.questions() : questions(u.questions(), d.questions());
         Set<String> questionIds = ids(questions);
+        // A reworded question (or expected answer) makes the AI's readings for it stale; the student's links stay.
+        Map<String, Question> before = d.questions().stream().collect(Collectors.toMap(Question::id, q -> q));
+        Set<String> unchanged = questions.stream().filter(q -> q.equals(before.get(q.id()))).map(Question::id).collect(Collectors.toSet());
         // Removed questions disappear from the library links too.
         List<LibraryItem> library = d.library().stream()
-                .map(i -> withQuestions(i, i.questionIds() == null ? List.of() : i.questionIds().stream().filter(questionIds::contains).toList()))
+                .map(i -> withQuestions(i, i.questionIds() == null ? List.of() : i.questionIds().stream().filter(questionIds::contains).toList(),
+                        unchanged::contains))
                 .toList();
+        List<LinkSuggestion> suggestions = d.suggestions().stream().filter(x -> unchanged.contains(x.questionId())).toList();
+        List<String> dismissed = d.dismissed().stream().filter(x -> unchanged.contains(x.substring(x.indexOf(' ') + 1))).toList();
         Set<String> keys = new HashSet<>(library.stream().map(LibraryItem::key).toList());
         List<GapNote> gaps = u.gaps() == null ? d.gaps() : gaps(u.gaps(), d.gaps(), keys);
         ProjectData next = new ProjectData(
@@ -201,7 +221,7 @@ public class ResearchProjectStore {
                 u.country() == null ? d.country() : (u.country().isBlank() ? null : country(u.country())),
                 questions, library, gaps,
                 u.notes() == null ? d.notes() : cap(u.notes(), ResearchWorkspaceStore.MAX_NOTES_CHARS),
-                d.draft(), d.insights());
+                d.draft(), d.insights(), suggestions, dismissed);
         return save(r, next);
     }
 
@@ -235,25 +255,29 @@ public class ResearchProjectStore {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Missing source.");
         }
         Set<String> questionIds = ids(d.questions());
-        boolean found = false;
+        LibraryItem updated = null;
         List<LibraryItem> library = new ArrayList<>();
         for (LibraryItem i : d.library()) {
             if (i.key().equalsIgnoreCase(u.key())) {
-                found = true;
+                List<String> links = u.questionIds() == null ? i.questionIds() : u.questionIds().stream().filter(questionIds::contains).distinct().toList();
                 i = new LibraryItem(i.key(), u.folder() == null ? i.folder() : u.folder(), i.source(),
                         u.status() == null ? i.status() : u.status(),
                         u.note() == null ? i.note() : cap(u.note(), MAX_ITEM_TEXT),
                         u.keyFindings() == null ? i.keyFindings() : cap(u.keyFindings(), MAX_ITEM_TEXT),
                         u.method() == null ? i.method() : cap(u.method(), MAX_ITEM_TEXT),
-                        u.questionIds() == null ? i.questionIds() : u.questionIds().stream().filter(questionIds::contains).distinct().toList(),
-                        i.savedAt());
+                        links, i.savedAt(), i.linkNotes().stream().filter(n -> links.contains(n.questionId())).toList());
+                updated = i;
             }
             library.add(i);
         }
-        if (!found) {
+        if (updated == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "That source isn't in this project.");
         }
-        return save(r, d.withLibrary(library));
+        // Linking it by hand settles any suggestion for the same pair.
+        LibraryItem item = updated;
+        List<LinkSuggestion> suggestions = d.suggestions().stream()
+                .filter(x -> !(x.key().equalsIgnoreCase(item.key()) && item.questionIds().contains(x.questionId()))).toList();
+        return save(r, d.withLinks(library, suggestions, d.dismissed()));
     }
 
     /** Removes a source; gap statements stop citing it. */
@@ -265,7 +289,71 @@ public class ResearchProjectStore {
         List<GapNote> gaps = d.gaps().stream()
                 .map(g -> new GapNote(g.id(), g.statement(), g.sourceKeys().stream().filter(k -> !k.equalsIgnoreCase(key)).toList()))
                 .toList();
-        return save(r, new ProjectData(d.title(), d.field(), d.country(), d.questions(), library, gaps, d.notes(), d.draft(), d.insights()));
+        List<LinkSuggestion> suggestions = d.suggestions().stream().filter(x -> !x.key().equalsIgnoreCase(key)).toList();
+        String prefix = key.toLowerCase(java.util.Locale.ROOT) + " ";
+        List<String> dismissed = d.dismissed().stream().filter(x -> !x.startsWith(prefix)).toList();
+        return save(r, new ProjectData(d.title(), d.field(), d.country(), d.questions(), library, gaps, d.notes(), d.draft(), d.insights(),
+                suggestions, dismissed));
+    }
+
+    // ---------------------------------------------------------------- source ↔ question links (ADR-24)
+
+    /** The stored project, for the link suggester. */
+    ProjectData read(UUID owner, UUID id) {
+        return data(owned(owner, id));
+    }
+
+    /**
+     * Replaces the pending suggestions with a new run's. Checked again against the project as it is now (the run took
+     * a while): the source and question must still exist, the pair mustn't be linked already or rejected before.
+     */
+    @Transactional
+    public ResearchProject setSuggestions(UUID owner, UUID id, List<LinkSuggestion> found) {
+        ResearchProjectRecord r = owned(owner, id);
+        ProjectData d = data(r);
+        Set<String> questionIds = ids(d.questions());
+        Set<String> taken = new HashSet<>(d.dismissed());
+        for (LibraryItem i : d.library()) {
+            i.questionIds().forEach(q -> taken.add(ProjectData.pair(i.key(), q)));
+        }
+        Set<String> keys = d.library().stream().map(i -> i.key().toLowerCase(java.util.Locale.ROOT)).collect(Collectors.toSet());
+        List<LinkSuggestion> next = found.stream()
+                .filter(x -> questionIds.contains(x.questionId()) && keys.contains(x.key().toLowerCase(java.util.Locale.ROOT)))
+                .filter(x -> taken.add(ProjectData.pair(x.key(), x.questionId())))
+                .limit(MAX_SUGGESTIONS)
+                .toList();
+        return save(r, d.withLinks(d.library(), next, d.dismissed()));
+    }
+
+    /** Accept (link it, keeping the AI's reading with its quote) or reject (never suggested again) one suggestion. */
+    @Transactional
+    public ResearchProject reviewLink(UUID owner, UUID id, String key, String questionId, boolean accept) {
+        ResearchProjectRecord r = owned(owner, id);
+        ProjectData d = data(r);
+        LinkSuggestion s = d.suggestions().stream()
+                .filter(x -> x.key().equalsIgnoreCase(key == null ? "" : key) && x.questionId().equals(questionId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That suggestion is no longer waiting for review."));
+        List<LinkSuggestion> rest = d.suggestions().stream().filter(x -> x != s).toList();
+        if (!accept) {
+            List<String> dismissed = new ArrayList<>(d.dismissed());
+            dismissed.add(ProjectData.pair(s.key(), s.questionId()));
+            return save(r, d.withLinks(d.library(), rest, dismissed.size() > MAX_DISMISSED
+                    ? dismissed.subList(dismissed.size() - MAX_DISMISSED, dismissed.size()) : dismissed));
+        }
+        List<LibraryItem> library = d.library().stream().map(i -> {
+            if (!i.key().equalsIgnoreCase(s.key())) {
+                return i;
+            }
+            List<String> links = new ArrayList<>(i.questionIds());
+            if (!links.contains(s.questionId())) {
+                links.add(s.questionId());
+            }
+            List<LinkNote> notes = new ArrayList<>(i.linkNotes().stream().filter(n -> !n.questionId().equals(s.questionId())).toList());
+            notes.add(new LinkNote(s.questionId(), s.role(), s.stance(), s.how(), s.quote()));
+            return new LibraryItem(i.key(), i.folder(), i.source(), i.status(), i.note(), i.keyFindings(), i.method(), links, i.savedAt(), notes);
+        }).toList();
+        return save(r, d.withLinks(library, rest, d.dismissed()));
     }
 
     @Transactional
@@ -324,7 +412,7 @@ public class ResearchProjectStore {
         List<ProjectFile.Summary> fileSummaries = summaries(r.getId());
         return new ResearchProject(r.getId(), r.getCreatedAt().toInstant(), r.getUpdatedAt().toInstant(), deletesAt(r), d.title(), d.field(),
                 d.country(), d.questions(), d.library(), d.gaps(), d.notes(), d.draft(), d.insights(), fileSummaries,
-                ProjectAdvisor.progress(d, fileSummaries, year), ProjectAdvisor.nextSteps(d, fileSummaries, year));
+                d.suggestions(), ProjectAdvisor.progress(d, fileSummaries, year), ProjectAdvisor.nextSteps(d, fileSummaries, year));
     }
 
     private static Instant deletesAt(ResearchProjectRecord r) {
@@ -360,7 +448,9 @@ public class ResearchProjectStore {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Keep it to " + MAX_QUESTIONS + " research questions or fewer.");
             }
             String id = q.id() != null && existing.contains(q.id()) && used.add(q.id()) ? q.id() : newId(used);
-            out.add(new Question(id, text));
+            Question old = current.stream().filter(x -> x.id().equals(id)).findFirst().orElse(null);
+            String hypothesis = q.hypothesis() == null ? (old == null ? null : old.hypothesis()) : cap(q.hypothesis(), MAX_HYPOTHESIS_CHARS);
+            out.add(new Question(id, text, hypothesis));
         }
         return out;
     }
@@ -384,8 +474,10 @@ public class ResearchProjectStore {
         return out;
     }
 
-    private static LibraryItem withQuestions(LibraryItem i, List<String> questionIds) {
-        return new LibraryItem(i.key(), i.folder(), i.source(), i.status(), i.note(), i.keyFindings(), i.method(), questionIds, i.savedAt());
+    /** {@code keepNotes}: questions whose AI readings are still current. */
+    private static LibraryItem withQuestions(LibraryItem i, List<String> questionIds, Predicate<String> keepNotes) {
+        return new LibraryItem(i.key(), i.folder(), i.source(), i.status(), i.note(), i.keyFindings(), i.method(), questionIds, i.savedAt(),
+                i.linkNotes().stream().filter(n -> questionIds.contains(n.questionId()) && keepNotes.test(n.questionId())).toList());
     }
 
     private static Set<String> ids(List<Question> questions) {

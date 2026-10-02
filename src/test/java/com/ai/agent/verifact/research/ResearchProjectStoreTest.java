@@ -295,4 +295,60 @@ class ResearchProjectStoreTest {
 
         assertThat(files.existsById(fileId)).isFalse();
     }
+
+    @Test
+    void suggestedLinksAreAcceptedWithTheirReadingOrRejectedForGood() {
+        ResearchProject p = project();
+        p = store.update(user.id(), p.id(), new Update(null, null, null, null,
+                List.of(new QuestionInput(null, "Does flipped learning improve achievement?", "It improves achievement."),
+                        new QuestionInput(null, "How do students perceive it?")), null));
+        String q1 = p.questions().get(0).id();
+        String q2 = p.questions().get(1).id();
+        assertThat(p.questions().get(0).hypothesis()).isEqualTo("It improves achievement.");
+        store.addSource(user.id(), p.id(), new NewItem("10.1/real", Folder.RRS, null, null, null, null));
+        store.addSource(user.id(), p.id(), new NewItem("10.1/other", Folder.RRS, null, null, null, q2));
+
+        var a = new ResearchProject.LinkSuggestion("10.1/real", "T", q1, ResearchProject.LinkRole.FINDING, ResearchProject.LinkStance.SUPPORTS,
+                "Improved achievement.", "The flipped classroom improved mathematics achievement");
+        var b = new ResearchProject.LinkSuggestion("10.1/real", "T", q2, ResearchProject.LinkRole.BACKGROUND, null, "Context.", "senior high students");
+        var linked = new ResearchProject.LinkSuggestion("10.1/other", "T", q2, ResearchProject.LinkRole.FINDING, null, "x", "y");
+        var gone = new ResearchProject.LinkSuggestion("10.1/missing", "T", q1, ResearchProject.LinkRole.FINDING, null, "x", "y");
+        p = store.setSuggestions(user.id(), p.id(), List.of(a, b, linked, gone));
+        // Already linked by hand, or not in the library: never stored.
+        assertThat(p.suggestions()).containsExactly(a, b);
+        assertThat(p.nextSteps()).extracting(ResearchProject.NextStep::action).contains(ResearchProject.Action.REVIEW_LINKS);
+
+        p = store.reviewLink(user.id(), p.id(), "10.1/REAL", q1, true);
+        ResearchProject.LibraryItem real = p.library().stream().filter(i -> i.key().equals("10.1/real")).findFirst().orElseThrow();
+        assertThat(real.questionIds()).containsExactly(q1);
+        assertThat(real.linkNotes()).singleElement().satisfies(n -> {
+            assertThat(n.stance()).isEqualTo(ResearchProject.LinkStance.SUPPORTS);
+            assertThat(n.quote()).isEqualTo("The flipped classroom improved mathematics achievement");
+        });
+
+        p = store.reviewLink(user.id(), p.id(), "10.1/real", q2, false);
+        assertThat(p.suggestions()).isEmpty();
+        // A rejected pair stays rejected on the next run.
+        p = store.setSuggestions(user.id(), p.id(), List.of(b));
+        assertThat(p.suggestions()).isEmpty();
+        String projectId = p.id().toString();
+        assertThatThrownBy(() -> store.reviewLink(user.id(), UUID.fromString(projectId), "10.1/real", q2, true))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+
+        // Rewording the expected answer keeps the link but drops the AI's reading made against the old one.
+        p = store.update(user.id(), p.id(), new Update(null, null, null, null,
+                List.of(new QuestionInput(q1, "Does flipped learning improve achievement?", "It makes no difference."),
+                        new QuestionInput(q2, "How do students perceive it?")), null));
+        real = p.library().stream().filter(i -> i.key().equals("10.1/real")).findFirst().orElseThrow();
+        assertThat(real.questionIds()).containsExactly(q1);
+        assertThat(real.linkNotes()).isEmpty();
+        // A client that doesn't send the expected answer keeps it.
+        p = store.update(user.id(), p.id(), new Update(null, null, null, null,
+                List.of(new QuestionInput(q1, "Does flipped learning improve achievement?"), new QuestionInput(q2, "How do students perceive it?")), null));
+        assertThat(p.questions().get(0).hypothesis()).isEqualTo("It makes no difference.");
+        // Another student can't review this project's suggestions.
+        SignedInUser other = newUser();
+        assertThatThrownBy(() -> store.reviewLink(other.id(), UUID.fromString(projectId), "10.1/real", q1, true))
+                .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+    }
 }

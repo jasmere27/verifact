@@ -137,10 +137,15 @@ final class ProjectAdvisor {
                     "Add them so they count towards your questions, gaps and reference list.",
                     Action.OPEN_FILES, null, null, unsaved.get(0).id().toString(), unsaved.stream().map(ProjectAdvisor::name).toList()));
         }
+        if (!p.suggestions().isEmpty()) {
+            steps.add(step("review-links", Priority.MEDIUM, plural(p.suggestions().size(), "suggested link", "suggested links") + " to review",
+                    "Sources that may help answer your research questions, each with the abstract's own words. Accept the ones that fit.",
+                    Action.REVIEW_LINKS, null, null, p.suggestions().stream().map(ResearchProject.LinkSuggestion::title).distinct().limit(5).toList()));
+        }
         List<String> unlinked = lib.stream().filter(i -> i.questionIds() == null || i.questionIds().isEmpty()).map(LibraryItem::key).toList();
-        if (!p.questions().isEmpty() && unlinked.size() >= 3) {
+        if (!p.questions().isEmpty() && unlinked.size() >= 3 && p.suggestions().isEmpty()) {
             steps.add(step("link", Priority.MEDIUM, plural(unlinked.size(), "saved source isn't", "saved sources aren't") + " linked to a research question",
-                    "Linking shows which questions are well supported and which still need literature.",
+                    "Linking shows which questions are well supported and which still need literature. Get suggestions, then accept the ones that fit.",
                     Action.LINK_SOURCES, null, null, unlinked));
         }
         if (lib.size() >= LIBRARY_TARGET - 2 && p.gaps().isEmpty()) {
