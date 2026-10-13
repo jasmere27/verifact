@@ -1,5 +1,5 @@
 import Brand from "./components/BrandMark";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, errorMessage, verifyFileStream, verifyTextStream } from "./api";
 import type { StreamHandlers } from "./api";
 import CheckForm from "./components/CheckForm";
@@ -32,6 +32,8 @@ import StudentWorkspace from "./research/student/StudentWorkspace";
 import ProjectPage from "./research/projects/ProjectPage";
 import NewsPage from "./news/NewsPage";
 import NewsWorkspace from "./news/NewsWorkspace";
+// The team workspace is loaded only when opened, so the public pages stay small.
+const IntelApp = lazy(() => import("./intel/IntelApp"));
 import { CONTACT_EMAIL, PrivacyPage, TermsPage } from "./policies/PolicyPages";
 import { formatRelative } from "./format";
 import { clearRecent, forgetCheck, loadRecent, rememberCheck } from "./recent";
@@ -159,6 +161,7 @@ function App() {
   }, [route.name]);
 
   useEffect(() => {
+    if (route.name === "intel") return; // the workspace sets its own titles
     document.title =
       route.name === "report"
         ? results[route.id]
@@ -269,6 +272,15 @@ function App() {
   }
 
   const loading = check.status === "loading";
+
+  // The team workspace has its own full-screen shell (navigation, layout, design system).
+  if (route.name === "intel") {
+    return (
+      <Suspense fallback={<div className="main" aria-busy="true" />}>
+        <IntelApp />
+      </Suspense>
+    );
+  }
 
   return (
     <div

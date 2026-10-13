@@ -155,6 +155,17 @@ class RateLimitTest {
         assertThat(call(filter, project + "/links/review", "1.1.1.1", null).getStatus()).isEqualTo(429);
     }
 
+    @Test
+    void workspaceWritesHaveTheirOwnLimitAndNeverUseCheckQuota() throws Exception {
+        RateLimitFilter filter = new RateLimitFilter(1, 100, 100, false, 1, 2, new JsonMapper());
+        String org = "/api/v2/me/orgs/6f1c1a8e-2b3c-4d5e-8f90-1a2b3c4d5e6f";
+        assertThat(call(filter, org + "/investigations", "1.1.1.1", null).getStatus()).isEqualTo(200);
+        assertThat(call(filter, org + "/projects/x/run", "1.1.1.1", null).getStatus()).isEqualTo(200);
+        assertThat(call(filter, org + "/incidents", "1.1.1.1", null).getStatus()).isEqualTo(429);
+        assertThat(call(filter, "/api/v2/verifications", "1.1.1.1", null).getStatus()).as("check quota untouched").isEqualTo(200);
+        assertThat(call(filter, "/api/v2/verifications/x/feedback", "1.1.1.1", null).getStatus()).as("feedback quota untouched").isEqualTo(200);
+    }
+
     private static MockHttpServletResponse call(RateLimitFilter filter, String path, String ip, String forwardedFor)
             throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", path);

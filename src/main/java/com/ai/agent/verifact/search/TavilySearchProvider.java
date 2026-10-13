@@ -46,16 +46,36 @@ public class TavilySearchProvider implements SearchProvider {
     /** Tavily restricts results to {@code include_domains} (subdomains included). */
     @Override
     public List<SearchResult> search(String query, List<String> includeDomains) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("query", query);
-        body.put("search_depth", "basic");
-        body.put("topic", "general");
-        body.put("max_results", maxResults);
-        body.put("include_published_date", true);
+        Map<String, Object> body = body(query, "general");
         if (!includeDomains.isEmpty()) {
             body.put("include_domains", includeDomains);
         }
+        return send(body);
+    }
 
+    /** Tavily's {@code time_range} (day, week, month, year) and its news topic; still 1 credit per basic search. */
+    @Override
+    public List<SearchResult> searchRecent(String query, boolean news, int maxDays) {
+        Map<String, Object> body = body(query, news ? "news" : "general");
+        body.put("time_range", timeRange(maxDays));
+        return send(body);
+    }
+
+    static String timeRange(int maxDays) {
+        return maxDays <= 1 ? "day" : maxDays <= 7 ? "week" : maxDays <= 31 ? "month" : "year";
+    }
+
+    private Map<String, Object> body(String query, String topic) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("query", query);
+        body.put("search_depth", "basic");
+        body.put("topic", topic);
+        body.put("max_results", maxResults);
+        body.put("include_published_date", true);
+        return body;
+    }
+
+    private List<SearchResult> send(Map<String, Object> body) {
         String response;
         try {
             response = restClient.post()

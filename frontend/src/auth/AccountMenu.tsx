@@ -67,6 +67,9 @@ export default function AccountMenu() {
           <Link href="/account" className="account-dropdown-item">
             Account
           </Link>
+          <Link href="/app" className="account-dropdown-item">
+            VeriFact Intelligence (teams)
+          </Link>
           <ThemeMenuSwitch />
           <button
             type="button"

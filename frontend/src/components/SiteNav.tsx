@@ -6,6 +6,7 @@ const PRODUCTS: { href: string; label: string; current: Route["name"][] }[] = [
   { href: "/news", label: "NewsFact", current: ["news", "newsWorkspace"] },
   { href: "/legal", label: "LegalFact", current: ["legal"] },
   { href: "/research", label: "ResearchFact", current: ["research", "researchWorkspace", "researchProject"] },
+  { href: "/app", label: "For teams", current: ["intel"] },
 ];
 
 /** Product links in the header on tablets and desktops; phones use the bottom tab bar (BottomNav). */

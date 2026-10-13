@@ -72,7 +72,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
     static final java.util.regex.Pattern PROJECT_PATH =
             java.util.regex.Pattern.compile("^/api/v2/me/projects(/[^/]+(/library|/links/review|/files(/[^/]+)?)?)?$");
 
+    /**
+     * VeriFact Intelligence changes (ADR-26): the light limiter. Their paid work is bounded per workspace by plan
+     * quotas instead of the shared global ceiling, so paying customers aren't starved by free traffic.
+     */
+    static final java.util.regex.Pattern ORG_PATH = java.util.regex.Pattern.compile("^/api/v2/me/orgs(/.*)?$");
+
     private final FixedWindowRateLimiter feedbackPerIpMinute;
+    private final FixedWindowRateLimiter orgWritesPerIpMinute;
     private final FixedWindowRateLimiter perIpMinute;
     private final FixedWindowRateLimiter perIpDay;
     private final FixedWindowRateLimiter globalDay;
@@ -89,7 +96,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     public RateLimitFilter(int perIpPerMinute, int perIpPerDay, int globalPerDay, boolean trustForwardedFor,
                            JsonMapper jsonMapper) {
-        this(perIpPerMinute, perIpPerDay, globalPerDay, trustForwardedFor, 10, jsonMapper);
+        this(perIpPerMinute, perIpPerDay, globalPerDay, trustForwardedFor, 10, 120, jsonMapper);
+    }
+
+    public RateLimitFilter(int perIpPerMinute, int perIpPerDay, int globalPerDay, boolean trustForwardedFor,
+                           int feedbackPerIpPerMinute, JsonMapper jsonMapper) {
+        this(perIpPerMinute, perIpPerDay, globalPerDay, trustForwardedFor, feedbackPerIpPerMinute, 120, jsonMapper);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -98,8 +110,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
                            @Value("${app.rate-limit.global-per-day:1000}") int globalPerDay,
                            @Value("${app.rate-limit.trust-forwarded-for:false}") boolean trustForwardedFor,
                            @Value("${app.rate-limit.feedback-per-ip-per-minute:10}") int feedbackPerIpPerMinute,
+                           @Value("${app.rate-limit.workspace-writes-per-ip-per-minute:120}") int orgWritesPerIpPerMinute,
                            JsonMapper jsonMapper) {
         Clock clock = Clock.systemUTC();
+        this.orgWritesPerIpMinute = new FixedWindowRateLimiter(orgWritesPerIpPerMinute, Duration.ofMinutes(1), clock);
         this.feedbackPerIpMinute = new FixedWindowRateLimiter(feedbackPerIpPerMinute, Duration.ofMinutes(1), clock);
         this.perIpMinute = new FixedWindowRateLimiter(perIpPerMinute, Duration.ofMinutes(1), clock);
         this.perIpDay = new FixedWindowRateLimiter(perIpPerDay, Duration.ofDays(1), clock);
@@ -114,7 +128,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return true;
         }
         String path = normalizedPath(request);
-        return !isHeavy(request, path) && !isLightWrite(request, path);
+        return !isHeavy(request, path) && !isLightWrite(request, path) && !isOrgWrite(request, path);
     }
 
     private static boolean isHeavy(HttpServletRequest request, String path) {
@@ -127,6 +141,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 || (ACCOUNT_PATH.equals(path) && !"GET".equalsIgnoreCase(request.getMethod()))
                 || (WORKSPACE_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod()) && !isHeavy(request, path))
                 || (PROJECT_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod()) && !isHeavy(request, path));
+    }
+
+    private static boolean isOrgWrite(HttpServletRequest request, String path) {
+        return ORG_PATH.matcher(path).matches() && !"GET".equalsIgnoreCase(request.getMethod());
     }
 
     /**
@@ -146,6 +164,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String clientIp = clientIp(request);
+
+        if (isOrgWrite(request, normalizedPath(request))) {
+            // A team behind one office address shares this; paid work is bounded by plan quotas, not here.
+            long wait = orgWritesPerIpMinute.tryAcquire(clientIp);
+            if (wait > 0) {
+                reject(response, wait, "Too many changes too quickly. Please wait a moment.");
+                return;
+            }
+            chain.doFilter(request, response);
+            return;
+        }
 
         if (isLightWrite(request, normalizedPath(request))) {
             long wait = feedbackPerIpMinute.tryAcquire(clientIp);

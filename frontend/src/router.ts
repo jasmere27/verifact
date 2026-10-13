@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact, with `/research/w/{id}` workspaces and `/research/p/{id}` capstone projects), `/news`, `/privacy`, `/terms`, `/install`, `/about` (the full homepage; phones show a dashboard at `/`), and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`). */
+/** Minimal pathname router: `/` (homepage), `/check` (VeriFact check), `/r/{id}` (shareable report), `/legal` (LegalFact), `/research` (ResearchFact, with `/research/w/{id}` workspaces and `/research/p/{id}` capstone projects), `/news`, `/privacy`, `/terms`, `/install`, `/about` (the full homepage; phones show a dashboard at `/`), and the account pages (`/signin`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`, `/account`), and `/app/**` (VeriFact Intelligence, the team workspace). */
 export type Route =
   | { name: "landing" }
   | { name: "check" }
@@ -21,6 +21,7 @@ export type Route =
   | { name: "install" }
   | { name: "about" }
   | { name: "terms" }
+  | { name: "intel" }
   | { name: "notFound" };
 
 const AUTH_ROUTES: Record<string, Route["name"]> = {
@@ -39,6 +40,8 @@ const REPORT_PATH = /^\/r\/([A-Za-z0-9-]{1,64})\/?$/;
 
 export function parseRoute(pathname: string): Route {
   if (pathname === "/" || pathname === "") return { name: "landing" };
+  // VeriFact Intelligence (B2B workspace) routes its own sub-pages.
+  if (pathname === "/app" || pathname.startsWith("/app/")) return { name: "intel" };
   if (pathname === "/check" || pathname === "/check/") return { name: "check" };
   if (pathname === "/legal" || pathname === "/legal/") return { name: "legal" };
   if (pathname === "/research" || pathname === "/research/") return { name: "research" };

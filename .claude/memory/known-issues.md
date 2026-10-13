@@ -77,3 +77,12 @@ for context; delete them once they stop being useful._
 - (Phase 1 review) Self-corroborating links, subdomain/`site:` strength inflation, stance inversion on debunking articles, MISLEADING hedging, unbacked model summaries, prose-wrapped JSON → all fixed with tests.
 - (review) Malformed redirect → 500; non-multipart upload → 500; requestId missing on Spring's own errors; health check tied to DB → all fixed.
 19. **Accounts (ADR-18):** every new table needs `ENABLE ROW LEVEL SECURITY` in a Postgres-only migration (`db/vendor/postgresql`), or the Supabase Data API exposes it to anyone with the public key; `PostgresMigrationsTest` (embedded real Postgres) fails if one is missing. Never alter `flyway_schema_history` in a migration: Flyway holds it, and the first V7 deploy hung on it (statement timeout; Render kept the old version). Disable the Data API in the Supabase dashboard as well. Spring Security's firewall now rejects `;` and some encoded paths with 400 (still rate-limited first). Account deletion and the frontend arrive in phase B.
+
+## VeriFact Intelligence (ADR-26, branch feature/intelligence-b2b, 2026-10-14)
+- **Not deployed / not merged.** Payment not connected (Paddle account, approval, keys, price ids; PH payout UNVERIFIED).
+- Scheduled monitoring needs an always-on host or an external cron hitting `/api/v2/internal/monitoring/tick` (`MONITORING_CRON_SECRET`); on a sleeping free plan nothing runs while asleep (runs record lateness).
+- No email: no alerts, invitations (members must already have an account), or scheduled report delivery.
+- Evidence and monitoring use search snippets/feed summaries only; no social platforms.
+- Business plan margin is thin if a workspace uses its full quota (see docs/IMPLEMENTATION_PLAN.md); watch `usage_events`.
+- Monitoring/investigation work runs in in-process thread pools: a restart interrupts it (swept to FAILED; runs retry on schedule).
+- Rate limits for workspace writes are per-IP in memory (120/min); paid work is bounded by plan quotas.

@@ -24,4 +24,15 @@ public interface SearchProvider {
     default List<SearchResult> search(String query, List<String> includeDomains) {
         return search(query);
     }
+
+    /**
+     * Recent results only, for brand monitoring. Providers that can't filter by date report themselves
+     * unavailable for it rather than returning undated results as if they were recent.
+     *
+     * @param news    true = news sources only
+     * @param maxDays how far back to look
+     */
+    default List<SearchResult> searchRecent(String query, boolean news, int maxDays) {
+        throw new SearchUnavailableException(name() + " can't limit results by date");
+    }
 }
