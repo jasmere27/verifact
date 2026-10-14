@@ -1,5 +1,6 @@
 package com.ai.agent.verifact.evidence;
 
+import com.ai.agent.verifact.ai.UsageScope;
 import com.ai.agent.verifact.common.ApiException;
 import com.ai.agent.verifact.search.SearchProvider;
 import com.ai.agent.verifact.search.SearchResult;
@@ -91,6 +92,7 @@ public class EvidenceRetriever {
             int topic = queryTopic.get(qi);
             List<SearchResult> results;
             try {
+                UsageScope.searchCall();
                 results = searchProvider.search(queries.get(qi), options.allowedDomains());
             } catch (SearchUnavailableException e) {
                 log.warn("Search failed via {}: {}", searchProvider.name(), e.getMessage());

@@ -96,6 +96,14 @@ public class NewsCheckService {
     }
 
     public NewsCheck check(String input, VerificationProgress progress) {
+        return check(input, progress, true);
+    }
+
+    /**
+     * @param withVideos false skips the supporting-video search (VeriFact Intelligence investigations don't show
+     *                   videos, and each search spends the shared YouTube quota)
+     */
+    public NewsCheck check(String input, VerificationProgress progress, boolean withVideos) {
         long startedAt = System.nanoTime();
         Instant now = clock.instant();
         LocalDate today = LocalDate.ofInstant(now, clock.getZone());
@@ -143,7 +151,7 @@ public class NewsCheckService {
         for (int i = 0; i < claims.size(); i++) {
             videoClaims.add(new NewsVideoService.ClaimInput("C" + (i + 1), claims.get(i).claim()));
         }
-        java.util.concurrent.CompletableFuture<NewsVideos> videos = videoService == null
+        java.util.concurrent.CompletableFuture<NewsVideos> videos = videoService == null || !withVideos
                 ? java.util.concurrent.CompletableFuture.completedFuture(null)
                 : java.util.concurrent.CompletableFuture.supplyAsync(() -> videoService.find(videoClaims), VIDEO_POOL);
 

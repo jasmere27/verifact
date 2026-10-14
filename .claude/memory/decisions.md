@@ -192,3 +192,14 @@ Only record decisions with real tradeoffs.
 - **Starter guide** (`Tour`): 4–5 steps highlighting the real controls (setup card, Do this next, Sources, My paper, progress); shown once per browser (localStorage `vf.projectTour.v1`, a per-viewer convenience), Skip anywhere, "Show me around" replays it.
 - Live check (`ProjectSetupEvalIT`, ~13 s): typical Chapter 1 with no title page → SUGGESTED title without "chapter", all 3 questions verbatim with "?", null hypothesis ignored.
 
+
+## ADR-26 — VeriFact Intelligence: B2B workspace for brand monitoring, investigations, incidents and billing
+**Proposed (built on branch `feature/intelligence-b2b`, not merged)** · 2026-10-14 (owner's request: turn VeriFact into a subscription B2B SaaS)
+- Note: the orchestrator rule "billing, teams/roles, dashboards only after validated demand" was overridden by the owner's explicit request; demand is still UNVALIDATED (no interviews). Validate before investing further.
+- Organisation-owned data under `/api/v2/me/orgs/{orgId}/**`; `IntelligenceAccess.require` → `OrgContext` (only after `OrganizationAccess.require`); every SQL statement filters `organization_id`. JdbcClient instead of JPA for the 15 new tables so the tenant filter is visible in each statement. RLS deny-all on every table (V16).
+- Monitoring: connectors behind `SourceConnector` (Tavily web/news with `time_range`, customer RSS feeds, watched public pages via SafeUrlFetcher). Relevance and de-duplication in code; claims flagged by one quick LLM call per run, kept only with a verbatim quote. In-process scheduler with DB leases + external cron endpoint (host may sleep). Runs persisted with per-source outcomes; retries 15/30/60 min.
+- Investigations reuse `NewsCheckService` (no videos) and add versions/diffs/evidence records. Assessments: SUPPORTED, CONTRADICTED, MIXED, INSUFFICIENT_EVIDENCE, MISSING_CONTEXT.
+- Incident priority = transparent rule-based score (`RiskModel`), labelled "not a probability", overridable by admins. No reach estimates.
+- Response Studio: drafts from the investigation only; unknown citations and ungrounded figures removed in code; warning computed from assessments; human approval; never published.
+- Reports: deterministic, no model text; PDF via PDFBox.
+- Billing: plans/quotas in config; server-side entitlements and quotas (row-locked); usage events with tokens/searches; one trial per person; Paddle (merchant of record; Stripe doesn't support PH merchants) behind `BillingProvider`, verified + idempotent webhooks. Not connected yet.

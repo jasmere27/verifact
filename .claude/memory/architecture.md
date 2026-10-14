@@ -4,6 +4,8 @@ _Last updated: 2026-09-30 (Phase 1). Describes the code as it exists._
 
 Modular monolith: one Spring Boot 4 app (Java 21) + a static React SPA. Deploy topology: ADR-8.
 
+**VeriFact Intelligence** (B2B workspace, ADR-26, `intelligence/` package, frontend `frontend/src/intel/`, route `/app/**`): see `docs/ARCHITECTURE.md`.
+
 ## Request path
 
 ```

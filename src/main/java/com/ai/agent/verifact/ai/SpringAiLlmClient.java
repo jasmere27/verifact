@@ -146,6 +146,7 @@ public class SpringAiLlmClient implements LlmClient {
                 completionTokens = usage.getCompletionTokens();
             }
         }
+        UsageScope.llmCall(promptTokens == null ? 0 : promptTokens, completionTokens == null ? 0 : completionTokens);
         log.info("LLM call step={} model={} promptTokens={} completionTokens={} durationMs={}",
                 type.getSimpleName(), model, promptTokens, completionTokens, durationMs);
     }

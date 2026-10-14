@@ -44,6 +44,35 @@ public class SafeUrlFetcher {
     }
 
     public FetchedPage fetch(String url) {
+        Opened opened = open(url);
+        try {
+            Document document = opened.response().parse();
+            String text = document.body() == null ? "" : document.body().text();
+            if (text.isBlank()) {
+                throw new FetchFailedException("That page has no readable text.");
+            }
+            return new FetchedPage(opened.url().toString(), document.title(), text);
+        } catch (IOException e) {
+            throw new FetchFailedException("VeriFact couldn't read that page.", e);
+        }
+    }
+
+    /** A feed's raw XML (RSS or Atom), fetched with the same per-hop checks and limits as a page. */
+    public record FetchedFeed(String url, String body) {}
+
+    public FetchedFeed fetchFeed(String url) {
+        Opened opened = open(url);
+        String body = opened.response().body();
+        if (body == null || body.isBlank()) {
+            throw new FetchFailedException("That feed is empty.");
+        }
+        return new FetchedFeed(opened.url().toString(), body);
+    }
+
+    private record Opened(URI url, Connection.Response response) {}
+
+    /** Follows up to {@link #MAX_REDIRECTS} redirects, validating every destination, and requires HTTP 200. */
+    private Opened open(String url) {
         URI current = urlGuard.validate(url);
 
         for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
@@ -81,17 +110,7 @@ public class SafeUrlFetcher {
             if (status != 200) {
                 throw new FetchFailedException("That link returned an error (HTTP " + status + ").");
             }
-
-            try {
-                Document document = response.parse();
-                String text = document.body() == null ? "" : document.body().text();
-                if (text.isBlank()) {
-                    throw new FetchFailedException("That page has no readable text.");
-                }
-                return new FetchedPage(current.toString(), document.title(), text);
-            } catch (IOException e) {
-                throw new FetchFailedException("VeriFact couldn't read that page.", e);
-            }
+            return new Opened(current, response);
         }
         throw new FetchFailedException("That link redirects too many times.");
     }
