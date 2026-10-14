@@ -9,6 +9,11 @@ public interface VideoSearch {
 
     List<FoundVideo> search(String query, int max);
 
+    /** Only videos uploaded after {@code publishedAfter} (null = any date). */
+    default List<FoundVideo> search(String query, int max, java.time.Instant publishedAfter) {
+        return search(query, max);
+    }
+
     class VideoSearchException extends RuntimeException {
         private final boolean quotaExceeded;
 

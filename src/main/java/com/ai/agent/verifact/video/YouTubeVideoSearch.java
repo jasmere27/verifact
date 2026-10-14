@@ -46,13 +46,25 @@ public class YouTubeVideoSearch implements VideoSearch {
 
     @Override
     public List<FoundVideo> search(String query, int max) {
+        return search(query, max, null);
+    }
+
+    /**
+     * @param publishedAfter only videos uploaded after this, newest first (brand monitoring); null = any date, by relevance
+     */
+    @Override
+    public List<FoundVideo> search(String query, int max, Instant publishedAfter) {
         if (!enabled()) {
             return List.of();
         }
-        JsonNode found = get(UriComponentsBuilder.fromUriString(API + "/search")
+        UriComponentsBuilder searchUri = UriComponentsBuilder.fromUriString(API + "/search")
                 .queryParam("part", "snippet").queryParam("type", "video").queryParam("maxResults", Math.min(max, 10))
-                .queryParam("safeSearch", "moderate").queryParam("q", query).queryParam("key", apiKey)
-                .encode().build().toUri());
+                .queryParam("safeSearch", "moderate").queryParam("q", query);
+        if (publishedAfter != null) {
+            searchUri.queryParam("publishedAfter", publishedAfter.truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString())
+                    .queryParam("order", "date");
+        }
+        JsonNode found = get(searchUri.queryParam("key", apiKey).encode().build().toUri());
         List<String> ids = new ArrayList<>();
         for (JsonNode item : found.path("items")) {
             String id = item.path("id").path("videoId").asString("");

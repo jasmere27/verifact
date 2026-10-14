@@ -12,6 +12,7 @@ Every integration below fails visibly: a missing credential makes the feature re
 |---|---|---|---|
 | Tavily Search | Web search + news search connectors, investigation evidence | Implemented (existing provider + new `searchRecent`) | `TAVILY_API_KEY` (already set in production) |
 | OpenAI (via Spring AI) | Claim extraction from mentions, investigation assessment, Response Studio | Implemented (existing `LlmClient`) | `OPEN_AI_API_KEY` (already set) |
+| YouTube Data API v3 | YouTube connector (video titles, channels, descriptions) | Implemented | `YOUTUBE_API_KEY` (already set for NewsFact) |
 | Public RSS/Atom feeds | RSS connector | Implemented | Nothing; customer supplies feed URLs |
 | Public web pages | Page-watch connector | Implemented | Nothing; customer supplies URLs |
 | Paddle Billing | Checkout, plan changes, cancellation, customer portal, webhooks | Implemented; **not connected** | Paddle seller account approval, API key, webhook secret, price ids |
@@ -47,9 +48,19 @@ Every integration below fails visibly: a missing credential makes the feature re
 |---|---|---|
 | X | Pay-per-use API, ~$0.005 per post read (https://docs.x.com/x-api/getting-started/pricing) | Feasible but metered; search endpoint pricing UNVERIFIED |
 | Reddit | Data API approval-gated; commercial use needs an agreement | Treat as unavailable without approval |
-| YouTube | Data API v3, `search.list` = 100 quota units of 10,000/day default | Already used by NewsFact for videos; a monitoring connector would compete for the same quota |
+| YouTube | Data API v3, `search.list` = 100 quota units of 10,000/day default | **Built** (`YouTubeConnector`): see below |
 
-The product says plainly that social platforms are not monitored (project form, Settings, every report).
+The product says plainly which social platforms are not monitored (project form, Settings, every report).
+
+### YouTube connector
+- `search.list` with `publishedAfter` = the project's look-back and `order=date`, then `videos.list` for full
+  descriptions. One query per run (the brand), up to 10 videos. Item text = title + channel + description;
+  no comments, captions or speech (the API only gives captions to a video's owner).
+- Quota: each search costs 100 of the key's ~10,000 daily units (~100 searches/day), shared with NewsFact's
+  supporting videos. Monitoring has its own budget, `MONITORING_YOUTUBE_DAILY_SEARCHES` (default 40, all
+  workspaces together, in memory per UTC day). When it's used up, or Google reports the quota exceeded, the
+  YouTube source shows as FAILED for that run with the reason; other sources still run.
+- To grow: request a quota increase from Google (YouTube API Services audit), or give monitoring its own key.
 
 ## Billing: Paddle (recommended), PayPal (fallback)
 

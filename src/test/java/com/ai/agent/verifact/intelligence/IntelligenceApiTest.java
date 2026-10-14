@@ -417,7 +417,7 @@ class IntelligenceApiTest {
         JsonNode report = call(post("/api/v2/me/orgs/" + org + "/reports"), alice, Map.of("days", 30), 200);
         assertThat(report.path("incidents").path("opened").asInt()).isEqualTo(1);
         assertThat(report.path("executiveSummary").get(1).asString()).contains("1 incident was opened");
-        assertThat(report.path("limitations").toString()).contains("Social media platforms are not monitored");
+        assertThat(report.path("limitations").toString()).contains("Other social media platforms (X, Facebook, Instagram, TikTok, Reddit) are not monitored");
 
         byte[] pdf = mvc.perform(get("/api/v2/me/orgs/" + org + "/reports/" + report.path("id").asString() + "/pdf").with(as(alice)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();

@@ -52,6 +52,19 @@ class YouTubeVideoSearchTest {
     }
 
     @Test
+    void monitoringSearchesAreLimitedToRecentUploadsNewestFirst() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        YouTubeVideoSearch yt = new YouTubeVideoSearch(builder, JsonMapper.builder().build(), "k");
+        server.expect(requestTo(startsWith(YouTubeVideoSearch.API + "/search")))
+                .andExpect(queryParam("publishedAfter", "2026-10-07T00:00:00Z")).andExpect(queryParam("order", "date"))
+                .andRespond(withSuccess("{\"items\":[]}", MediaType.APPLICATION_JSON));
+
+        assertThat(yt.search("Acme Foods", 10, java.time.Instant.parse("2026-10-07T00:00:00.123Z"))).isEmpty();
+        server.verify();
+    }
+
+    @Test
     void quotaErrorsAreRecognisedAndTheKeyNeverAppearsInMessages() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
