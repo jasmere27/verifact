@@ -46,7 +46,7 @@ React /app/{orgId}/{section}  ──Bearer JWT──►  /api/v2/me/orgs/{orgId}
 ```
 scheduler tick (1 min) or external cron or "Run now"
   → claim project lease → SubscriptionService.reserve(MONITORING_RUN)  (plan + monthly quota, row-locked)
-  → QueryPlanner (bounded queries) → connectors: WEB_SEARCH, NEWS_SEARCH (Tavily, time-limited), RSS, PAGE_WATCH (SafeUrlFetcher)
+  → QueryPlanner (bounded queries) → connectors: WEB_SEARCH, NEWS_SEARCH (Tavily, time-limited), YOUTUBE (Data API, recent uploads, daily budget), RSS, PAGE_WATCH (SafeUrlFetcher)
   → Relevance (code: entity terms required, exclusions, concern terms → HIGH/MEDIUM/LOW)
   → MentionStore.upsert (dedupe by normalised URL minus tracking params; copies flagged by content hash)
   → MentionClaimExtractor (≤ 8 mentions, one quick LLM call; quote must be verbatim in the retrieved text)

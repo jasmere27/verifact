@@ -10,6 +10,7 @@ const SOURCE_LABEL: Record<string, string> = {
   NEWS_SEARCH: "News search",
   RSS: "RSS / Atom feeds",
   PAGE_WATCH: "Watched public pages",
+  YOUTUBE: "YouTube (video titles and descriptions)",
 };
 
 export default function SettingsPage() {
@@ -174,7 +175,7 @@ export default function SettingsPage() {
                   <Badge tone="neutral">Not available yet</Badge>
                 </div>
                 <div className="i-row">
-                  <span>Social media (X, Reddit, TikTok, Facebook…)</span>
+                  <span>Other social media (X, Reddit, TikTok, Facebook, Instagram)</span>
                   <Badge tone="neutral">Not supported</Badge>
                 </div>
                 <p className="muted">New mentions and incidents show on the Overview; there are no push or email alerts yet.</p>
@@ -187,7 +188,7 @@ export default function SettingsPage() {
           <div className="i-stack-sm small">
             <p>
               <strong>External processing.</strong> Text you investigate, and mentions found by monitoring, are sent to our AI provider (OpenAI) to
-              extract and assess claims, and search queries go to our search provider (Tavily). Don't submit confidential documents you aren't
+              extract and assess claims, and search queries go to our search provider (Tavily) and, for YouTube monitoring, to Google's YouTube Data API. Don't submit confidential documents you aren't
               allowed to share with these processors.
             </p>
             <p>

@@ -15,10 +15,18 @@ public record MonitoringConfig(List<String> aliases, List<String> products, List
                                List<String> topics, List<String> excludedTerms, Sources sources, int lookbackDays,
                                String alertThreshold) {
 
-    /** Which connectors run. Feeds and pages are public URLs supplied by the customer. */
-    public record Sources(boolean webSearch, boolean newsSearch, List<String> rssFeeds, List<String> pages) {
+    /**
+     * Which connectors run. Feeds and pages are public URLs supplied by the customer. {@code youtube}: public video
+     * titles and descriptions. Boxed so projects saved before it existed (no field) load as false.
+     */
+    public record Sources(boolean webSearch, boolean newsSearch, List<String> rssFeeds, List<String> pages, Boolean youtube) {
+
+        public Sources(boolean webSearch, boolean newsSearch, List<String> rssFeeds, List<String> pages) {
+            this(webSearch, newsSearch, rssFeeds, pages, false);
+        }
 
         public Sources {
+            youtube = Boolean.TRUE.equals(youtube);
             rssFeeds = rssFeeds == null ? List.of() : List.copyOf(rssFeeds);
             pages = pages == null ? List.of() : List.copyOf(pages);
         }

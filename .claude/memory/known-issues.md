@@ -82,7 +82,7 @@ for context; delete them once they stop being useful._
 - **Not deployed / not merged.** Payment not connected (Paddle account, approval, keys, price ids; PH payout UNVERIFIED).
 - Scheduled monitoring needs an always-on host or an external cron hitting `/api/v2/internal/monitoring/tick` (`MONITORING_CRON_SECRET`); on a sleeping free plan nothing runs while asleep (runs record lateness).
 - No email: no alerts, invitations (members must already have an account), or scheduled report delivery.
-- Evidence and monitoring use search snippets/feed summaries only; no social platforms.
+- Evidence and monitoring use search snippets/feed summaries only. Social: YouTube only (titles/descriptions; 40 searches/day budget shared by all workspaces, in memory); no X, Facebook, Instagram, TikTok, Reddit.
 - Business plan margin is thin if a workspace uses its full quota (see docs/IMPLEMENTATION_PLAN.md); watch `usage_events`.
 - Monitoring/investigation work runs in in-process thread pools: a restart interrupts it (swept to FAILED; runs retry on schedule).
 - Rate limits for workspace writes are per-IP in memory (120/min); paid work is bounded by plan quotas.

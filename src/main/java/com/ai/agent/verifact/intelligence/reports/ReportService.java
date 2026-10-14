@@ -224,8 +224,9 @@ public class ReportService {
             actions.add("Set up a monitoring project so future reports include monitoring coverage.");
         }
         List<String> limitations = new ArrayList<>(List.of(
-                "Coverage is limited to the sources configured per project (web and news search via the search provider, and customer-supplied "
-                        + "RSS feeds and pages). Social media platforms are not monitored.",
+                "Coverage is limited to the sources configured per project (web and news search via the search provider, YouTube video "
+                        + "titles and descriptions, and customer-supplied RSS feeds and pages). Other social media platforms (X, Facebook, "
+                        + "Instagram, TikTok, Reddit) are not monitored.",
                 "Monitoring sees search snippets and feed summaries, not full articles or paywalled content.",
                 "Counts reflect what monitoring retrieved; they are not estimates of audience, reach or engagement."));
         if (failedRuns + partialRuns > 0) {
@@ -265,6 +266,9 @@ public class ReportService {
         }
         if (c.sources().newsSearch()) {
             s.add("News search");
+        }
+        if (c.sources().youtube()) {
+            s.add("YouTube");
         }
         if (!c.sources().rssFeeds().isEmpty()) {
             s.add(c.sources().rssFeeds().size() + " RSS feed(s)");

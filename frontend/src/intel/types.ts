@@ -89,7 +89,7 @@ export interface MonitoringConfig {
   keywords: string[];
   topics: string[];
   excludedTerms: string[];
-  sources: { webSearch: boolean; newsSearch: boolean; rssFeeds: string[]; pages: string[] };
+  sources: { webSearch: boolean; newsSearch: boolean; rssFeeds: string[]; pages: string[]; youtube: boolean };
   lookbackDays: number;
   alertThreshold: "HIGH" | "MEDIUM" | "NONE";
 }
@@ -125,6 +125,7 @@ export interface ProjectInput {
   newsSearch: boolean;
   rssFeeds: string[];
   pages: string[];
+  youtube: boolean;
   lookbackDays: number;
   alertThreshold: string;
   checkIntervalHours: number;

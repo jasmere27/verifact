@@ -42,7 +42,7 @@ public class MonitoringProjectService {
     /** What a client may send; the server validates everything. */
     public record ProjectInput(String name, String brand, List<String> aliases, List<String> products, List<String> executives,
                                List<String> keywords, List<String> topics, List<String> excludedTerms, Boolean webSearch,
-                               Boolean newsSearch, List<String> rssFeeds, List<String> pages, Integer lookbackDays,
+                               Boolean newsSearch, List<String> rssFeeds, List<String> pages, Boolean youtube, Integer lookbackDays,
                                String alertThreshold, Integer checkIntervalHours) {}
 
     private final JdbcClient jdbc;
@@ -147,7 +147,8 @@ public class MonitoringProjectService {
         List<String> pages = urls(in.pages(), Math.min(MAX_PAGES, Math.max(plan.maxRssFeedsPerProject(), 1)), "watched pages");
         boolean web = Boolean.TRUE.equals(in.webSearch());
         boolean news = Boolean.TRUE.equals(in.newsSearch());
-        if (!web && !news && rss.isEmpty() && pages.isEmpty()) {
+        boolean youtube = Boolean.TRUE.equals(in.youtube());
+        if (!web && !news && !youtube && rss.isEmpty() && pages.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Choose at least one source to monitor.");
         }
         int lookback = in.lookbackDays() == null ? 7 : in.lookbackDays();
@@ -161,7 +162,7 @@ public class MonitoringProjectService {
         MonitoringConfig config = new MonitoringConfig(
                 terms(in.aliases(), "aliases"), terms(in.products(), "products"), terms(in.executives(), "executives"),
                 terms(in.keywords(), "keywords"), terms(in.topics(), "topics"), terms(in.excludedTerms(), "excluded terms"),
-                new MonitoringConfig.Sources(web, news, rss, pages), lookback, threshold);
+                new MonitoringConfig.Sources(web, news, rss, pages, youtube), lookback, threshold);
         if (config.termCount() > plan.maxTermsPerProject()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "The " + plan.name() + " plan allows " + plan.maxTermsPerProject()
                     + " terms per project (aliases, products, people, keywords, topics and exclusions together). You entered "

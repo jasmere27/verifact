@@ -66,6 +66,7 @@ export default function MonitoringPage() {
                             {[
                               p.config.sources.webSearch && "Web",
                               p.config.sources.newsSearch && "News",
+                              p.config.sources.youtube && "YouTube",
                               p.config.sources.rssFeeds.length > 0 && `${p.config.sources.rssFeeds.length} RSS`,
                               p.config.sources.pages.length > 0 && `${p.config.sources.pages.length} pages`,
                             ]

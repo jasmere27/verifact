@@ -181,6 +181,7 @@ function ProjectDetail({ id }: { id: string }) {
               items={[
                 ...(cfg.sources.webSearch ? ["Web search"] : []),
                 ...(cfg.sources.newsSearch ? ["News search"] : []),
+                ...(cfg.sources.youtube ? ["YouTube"] : []),
                 ...cfg.sources.rssFeeds.map((f) => `RSS: ${f}`),
                 ...cfg.sources.pages.map((f) => `Page: ${f}`),
               ]}

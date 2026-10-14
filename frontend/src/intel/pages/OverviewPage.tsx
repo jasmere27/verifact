@@ -69,7 +69,7 @@ function Onboarding({ o }: { o: Overview }) {
         <span className="small muted">Ask an admin</span>
       ),
     },
-    { done: false, title: "Choose sources and alert preferences", body: "Web and news search, public RSS feeds and pages you name. Social platforms aren't covered.", action: null },
+    { done: false, title: "Choose sources and alert preferences", body: "Web and news search, YouTube, public RSS feeds and pages you name. Other social platforms aren't covered.", action: null },
     { done: false, title: "Run the first check and review results", body: "Run a check now from the project page; new mentions appear under Monitoring.", action: null },
     {
       done: false,

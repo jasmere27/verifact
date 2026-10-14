@@ -34,6 +34,7 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
   const [excluded, setExcluded] = useState(c?.excludedTerms.join(", ") ?? "");
   const [web, setWeb] = useState(c?.sources.webSearch ?? true);
   const [news, setNews] = useState(c?.sources.newsSearch ?? true);
+  const [youtube, setYoutube] = useState(c?.sources.youtube ?? false);
   const [rss, setRss] = useState(c?.sources.rssFeeds.join("\n") ?? "");
   const [pages, setPages] = useState(c?.sources.pages.join("\n") ?? "");
   const [lookback, setLookback] = useState(c?.lookbackDays ?? 7);
@@ -46,6 +47,7 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
   const termCount = [aliases, products, executives, keywords, topics, excluded].reduce((n, s) => n + split(s).length, 0);
   const maxTerms = plan?.maxTermsPerProject ?? 0;
   const searchAvailable = caps.data ? caps.data.sources.WEB_SEARCH !== false : true;
+  const youtubeAvailable = caps.data ? caps.data.sources.YOUTUBE === true : true;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -64,6 +66,7 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
       newsSearch: news,
       rssFeeds: lines(rss),
       pages: lines(pages),
+      youtube,
       lookbackDays: lookback,
       alertThreshold: threshold,
       checkIntervalHours: interval,
@@ -126,7 +129,14 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
             News search <span className="muted small">— online news sources</span>
           </span>
         </label>
+        <label className="i-check">
+          <input type="checkbox" checked={youtube} onChange={(e) => setYoutube(e.target.checked)} disabled={!youtubeAvailable && !youtube} />
+          <span>
+            YouTube <span className="muted small">— titles, channels and descriptions of public videos uploaded in the look-back window (not comments or what's said in the video)</span>
+          </span>
+        </label>
         {!searchAvailable && <Notice tone="warn">Search isn't configured in this deployment, so web and news search can't run.</Notice>}
+        {!youtubeAvailable && <Notice tone="warn">YouTube isn't configured in this deployment.</Notice>}
         <div className="i-form-grid">
           <label className="i-field">
             <span>Public RSS or Atom feeds</span>
@@ -142,7 +152,10 @@ export default function ProjectForm({ project, onSaved, onCancel }: { project?: 
             <small>One per line. Pages behind a login can't be read and are reported as failures.</small>
           </label>
         </div>
-        <p className="small muted">Social media platforms aren't monitored: their APIs need separate paid access and approval.</p>
+        <p className="small muted">
+          Other social platforms (X, Facebook, Instagram, TikTok, Reddit) aren't monitored: their APIs need separate paid access or approval, or
+          don't allow searching public posts.
+        </p>
       </fieldset>
 
       <fieldset className="i-fieldset">
